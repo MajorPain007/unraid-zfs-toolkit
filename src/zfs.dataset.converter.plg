@@ -1,0 +1,101 @@
+<?xml version='1.0' standalone='yes'?>
+<!DOCTYPE PLUGIN [
+<!ENTITY name        "zfs.dataset.converter">
+<!ENTITY author      "MajorPain007">
+<!ENTITY version     "2025.04.11">
+<!ENTITY launch      "Settings/ZFSDatasetConverter">
+<!ENTITY pluginURL   "https://raw.githubusercontent.com/MajorPain007/zfs-dataset-converter/main/src/zfs.dataset.converter.plg">
+<!ENTITY pluginDir   "/usr/local/emhttp/plugins/&name;">
+<!ENTITY configDir   "/boot/config/plugins/&name;">
+<!ENTITY tmpDir      "/tmp/&name;">
+]>
+
+<PLUGIN name="&name;" author="&author;" version="&version;" launch="&launch;"
+        pluginURL="&pluginURL;"
+        min="6.12.0"
+        icon="database">
+
+<CHANGES>
+## Version 2025.04.11
+- Initial release
+- Convert regular folders to ZFS child datasets
+- Docker container and VM awareness (auto stop/start)
+- Resume interrupted conversions
+- Dry-run mode
+- Real-time log viewer
+- Unraid notification support
+</CHANGES>
+
+<!-- Create required directories -->
+<FILE Run="/bin/bash">
+<INLINE>
+mkdir -p &configDir;
+mkdir -p &tmpDir;
+</INLINE>
+</FILE>
+
+<!-- Install plugin files -->
+<FILE Name="&pluginDir;/ZFSDatasetConverter.page">
+<LOCAL>ZFSDatasetConverter.page</LOCAL>
+</FILE>
+
+<FILE Name="&pluginDir;/scripts/scan_folders.php">
+<LOCAL>scripts/scan_folders.php</LOCAL>
+</FILE>
+
+<FILE Name="&pluginDir;/scripts/start_conversion.php">
+<LOCAL>scripts/start_conversion.php</LOCAL>
+</FILE>
+
+<FILE Name="&pluginDir;/scripts/get_status.php">
+<LOCAL>scripts/get_status.php</LOCAL>
+</FILE>
+
+<FILE Name="&pluginDir;/scripts/get_logs.php">
+<LOCAL>scripts/get_logs.php</LOCAL>
+</FILE>
+
+<FILE Name="&pluginDir;/scripts/save_settings.php">
+<LOCAL>scripts/save_settings.php</LOCAL>
+</FILE>
+
+<FILE Name="&pluginDir;/scripts/zfs_converter.sh" Mode="755">
+<LOCAL>scripts/zfs_converter.sh</LOCAL>
+</FILE>
+
+<!-- Write default config if none exists -->
+<FILE Run="/bin/bash">
+<INLINE>
+if [ ! -f &configDir;/settings.cfg ]; then
+cat > &configDir;/settings.cfg &lt;&lt; 'EOF'
+# ZFS Dataset Converter - default settings
+dry_run=yes
+cleanup=yes
+replace_spaces=no
+should_process_containers=yes
+appdata_pool=cache
+appdata_dataset=appdata
+should_process_vms=no
+vm_pool=cache
+vm_dataset=domains
+vm_forceshutdown_wait=90
+buffer_zone=11
+send_notifications=yes
+validation_tolerance=5
+extra_datasets=
+EOF
+fi
+</INLINE>
+</FILE>
+
+<!-- Uninstall handler -->
+<FILE Run="/bin/bash" Method="remove">
+<INLINE>
+rm -rf &pluginDir;
+rm -rf &tmpDir;
+echo "ZFS Dataset Converter uninstalled."
+echo "Note: Settings in &configDir; have been preserved."
+</INLINE>
+</FILE>
+
+</PLUGIN>
