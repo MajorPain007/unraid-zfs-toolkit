@@ -38,11 +38,9 @@ if ($fh) {
 $newOffset = $offset + strlen($chunk);
 
 // Split into lines, keep empty lines for spacing
+// Send raw lines — JS uses textContent which prevents XSS automatically
 $raw   = explode("\n", $chunk);
-$lines = [];
-foreach ($raw as $line) {
-    $lines[] = htmlspecialchars($line, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-}
+$lines = array_values($raw);
 
 // Drop trailing empty line from split
 if (end($lines) === '') array_pop($lines);
