@@ -14,7 +14,8 @@ if (!file_exists($runner)) {
 }
 
 $log_file = "$log_dir/snapshots.log";
-$cmd      = "nohup /bin/bash " . escapeshellarg($runner)
+// --now bypasses time checks so snapshots are created immediately
+$cmd      = "nohup /bin/bash " . escapeshellarg($runner) . " --now"
            . " >> " . escapeshellarg($log_file) . " 2>&1 & echo \$!";
 
 $pid = trim(shell_exec($cmd));

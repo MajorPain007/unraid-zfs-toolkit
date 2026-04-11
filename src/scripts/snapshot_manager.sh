@@ -13,6 +13,10 @@ DATASETS_JSON="${CONFIG_DIR}/snap_datasets.json"
 LOG_DIR="/tmp/zfs.dataset.converter"
 LAST_FILE="${LOG_DIR}/snapshot_last.txt"
 
+# --now flag: bypass time checks, create all enabled snapshot types immediately
+FORCE_NOW=0
+[[ "${1:-}" == "--now" ]] && FORCE_NOW=1
+
 mkdir -p "${LOG_DIR}"
 
 log()      { echo "[$(date '+%H:%M:%S')] $*"; }
@@ -157,32 +161,32 @@ process_dataset() {
         prune_snapshots "$name" "frequent" "$SNAP_FREQUENT" "$recursive"
     fi
 
-    # Hourly (on the hour)
-    if [[ "$MINUTE" == "00" ]] && (( h_keep > 0 )); then
+    # Hourly (on the hour, or --now)
+    if { [[ "$MINUTE" == "00" ]] || (( FORCE_NOW )); } && (( h_keep > 0 )); then
         create_snapshot "$name" "hourly" "$(date '+%Y-%m-%d_%H-00')" "$recursive"
         prune_snapshots "$name" "hourly" "$h_keep" "$recursive"
     fi
 
-    # Daily (at configured daily hour, on the hour)
-    if [[ "$MINUTE" == "00" && "$HOUR" == "$SNAP_DAILY_HOUR" ]] && (( d_keep > 0 )); then
+    # Daily (at configured daily hour, or --now)
+    if { [[ "$MINUTE" == "00" && "$HOUR" == "$SNAP_DAILY_HOUR" ]] || (( FORCE_NOW )); } && (( d_keep > 0 )); then
         create_snapshot "$name" "daily" "$(date '+%Y-%m-%d')" "$recursive"
         prune_snapshots "$name" "daily" "$d_keep" "$recursive"
     fi
 
-    # Weekly (Sunday at daily hour)
-    if [[ "$MINUTE" == "00" && "$HOUR" == "$SNAP_DAILY_HOUR" && "$DOW" == "7" ]] && (( w_keep > 0 )); then
+    # Weekly (Sunday at daily hour, or --now)
+    if { [[ "$MINUTE" == "00" && "$HOUR" == "$SNAP_DAILY_HOUR" && "$DOW" == "7" ]] || (( FORCE_NOW )); } && (( w_keep > 0 )); then
         create_snapshot "$name" "weekly" "$(date '+%G-W%V')" "$recursive"
         prune_snapshots "$name" "weekly" "$w_keep" "$recursive"
     fi
 
-    # Monthly (1st of month at daily hour)
-    if [[ "$MINUTE" == "00" && "$HOUR" == "$SNAP_DAILY_HOUR" && "$DOM" == "1" ]] && (( m_keep > 0 )); then
+    # Monthly (1st of month at daily hour, or --now)
+    if { [[ "$MINUTE" == "00" && "$HOUR" == "$SNAP_DAILY_HOUR" && "$DOM" == "1" ]] || (( FORCE_NOW )); } && (( m_keep > 0 )); then
         create_snapshot "$name" "monthly" "$(date '+%Y-%m')" "$recursive"
         prune_snapshots "$name" "monthly" "$m_keep" "$recursive"
     fi
 
-    # Yearly (Jan 1 at daily hour)
-    if [[ "$MINUTE" == "00" && "$HOUR" == "$SNAP_DAILY_HOUR" && "$DOM" == "1" && "$MONTH" == "1" ]] && (( y_keep > 0 )); then
+    # Yearly (Jan 1 at daily hour, or --now)
+    if { [[ "$MINUTE" == "00" && "$HOUR" == "$SNAP_DAILY_HOUR" && "$DOM" == "1" && "$MONTH" == "1" ]] || (( FORCE_NOW )); } && (( y_keep > 0 )); then
         create_snapshot "$name" "yearly" "$(date '+%Y')" "$recursive"
         prune_snapshots "$name" "yearly" "$y_keep" "$recursive"
     fi

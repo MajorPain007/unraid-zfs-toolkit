@@ -9,6 +9,13 @@ set_error_handler(function($errno, $errstr) {
     echo json_encode(['ok' => false, 'error' => "PHP error: $errstr"]);
     exit;
 });
+register_shutdown_function(function() {
+    $e = error_get_last();
+    if ($e && in_array($e['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
+        if (!headers_sent()) header('Content-Type: application/json');
+        echo json_encode(['ok' => false, 'error' => 'Fatal: ' . $e['message']]);
+    }
+});
 
 // -----------------------------------------------------------------------
 // Get the real mountpoint for a ZFS dataset
@@ -21,18 +28,23 @@ function get_mountpoint(string $dataset): string {
 
 // -----------------------------------------------------------------------
 // Validate that a resolved path stays within the allowed base directory
+// Note: uses string manipulation only — realpath() fails on .zfs virtual dirs
 // -----------------------------------------------------------------------
-function safe_path(string $base, string $rel): string|false {
-    // Normalize: strip leading slash, prevent traversal
-    $rel = ltrim(str_replace(['..', "\0"], '', $rel), '/');
-    $full = realpath($base . '/' . $rel);
-    if ($full === false) {
-        // realpath fails if path doesn't exist — build it manually for non-existent paths
-        $full = $base . '/' . $rel;
+function safe_path($base, $rel) {
+    // Remove null bytes and prevent traversal
+    $rel = str_replace("\0", '', $rel);
+    // Resolve ".." components manually
+    $parts = explode('/', ltrim($rel, '/'));
+    $resolved = [];
+    foreach ($parts as $p) {
+        if ($p === '' || $p === '.') continue;
+        if ($p === '..') { array_pop($resolved); continue; }
+        $resolved[] = $p;
     }
-    // Ensure it stays within base
-    $base_real = realpath($base) ?: $base;
-    if (strpos($full, $base_real) !== 0) {
+    $full = $base . '/' . implode('/', $resolved);
+    // Normalise base for comparison (strip trailing slash)
+    $base_norm = rtrim($base, '/');
+    if (strpos($full, $base_norm . '/') !== 0 && $full !== $base_norm) {
         return false;
     }
     return $full;

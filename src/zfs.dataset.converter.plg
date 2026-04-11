@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.dataset.converter">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2025.04.15">
-<!ENTITY md5       "ee4f76b768cbb72e1973caa282ce528d">
+<!ENTITY version   "2025.04.16">
+<!ENTITY md5       "b0f7bbb9c6261678612c32e0ab2bc585">
 <!ENTITY launch    "Settings/ZFSDatasetConverter">
 <!ENTITY github    "MajorPain007/zfs-dataset-converter">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,10 @@
         icon="database">
 
 <CHANGES>
+## Version 2025.04.16
+- Fix snapshot browser "Failed to fetch" (PHP 8 union type, realpath on .zfs virtual dir)
+- Fix Run Now creating no snapshots (add --now flag to bypass time checks)
+
 ## Version 2025.04.15
 - Fix "Missing CSRF token" on Run Now and Restore buttons
 - Fix snapshot browser not opening (removed hidden state, added Browse button)
