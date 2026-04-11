@@ -5,7 +5,7 @@
 <!ENTITY version     "2025.04.11">
 <!ENTITY launch      "Settings/ZFSDatasetConverter">
 <!ENTITY pluginURL   "https://raw.githubusercontent.com/MajorPain007/zfs-dataset-converter/main/src/zfs.dataset.converter.plg">
-<!ENTITY pkgURL      "https://raw.githubusercontent.com/MajorPain007/zfs-dataset-converter/main/build">
+<!ENTITY srcURL      "https://raw.githubusercontent.com/MajorPain007/zfs-dataset-converter/main/src">
 <!ENTITY pluginDir   "/usr/local/emhttp/plugins/&name;">
 <!ENTITY configDir   "/boot/config/plugins/&name;">
 <!ENTITY tmpDir      "/tmp/&name;">
@@ -27,21 +27,46 @@
 - Unraid notification support
 </CHANGES>
 
-<!-- Create config and tmp directories -->
+<!-- Create directories -->
 <FILE Run="/bin/bash">
 <INLINE>
+mkdir -p &pluginDir;/scripts
 mkdir -p &configDir;
 mkdir -p &tmpDir;
 </INLINE>
 </FILE>
 
-<!-- Download and install plugin package -->
-<FILE Name="&configDir;/&name;-&version;.txz" Run="tar xf &configDir;/&name;-&version;.txz -C / 2&gt;&amp;1">
-<URL>&pkgURL;/&name;-&version;.txz</URL>
-<MD5>f95bb934022601ca5fec558046e847d2</MD5>
+<!-- GUI page -->
+<FILE Name="&pluginDir;/ZFSDatasetConverter.page">
+<URL>&srcURL;/ZFSDatasetConverter.page</URL>
 </FILE>
 
-<!-- Write default config if none exists -->
+<!-- Backend scripts -->
+<FILE Name="&pluginDir;/scripts/scan_folders.php">
+<URL>&srcURL;/scripts/scan_folders.php</URL>
+</FILE>
+
+<FILE Name="&pluginDir;/scripts/start_conversion.php">
+<URL>&srcURL;/scripts/start_conversion.php</URL>
+</FILE>
+
+<FILE Name="&pluginDir;/scripts/get_status.php">
+<URL>&srcURL;/scripts/get_status.php</URL>
+</FILE>
+
+<FILE Name="&pluginDir;/scripts/get_logs.php">
+<URL>&srcURL;/scripts/get_logs.php</URL>
+</FILE>
+
+<FILE Name="&pluginDir;/scripts/save_settings.php">
+<URL>&srcURL;/scripts/save_settings.php</URL>
+</FILE>
+
+<FILE Name="&pluginDir;/scripts/zfs_converter.sh" Mode="755">
+<URL>&srcURL;/scripts/zfs_converter.sh</URL>
+</FILE>
+
+<!-- Default config (only written if not already present) -->
 <FILE Run="/bin/bash">
 <INLINE>
 if [ ! -f &configDir;/settings.cfg ]; then
@@ -66,13 +91,12 @@ fi
 </INLINE>
 </FILE>
 
-<!-- Uninstall handler -->
+<!-- Uninstall -->
 <FILE Run="/bin/bash" Method="remove">
 <INLINE>
 rm -rf &pluginDir;
 rm -rf &tmpDir;
-echo "ZFS Dataset Converter uninstalled."
-echo "Note: Settings in &configDir; have been preserved."
+echo "ZFS Dataset Converter removed. Settings in &configDir; preserved."
 </INLINE>
 </FILE>
 
