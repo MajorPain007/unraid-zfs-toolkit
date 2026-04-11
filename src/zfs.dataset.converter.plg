@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.dataset.converter">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.04.11.01">
-<!ENTITY md5       "b62919cf20dd59453f12404ac92d5f2e">
+<!ENTITY version   "2026.04.11.02">
+<!ENTITY md5       "1fad404c88e192f3840825c0c5bb476f">
 <!ENTITY launch    "Settings/ZFSDatasetConverter">
 <!ENTITY github    "MajorPain007/zfs-dataset-converter">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,9 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.04.11.02
+- Fix snapshot browser empty response (remove ob_start, use direct echo)
+
 ## Version 2026.04.11.01
 - Fix snapshot browser blocked by ad blocker (snapshot names with colons/timestamps in URL)
 - Browse now uses POST request instead of GET to avoid URL pattern matching

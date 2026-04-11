@@ -1,32 +1,24 @@
 <?php
 // snapshot_browse.php - Backend for the snapshot file browser
-// Actions: test, list_snapshots, browse, restore
-ob_start();
+while (ob_get_level() > 0) ob_end_clean();
 header('Content-Type: application/json');
 header('Cache-Control: no-cache, no-store');
 
-// Catch fatal errors and return as JSON instead of crashing
+// Catch fatal errors as JSON
 register_shutdown_function(function() {
     $e = error_get_last();
     if ($e && ($e['type'] & (E_ERROR | E_PARSE | E_CORE_ERROR | E_COMPILE_ERROR))) {
-        ob_end_clean();
+        while (ob_get_level() > 0) ob_end_clean();
         header('Content-Type: application/json');
-        echo json_encode(array('ok' => false, 'error' => 'Fatal PHP error: ' . $e['message']));
-    } else {
-        ob_end_flush();
+        echo json_encode(array('ok' => false, 'error' => 'Fatal: ' . $e['message']));
     }
 });
 
-set_error_handler(function($errno, $errstr) {
-    ob_end_clean();
-    header('Content-Type: application/json');
-    echo json_encode(array('ok' => false, 'error' => 'PHP error [' . $errno . ']: ' . $errstr));
+function zdc_out($data) {
+    echo json_encode($data);
     exit;
-});
+}
 
-// -----------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------
 function zdc_get_mountpoint($dataset) {
     $out = array();
     exec('zfs list -H -o mountpoint ' . escapeshellarg($dataset) . ' 2>/dev/null', $out);
@@ -38,13 +30,13 @@ function zdc_safe_path($base, $rel) {
     $parts = explode('/', ltrim($rel, '/'));
     $resolved = array();
     foreach ($parts as $p) {
-        if ($p === '' || $p === '.') { continue; }
+        if ($p === '' || $p === '.') continue;
         if ($p === '..') { array_pop($resolved); continue; }
         $resolved[] = $p;
     }
-    $full = rtrim($base, '/') . '/' . implode('/', $resolved);
+    $full = rtrim($base, '/') . (count($resolved) ? '/' . implode('/', $resolved) : '');
     $base_norm = rtrim($base, '/');
-    if (strpos($full, $base_norm . '/') !== 0 && $full !== $base_norm) {
+    if ($full !== $base_norm && strpos($full, $base_norm . '/') !== 0) {
         return false;
     }
     return $full;
@@ -58,35 +50,25 @@ function zdc_fmt_size($bytes) {
     return $bytes . ' B';
 }
 
-// -----------------------------------------------------------------------
-// Dispatch
-// -----------------------------------------------------------------------
+// Read action from POST or GET
 $action = '';
-if (isset($_GET['action']))  $action = $_GET['action'];
-if (isset($_POST['action'])) $action = $_POST['action'];
+if (isset($_POST['action'])) $action = trim($_POST['action']);
+elseif (isset($_GET['action'])) $action = trim($_GET['action']);
 
 // -----------------------------------------------------------------------
-// test - verify PHP execution and basic ZFS access
+// test
 // -----------------------------------------------------------------------
 if ($action === 'test') {
-    $zfs_ok = is_executable('/sbin/zfs') || is_executable('/usr/sbin/zfs');
-    echo json_encode(array(
-        'ok'       => true,
-        'php'      => PHP_VERSION,
-        'zfs_bin'  => $zfs_ok,
-        'time'     => date('Y-m-d H:i:s'),
-    ));
-    exit;
+    zdc_out(array('ok' => true, 'php' => PHP_VERSION, 'time' => date('Y-m-d H:i:s')));
 }
 
 // -----------------------------------------------------------------------
-// list_snapshots?dataset=pool/name
+// list_snapshots
 // -----------------------------------------------------------------------
 if ($action === 'list_snapshots') {
-    $dataset = isset($_GET['dataset']) ? $_GET['dataset'] : '';
+    $dataset = isset($_POST['dataset']) ? $_POST['dataset'] : (isset($_GET['dataset']) ? $_GET['dataset'] : '');
     if ($dataset === '' || preg_match('/[^a-zA-Z0-9\/_.-]/', $dataset)) {
-        echo json_encode(array('ok' => false, 'error' => 'Invalid dataset name'));
-        exit;
+        zdc_out(array('ok' => false, 'error' => 'Invalid dataset name'));
     }
     $lines = array();
     exec('zfs list -H -t snapshot -o name -s creation ' . escapeshellarg($dataset) . ' 2>/dev/null', $lines);
@@ -98,108 +80,88 @@ if ($action === 'list_snapshots') {
             $snaps[] = substr($line, $at + 1);
         }
     }
-    echo json_encode(array('ok' => true, 'snapshots' => $snaps));
-    exit;
+    zdc_out(array('ok' => true, 'snapshots' => $snaps));
 }
 
 // -----------------------------------------------------------------------
-// browse?dataset=pool/name&snapshot=name&path=/sub/dir
+// browse (POST preferred to avoid ad-blocker URL matching)
 // -----------------------------------------------------------------------
 if ($action === 'browse') {
-    // Accept both GET and POST (POST avoids ad-blocker URL matching on snapshot names with timestamps)
     $dataset  = isset($_POST['dataset'])  ? $_POST['dataset']  : (isset($_GET['dataset'])  ? $_GET['dataset']  : '');
     $snapshot = isset($_POST['snapshot']) ? $_POST['snapshot'] : (isset($_GET['snapshot']) ? $_GET['snapshot'] : '');
     $path     = isset($_POST['path'])     ? $_POST['path']     : (isset($_GET['path'])     ? $_GET['path']     : '/');
 
     if ($dataset === '' || preg_match('/[^a-zA-Z0-9\/_.-]/', $dataset)) {
-        echo json_encode(array('ok' => false, 'error' => 'Invalid dataset name'));
-        exit;
+        zdc_out(array('ok' => false, 'error' => 'Invalid dataset name'));
     }
-    // Allow alphanumeric, hyphen, underscore, dot (snapshot names like auto-daily-2026-04-11)
-    if ($snapshot === '' || preg_match('/[^a-zA-Z0-9_.:-]/', $snapshot)) {
-        echo json_encode(array('ok' => false, 'error' => 'Invalid snapshot name: ' . $snapshot));
-        exit;
+    // Allow letters, digits, hyphens, underscores, dots, colons (for autosnap_2026-04-11_22:50:05)
+    if ($snapshot === '' || preg_match('/[^a-zA-Z0-9_.:\-]/', $snapshot)) {
+        zdc_out(array('ok' => false, 'error' => 'Invalid snapshot name: ' . htmlspecialchars($snapshot)));
     }
 
     $mountpoint = zdc_get_mountpoint($dataset);
     if ($mountpoint === '') {
-        echo json_encode(array('ok' => false, 'error' => 'Dataset not mounted or not found: ' . $dataset));
-        exit;
+        zdc_out(array('ok' => false, 'error' => 'Dataset not found or not mounted: ' . $dataset));
     }
 
-    // Check .zfs visibility — try to make snapdir visible if not already
-    $snap_dir = $mountpoint . '/.zfs';
+    // Make .zfs/snapshot visible if needed
+    $snap_dir = $mountpoint . '/.zfs/snapshot';
     if (!is_dir($snap_dir)) {
-        // Try enabling snapdir visibility
         exec('zfs set snapdir=visible ' . escapeshellarg($dataset) . ' 2>/dev/null');
     }
 
     $snap_base = $mountpoint . '/.zfs/snapshot/' . $snapshot;
     if (!is_dir($snap_base)) {
-        echo json_encode(array(
+        zdc_out(array(
             'ok'    => false,
-            'error' => 'Snapshot directory not accessible: ' . $snap_base
-                     . '. Try running: zfs set snapdir=visible ' . $dataset,
+            'error' => 'Snapshot not accessible at ' . $snap_base
+                     . '. Run: zfs set snapdir=visible ' . $dataset,
         ));
-        exit;
     }
 
     $full_path = zdc_safe_path($snap_base, $path);
     if ($full_path === false) {
-        echo json_encode(array('ok' => false, 'error' => 'Path traversal detected'));
-        exit;
+        zdc_out(array('ok' => false, 'error' => 'Path traversal detected'));
     }
     if (!is_dir($full_path)) {
-        echo json_encode(array('ok' => false, 'error' => 'Path not found in snapshot: ' . $full_path));
-        exit;
+        zdc_out(array('ok' => false, 'error' => 'Path not found: ' . $full_path));
     }
 
     $items = @scandir($full_path);
     if ($items === false) {
-        echo json_encode(array('ok' => false, 'error' => 'Cannot read directory (permission denied?)'));
-        exit;
+        zdc_out(array('ok' => false, 'error' => 'Cannot read directory (permission denied)'));
     }
 
     $entries = array();
     foreach ($items as $item) {
-        if ($item === '.' || $item === '..') { continue; }
+        if ($item === '.' || $item === '..') continue;
         $item_path = $full_path . '/' . $item;
         $is_dir    = is_dir($item_path);
-        $size_raw  = $is_dir ? 0 : (int)@filesize($item_path);
-        $mtime     = (int)@filemtime($item_path);
         $entries[] = array(
             'name'  => $item,
             'type'  => $is_dir ? 'dir' : 'file',
-            'size'  => $is_dir ? '' : zdc_fmt_size($size_raw),
-            'mtime' => $mtime > 0 ? date('Y-m-d H:i', $mtime) : '',
+            'size'  => $is_dir ? '' : zdc_fmt_size((int)@filesize($item_path)),
+            'mtime' => ($m = (int)@filemtime($item_path)) > 0 ? date('Y-m-d H:i', $m) : '',
         );
     }
 
     usort($entries, function($a, $b) {
-        if ($a['type'] !== $b['type']) { return $a['type'] === 'dir' ? -1 : 1; }
+        if ($a['type'] !== $b['type']) return $a['type'] === 'dir' ? -1 : 1;
         return strcasecmp($a['name'], $b['name']);
     });
 
-    // Breadcrumb
     $crumbs = array(array('label' => '/', 'path' => '/'));
-    $path_parts = array_filter(explode('/', ltrim($path, '/')));
     $cumulative = '';
-    foreach ($path_parts as $part) {
+    foreach (array_filter(explode('/', ltrim($path, '/'))) as $part) {
         $cumulative .= '/' . $part;
         $crumbs[] = array('label' => $part, 'path' => $cumulative);
     }
 
-    echo json_encode(array(
-        'ok'      => true,
-        'path'    => $path,
-        'crumbs'  => $crumbs,
-        'entries' => $entries,
-    ));
-    exit;
+    zdc_out(array('ok' => true, 'path' => $path, 'crumbs' => $crumbs, 'entries' => $entries));
 }
 
 // -----------------------------------------------------------------------
-// restore (POST)
+// restore
 // -----------------------------------------------------------------------
 if ($action === 'restore') {
     $dataset  = isset($_POST['dataset'])  ? $_POST['dataset']  : '';
@@ -208,18 +170,15 @@ if ($action === 'restore') {
     $dst_rel  = isset($_POST['dst_path']) ? $_POST['dst_path'] : '';
 
     if ($dataset === '' || preg_match('/[^a-zA-Z0-9\/_.-]/', $dataset)) {
-        echo json_encode(array('ok' => false, 'error' => 'Invalid dataset'));
-        exit;
+        zdc_out(array('ok' => false, 'error' => 'Invalid dataset'));
     }
-    if ($snapshot === '' || preg_match('/[^a-zA-Z0-9_.:-]/', $snapshot)) {
-        echo json_encode(array('ok' => false, 'error' => 'Invalid snapshot'));
-        exit;
+    if ($snapshot === '' || preg_match('/[^a-zA-Z0-9_.:\-]/', $snapshot)) {
+        zdc_out(array('ok' => false, 'error' => 'Invalid snapshot'));
     }
 
     $mountpoint = zdc_get_mountpoint($dataset);
     if ($mountpoint === '') {
-        echo json_encode(array('ok' => false, 'error' => 'Dataset not mounted'));
-        exit;
+        zdc_out(array('ok' => false, 'error' => 'Dataset not mounted'));
     }
 
     $snap_base = $mountpoint . '/.zfs/snapshot/' . $snapshot;
@@ -227,22 +186,19 @@ if ($action === 'restore') {
 
     $src = zdc_safe_path($snap_base, $src_rel);
     if ($src === false || !file_exists($src)) {
-        echo json_encode(array('ok' => false, 'error' => 'Source not found in snapshot: ' . $src_rel));
-        exit;
+        zdc_out(array('ok' => false, 'error' => 'Source not found in snapshot: ' . $src_rel));
     }
 
-    if ($dst_rel === '') { $dst_rel = $src_rel; }
+    if ($dst_rel === '') $dst_rel = $src_rel;
     $dst = zdc_safe_path($live_base, $dst_rel);
     if ($dst === false) {
-        echo json_encode(array('ok' => false, 'error' => 'Invalid destination path'));
-        exit;
+        zdc_out(array('ok' => false, 'error' => 'Invalid destination path'));
     }
 
     $dst_dir = dirname($dst);
     if (!is_dir($dst_dir)) {
         if (!mkdir($dst_dir, 0755, true)) {
-            echo json_encode(array('ok' => false, 'error' => 'Cannot create destination directory: ' . $dst_dir));
-            exit;
+            zdc_out(array('ok' => false, 'error' => 'Cannot create directory: ' . $dst_dir));
         }
     }
 
@@ -254,17 +210,9 @@ if ($action === 'restore') {
     $output = shell_exec($cmd);
 
     if (!file_exists($dst)) {
-        echo json_encode(array('ok' => false, 'error' => 'Restore failed: ' . trim($output)));
-        exit;
+        zdc_out(array('ok' => false, 'error' => 'Restore failed: ' . trim($output)));
     }
-
-    echo json_encode(array(
-        'ok'      => true,
-        'src'     => $src,
-        'dst'     => $dst,
-        'message' => 'Restored successfully.',
-    ));
-    exit;
+    zdc_out(array('ok' => true, 'dst' => $dst, 'message' => 'Restored successfully.'));
 }
 
-echo json_encode(array('ok' => false, 'error' => 'Unknown action: ' . $action));
+zdc_out(array('ok' => false, 'error' => 'Unknown action: ' . htmlspecialchars($action)));
