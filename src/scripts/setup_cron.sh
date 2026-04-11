@@ -19,8 +19,8 @@ fi
 
 ENABLED="${cfg[cron_enabled]:-no}"
 
-# Always remove existing entry first (clean slate)
-( crontab -l 2>/dev/null | grep -v "$MARKER" ) | crontab - 2>/dev/null
+# Always remove existing entries first (comment line + schedule line)
+( crontab -l 2>/dev/null | grep -v "$MARKER" | grep -v "run_auto\.sh" ) | crontab - 2>/dev/null
 
 if [[ ! "$ENABLED" =~ ^[Yy]es$ ]]; then
     echo "Cron job removed."

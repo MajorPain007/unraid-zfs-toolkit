@@ -125,6 +125,35 @@ function cfgBool($key, $default = 'no') {
 .badge-done    { background:#1a4a2744; color:#56d364; }
 .badge-error   { background:#5a1a1a44; color:#f85149; }
 
+/* Snapshot dataset table */
+.snap-table { width:100%; border-collapse:collapse; font-size:12px; margin-top:6px; }
+.snap-table th { text-align:center; padding:5px 8px; background:var(--bg-secondary,#161b22); color:#8b949e; font-weight:600; border-bottom:1px solid #30363d; }
+.snap-table td { padding:4px 6px; border-bottom:1px solid #21262d; text-align:center; vertical-align:middle; }
+.snap-table td:first-child { text-align:left; font-family:monospace; font-size:12px; }
+.snap-table tr:last-child td { border-bottom:none; }
+.snap-table input[type=number] { width:52px; padding:2px 5px; font-size:12px; }
+
+/* Snapshot browser */
+#snap-browser-area { margin-top:10px; }
+.snap-browser-path { display:flex; align-items:center; gap:4px; flex-wrap:wrap; margin-bottom:8px; font-size:12px; }
+.snap-crumb { color:#58a6ff; cursor:pointer; text-decoration:underline; }
+.snap-crumb-sep { color:#555; }
+.snap-file-table { width:100%; border-collapse:collapse; font-size:12px; }
+.snap-file-table th { text-align:left; padding:5px 8px; background:#161b22; color:#8b949e; font-weight:600; border-bottom:1px solid #30363d; }
+.snap-file-table td { padding:4px 8px; border-bottom:1px solid #21262d; }
+.snap-file-table tr:last-child td { border-bottom:none; }
+.snap-file-table tr:hover td { background:#21262d; }
+.snap-dir  { color:#e3b341; cursor:pointer; }
+.snap-dir:hover { text-decoration:underline; }
+.snap-file { color:#c9d1d9; }
+.snap-restore-btn { background:#1f6feb; color:#fff; border:none; padding:2px 9px; border-radius:4px; font-size:11px; cursor:pointer; }
+.snap-restore-btn:hover { background:#388bfd; }
+
+select.snap-sel {
+  background:#161b22; border:1px solid #30363d; color:#c9d1d9;
+  border-radius:4px; padding:4px 8px; font-size:13px;
+}
+
 /* Folder table */
 .zdc-table { width:100%; border-collapse:collapse; font-size:13px; margin-top:4px; }
 .zdc-table th { text-align:left; padding:6px 10px; background:var(--bg-secondary,#161b22); color:#8b949e; font-weight:600; border-bottom:1px solid #30363d; }
@@ -321,6 +350,141 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
   <span id="save-result" style="font-size:13px;"></span>
 </div>
 </form>
+
+<!-- ================================================================ -->
+<!-- Snapshot Settings                                              -->
+<!-- ================================================================ -->
+<div class="zdc-card">
+  <h3>ZFS Snapshots</h3>
+
+  <div class="zdc-row">
+    <label class="row-label">Enable automatic snapshots</label>
+    <label class="zdc-toggle"><input type="checkbox" id="snapshots_enabled" name="snapshots_enabled" <?= cfgBool('snapshots_enabled')?'checked':'' ?> onchange="toggleSnapDetails()"><span class="zdc-slider"></span></label>
+    <span class="zdc-note">Uses native <code>zfs snapshot</code> — no extra tools needed</span>
+  </div>
+
+  <div id="snap-details" <?= cfgBool('snapshots_enabled')?'':'style="display:none"' ?>>
+
+    <!-- Global retention -->
+    <p style="font-size:12px;color:#8b949e;margin:10px 0 6px 20px;font-weight:600;">Global Retention (per dataset unless overridden)</p>
+    <div style="display:flex;flex-wrap:wrap;gap:8px 20px;margin-left:20px;margin-bottom:10px;">
+      <?php
+        $snap_fields = [
+          ['snap_hourly',  'Hourly',   '24'],
+          ['snap_daily',   'Daily',    '30'],
+          ['snap_weekly',  'Weekly',   '4'],
+          ['snap_monthly', 'Monthly',  '3'],
+          ['snap_yearly',  'Yearly',   '0'],
+          ['snap_frequent','Frequent', '0'],
+        ];
+        foreach ($snap_fields as [$k,$lbl,$def]) {
+          echo '<label style="font-size:12px;color:#9ba5b5;display:flex;flex-direction:column;align-items:center;gap:3px;">'
+            . $lbl
+            . '<input type="number" name="'.$k.'" value="'.cfg($k,$def).'" min="0" max="999" style="width:60px;text-align:center;">'
+            . '</label>';
+        }
+      ?>
+    </div>
+    <div class="zdc-row" style="margin-left:20px;">
+      <label class="row-label">Daily snapshot time (hour)</label>
+      <input type="number" name="snap_daily_hour" value="<?= cfg('snap_daily_hour','2') ?>" min="0" max="23" class="w80" style="width:60px">
+      <span class="zdc-note">Daily / weekly / monthly / yearly snapshots are created at this hour</span>
+    </div>
+
+    <!-- Schedule -->
+    <p style="font-size:12px;color:#8b949e;margin:10px 0 6px 20px;font-weight:600;">Cron Schedule</p>
+    <div class="zdc-row" style="margin-left:20px">
+      <label class="row-label">Run every</label>
+      <select name="snap_schedule_preset" id="snap_schedule_preset" onchange="updateSnapPreview()" class="snap-sel">
+        <option value="15min"  <?= cfg('snap_schedule_preset','15min')==='15min' ?'selected':'' ?>>Every 15 minutes</option>
+        <option value="30min"  <?= cfg('snap_schedule_preset','15min')==='30min' ?'selected':'' ?>>Every 30 minutes</option>
+        <option value="hourly" <?= cfg('snap_schedule_preset','15min')==='hourly'?'selected':'' ?>>Every hour</option>
+        <option value="custom" <?= cfg('snap_schedule_preset','15min')==='custom'?'selected':'' ?>>Custom cron</option>
+      </select>
+    </div>
+    <div id="snap-custom-row" class="zdc-row" style="margin-left:20px;<?= cfg('snap_schedule_preset','15min')==='custom'?'':'display:none' ?>">
+      <label class="row-label">Custom expression</label>
+      <input type="text" name="snap_schedule_custom" id="snap_schedule_custom" value="<?= cfg('snap_schedule_custom','*/15 * * * *') ?>" style="width:180px" oninput="updateSnapPreview()">
+    </div>
+    <div class="zdc-row" style="margin-left:20px">
+      <label class="row-label">Cron expression</label>
+      <span id="snap-cron-preview" style="font-size:13px;color:#79c0ff;font-family:monospace;"></span>
+    </div>
+
+    <!-- Datasets -->
+    <p style="font-size:12px;color:#8b949e;margin:10px 0 6px 20px;font-weight:600;">Datasets to snapshot</p>
+    <div style="margin-left:20px;">
+      <table class="snap-table" id="snap-ds-table">
+        <thead><tr>
+          <th style="text-align:left">Dataset</th>
+          <th>Recursive</th>
+          <th title="Use global retention values">Template</th>
+          <th>Hourly</th><th>Daily</th><th>Weekly</th><th>Monthly</th><th>Yearly</th>
+          <th></th>
+        </tr></thead>
+        <tbody id="snap-ds-tbody"></tbody>
+      </table>
+      <div style="margin-top:8px;display:flex;gap:8px;align-items:center;">
+        <select id="snap-ds-picker" class="snap-sel" style="width:260px">
+          <option value="">— select dataset —</option>
+        </select>
+        <button type="button" class="btn-secondary" style="padding:4px 12px;font-size:12px;" onclick="addSnapDataset()">Add</button>
+      </div>
+    </div>
+
+    <!-- Status -->
+    <div style="margin-top:12px;margin-left:20px;display:flex;flex-wrap:wrap;gap:16px;font-size:12px;color:#8b949e;">
+      <span>Cron: <span id="snap-cron-badge" style="font-family:monospace;color:#e3b341;">—</span></span>
+      <span>Snapshots: <span id="snap-total-count">—</span></span>
+      <span>Last run: <span id="snap-last-run">—</span></span>
+    </div>
+  </div>
+
+  <div style="margin-top:12px;display:flex;gap:8px;align-items:center;">
+    <button type="button" class="btn-secondary" onclick="saveSnapshotSettings()">Save Snapshot Settings</button>
+    <button type="button" class="btn-primary" id="snap-run-btn" onclick="runSnapshotNow()" <?= cfgBool('snapshots_enabled')?'':'disabled' ?>>Run Now</button>
+    <span id="snap-save-result" style="font-size:13px;"></span>
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- Snapshot Browser                                                  -->
+<!-- ================================================================ -->
+<div class="zdc-card">
+  <h3>Snapshot Browser</h3>
+  <p style="font-size:12px;color:#8b949e;margin:0 0 10px;">Browse any ZFS snapshot and restore individual files or folders to the live dataset.</p>
+
+  <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px;">
+    <div>
+      <label style="font-size:12px;color:#9ba5b5;display:block;margin-bottom:3px;">Dataset</label>
+      <select id="browser-dataset" class="snap-sel" style="width:260px" onchange="loadBrowserSnapshots()">
+        <option value="">— select dataset —</option>
+      </select>
+    </div>
+    <div>
+      <label style="font-size:12px;color:#9ba5b5;display:block;margin-bottom:3px;">Snapshot</label>
+      <select id="browser-snapshot" class="snap-sel" style="width:260px" onchange="browserBrowse('/')">
+        <option value="">— select snapshot —</option>
+      </select>
+    </div>
+    <div style="align-self:flex-end;">
+      <button type="button" class="btn-secondary" style="padding:5px 14px;font-size:12px;" onclick="browserBrowse(browserPath || '/')">Refresh</button>
+    </div>
+  </div>
+
+  <div id="snap-browser-area" style="display:none;">
+    <div class="snap-browser-path" id="snap-breadcrumb"></div>
+    <div id="snap-file-list">
+      <p style="color:#8b949e;font-size:13px;">Select a dataset and snapshot above.</p>
+    </div>
+    <!-- Restore destination override -->
+    <div style="margin-top:10px;display:flex;align-items:center;gap:10px;font-size:12px;">
+      <span style="color:#9ba5b5;white-space:nowrap;">Restore destination:</span>
+      <input type="text" id="restore-dst" style="flex:1;max-width:400px;font-size:12px;" placeholder="Leave empty = restore to original location">
+      <span id="restore-result" style="font-size:12px;"></span>
+    </div>
+  </div>
+</div>
 
 <!-- Folder Scanner -->
 <div class="zdc-card">
@@ -643,4 +807,351 @@ fetch(_base + '/get_status.php').then(function(r){ return r.json(); })
     startPoll();
   }
 });
+
+/* ================================================================
+   Snapshot Settings
+   ================================================================ */
+
+var _snapDatasets = [];  // in-memory dataset list
+
+function toggleSnapDetails() {
+  var en = document.getElementById('snapshots_enabled').checked;
+  document.getElementById('snap-details').style.display = en ? '' : 'none';
+  document.getElementById('snap-run-btn').disabled = !en;
+  if (en) { updateSnapPreview(); loadSnapshotStatus(); }
+}
+
+function updateSnapPreview() {
+  var preset = document.getElementById('snap_schedule_preset').value;
+  document.getElementById('snap-custom-row').style.display = preset === 'custom' ? '' : 'none';
+  var expr;
+  switch (preset) {
+    case '15min':  expr = '*/15 * * * *'; break;
+    case '30min':  expr = '*/30 * * * *'; break;
+    case 'hourly': expr = '0 * * * *';    break;
+    case 'custom': expr = document.getElementById('snap_schedule_custom').value.trim() || '*/15 * * * *'; break;
+    default:       expr = '*/15 * * * *';
+  }
+  document.getElementById('snap-cron-preview').textContent = expr;
+}
+
+/* Load all ZFS datasets into both pickers */
+function loadDatasetPickers() {
+  fetch(_base + '/list_zfs_datasets.php')
+  .then(function(r){ return r.json(); })
+  .then(function(res) {
+    var ds = res.datasets || [];
+    var snapPicker    = document.getElementById('snap-ds-picker');
+    var browserPicker = document.getElementById('browser-dataset');
+    [snapPicker, browserPicker].forEach(function(sel) {
+      var cur = sel.value;
+      while (sel.options.length > 1) sel.remove(1);
+      ds.forEach(function(d) {
+        var o = new Option(d, d);
+        sel.add(o);
+      });
+      if (cur) sel.value = cur;
+    });
+  });
+}
+
+/* Load saved dataset config from snap_datasets.json */
+function loadSnapDatasetConfig() {
+  fetch(_base + '/list_zfs_datasets.php')
+  .then(function(r){ return r.json(); })
+  .then(function() {})
+  .catch(function(){});
+
+  // Load saved datasets from backend
+  fetch('/plugins/zfs.dataset.converter/scripts/list_zfs_datasets.php')
+  .then(function(r){ return r.json(); })
+  .catch(function(){ return {datasets:[]}; });
+
+  // Fetch the saved snap_datasets.json
+  fetch('/boot/config/plugins/zfs.dataset.converter/snap_datasets.json')
+  .then(function(r){ return r.ok ? r.json() : {datasets:[]}; })
+  .then(function(data) {
+    _snapDatasets = (data && data.datasets) ? data.datasets : [];
+    renderSnapTable();
+  }).catch(function() {
+    _snapDatasets = [];
+    renderSnapTable();
+  });
+}
+
+function addSnapDataset() {
+  var picker = document.getElementById('snap-ds-picker');
+  var name = picker.value;
+  if (!name) return;
+  // Don't add duplicates
+  if (_snapDatasets.find(function(d){ return d.name === name; })) {
+    picker.value = ''; return;
+  }
+  _snapDatasets.push({name:name, recursive:false, use_template:true,
+                       hourly:'', daily:'', weekly:'', monthly:'', yearly:''});
+  picker.value = '';
+  renderSnapTable();
+}
+
+function removeSnapDataset(idx) {
+  _snapDatasets.splice(idx, 1);
+  renderSnapTable();
+}
+
+function renderSnapTable() {
+  var tbody = document.getElementById('snap-ds-tbody');
+  if (!_snapDatasets.length) {
+    tbody.innerHTML = '<tr><td colspan="9" style="color:#8b949e;text-align:center;padding:10px;">No datasets configured. Add one above.</td></tr>';
+    return;
+  }
+  var html = '';
+  _snapDatasets.forEach(function(ds, i) {
+    var tpl = ds.use_template !== false;
+    html += '<tr>';
+    html += '<td>' + esc(ds.name) + '</td>';
+    html += '<td><label class="zdc-toggle" style="margin:auto;"><input type="checkbox" onchange="snapDsField('+i+',\'recursive\',this.checked)" '+(ds.recursive?'checked':'')+'><span class="zdc-slider"></span></label></td>';
+    html += '<td><label class="zdc-toggle" style="margin:auto;"><input type="checkbox" id="snap-tpl-'+i+'" onchange="snapToggleTpl('+i+',this.checked)" '+(tpl?'checked':'')+'><span class="zdc-slider"></span></label></td>';
+    var dis = tpl ? 'disabled style="opacity:.4"' : '';
+    ['hourly','daily','weekly','monthly','yearly'].forEach(function(f) {
+      html += '<td><input type="number" min="0" max="999" '+dis+' value="'+(ds[f]||'')+'" oninput="snapDsField('+i+',\''+f+'\',this.value)" style="width:52px;text-align:center;padding:2px 4px;font-size:12px;"></td>';
+    });
+    html += '<td><button type="button" class="btn-danger" style="padding:2px 8px;font-size:11px;" onclick="removeSnapDataset('+i+')">✕</button></td>';
+    html += '</tr>';
+  });
+  tbody.innerHTML = html;
+}
+
+function snapDsField(idx, field, val) {
+  if (field === 'recursive') _snapDatasets[idx][field] = val;
+  else _snapDatasets[idx][field] = val;
+}
+
+function snapToggleTpl(idx, checked) {
+  _snapDatasets[idx].use_template = checked;
+  renderSnapTable();
+}
+
+function saveSnapshotSettings() {
+  var resultEl = document.getElementById('snap-save-result');
+  resultEl.textContent = 'Saving…';
+
+  // First save settings.cfg values (enabled, retention, schedule)
+  var f = document.getElementById('settings-form');
+  var d = formData();
+  // Add snapshot-specific fields from outside the main form
+  d['snapshots_enabled'] = document.getElementById('snapshots_enabled').checked ? 'yes' : 'no';
+  ['snap_hourly','snap_daily','snap_weekly','snap_monthly','snap_yearly','snap_frequent','snap_daily_hour'].forEach(function(n) {
+    var el = document.querySelector('[name="'+n+'"]');
+    if (el) d[n] = el.value;
+  });
+  var presetEl = document.getElementById('snap_schedule_preset');
+  if (presetEl) d['snap_schedule_preset'] = presetEl.value;
+  var customEl = document.getElementById('snap_schedule_custom');
+  if (customEl) d['snap_schedule_custom'] = customEl.value;
+
+  postForm(_base + '/save_settings.php', d)
+  .then(function(res) {
+    if (!res.success) throw new Error(res.error || 'save_settings failed');
+    // Then save dataset list
+    var params = new URLSearchParams({datasets_json: JSON.stringify({datasets: _snapDatasets})});
+    if (typeof csrf_token !== 'undefined') params.append('csrf_token', csrf_token);
+    return fetch(_base + '/save_snapshot_config.php', {
+      method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body: params
+    }).then(function(r){ return r.json(); });
+  })
+  .then(function(res2) {
+    if (res2.ok) {
+      resultEl.style.color = '#56d364'; resultEl.textContent = 'Saved.';
+      setTimeout(loadSnapshotStatus, 800);
+    } else {
+      resultEl.style.color = '#f85149'; resultEl.textContent = 'Error: ' + (res2.error || '?');
+    }
+    setTimeout(function(){ resultEl.textContent=''; }, 3000);
+  })
+  .catch(function(e) {
+    resultEl.style.color = '#f85149'; resultEl.textContent = 'Error: ' + e;
+  });
+}
+
+function loadSnapshotStatus() {
+  fetch(_base + '/get_snapshot_status.php')
+  .then(function(r){ return r.json(); })
+  .then(function(res) {
+    var badge = document.getElementById('snap-cron-badge');
+    if (res.active) {
+      badge.style.color = '#56d364';
+      // Show just the cron time part (first 5 fields)
+      badge.textContent = res.entry.split(' ').slice(0,5).join(' ') + ' ✓';
+    } else {
+      badge.style.color = '#e3b341';
+      badge.textContent = 'Not installed';
+    }
+    document.getElementById('snap-total-count').textContent = res.snapshot_count;
+    document.getElementById('snap-last-run').textContent = res.last_run || '—';
+  }).catch(function(){});
+}
+
+function runSnapshotNow() {
+  var btn = document.getElementById('snap-run-btn');
+  btn.disabled = true; btn.textContent = 'Running…';
+  postForm(_base + '/run_snapshot_manual.php', {})
+  .then(function(res) {
+    if (res.ok) {
+      document.getElementById('snap-save-result').style.color = '#56d364';
+      document.getElementById('snap-save-result').textContent = 'Started (PID '+res.pid+')';
+    } else {
+      document.getElementById('snap-save-result').style.color = '#f85149';
+      document.getElementById('snap-save-result').textContent = res.error || 'Failed';
+    }
+    setTimeout(function(){
+      btn.disabled = false; btn.textContent = 'Run Now';
+      document.getElementById('snap-save-result').textContent = '';
+      loadSnapshotStatus();
+    }, 3000);
+  }).catch(function(e){
+    btn.disabled = false; btn.textContent = 'Run Now';
+    alert('Error: ' + e);
+  });
+}
+
+/* ================================================================
+   Snapshot Browser
+   ================================================================ */
+
+var browserPath = '/';
+
+function loadBrowserSnapshots() {
+  var dataset = document.getElementById('browser-dataset').value;
+  var sel = document.getElementById('browser-snapshot');
+  while (sel.options.length > 1) sel.remove(1);
+  document.getElementById('snap-browser-area').style.display = 'none';
+  if (!dataset) return;
+
+  fetch(_base + '/snapshot_browse.php?action=list_snapshots&dataset=' + encodeURIComponent(dataset))
+  .then(function(r){ return r.json(); })
+  .then(function(res) {
+    if (!res.ok) { alert('Error: ' + res.error); return; }
+    if (!res.snapshots.length) {
+      var o = new Option('No snapshots found', '');
+      sel.add(o); return;
+    }
+    res.snapshots.forEach(function(s) { sel.add(new Option(s, s)); });
+  });
+}
+
+function browserBrowse(path) {
+  var dataset  = document.getElementById('browser-dataset').value;
+  var snapshot = document.getElementById('browser-snapshot').value;
+  if (!dataset || !snapshot) return;
+
+  browserPath = path || '/';
+
+  fetch(_base + '/snapshot_browse.php?action=browse'
+      + '&dataset='  + encodeURIComponent(dataset)
+      + '&snapshot=' + encodeURIComponent(snapshot)
+      + '&path='     + encodeURIComponent(browserPath))
+  .then(function(r){ return r.json(); })
+  .then(function(res) {
+    document.getElementById('snap-browser-area').style.display = '';
+    if (!res.ok) {
+      document.getElementById('snap-file-list').innerHTML =
+        '<p style="color:#f85149;">' + esc(res.error) + '</p>';
+      return;
+    }
+    renderBreadcrumb(res.crumbs);
+    renderFileList(res.entries, dataset, snapshot, res.path);
+  }).catch(function(e){
+    document.getElementById('snap-file-list').innerHTML =
+      '<p style="color:#f85149;">Error: ' + esc(String(e)) + '</p>';
+  });
+}
+
+function renderBreadcrumb(crumbs) {
+  var el = document.getElementById('snap-breadcrumb');
+  var html = '';
+  crumbs.forEach(function(c, i) {
+    if (i > 0) html += '<span class="snap-crumb-sep">›</span>';
+    html += '<span class="snap-crumb" onclick="browserBrowse(\''+c.path.replace(/'/g,"\\'")+'\')">' + esc(c.label) + '</span>';
+  });
+  el.innerHTML = html;
+}
+
+function renderFileList(entries, dataset, snapshot, currentPath) {
+  var el = document.getElementById('snap-file-list');
+  if (!entries.length) {
+    el.innerHTML = '<p style="color:#8b949e;font-size:13px;">Empty directory.</p>';
+    return;
+  }
+
+  var html = '<table class="snap-file-table"><thead><tr>'
+    + '<th>Name</th><th>Size</th><th>Modified</th><th></th>'
+    + '</tr></thead><tbody>';
+
+  entries.forEach(function(e) {
+    var isDir = e.type === 'dir';
+    var nameCell;
+    if (isDir) {
+      var subPath = (currentPath === '/' ? '' : currentPath) + '/' + e.name;
+      nameCell = '<span class="snap-dir" onclick="browserBrowse(\''+subPath.replace(/'/g,"\\'")+'\')">'
+               + '📁 ' + esc(e.name) + '</span>';
+    } else {
+      nameCell = '<span class="snap-file">📄 ' + esc(e.name) + '</span>';
+    }
+    var srcPath = (currentPath === '/' ? '' : currentPath) + '/' + e.name;
+    html += '<tr>'
+      + '<td>' + nameCell + '</td>'
+      + '<td style="color:#8b949e">' + esc(e.size) + '</td>'
+      + '<td style="color:#8b949e;font-size:11px">' + esc(e.mtime) + '</td>'
+      + '<td><button class="snap-restore-btn" onclick="restoreEntry(\''
+        + dataset.replace(/'/g,"\\'") + '\',\''
+        + snapshot.replace(/'/g,"\\'") + '\',\''
+        + srcPath.replace(/'/g,"\\'") + '\')">Restore</button></td>'
+      + '</tr>';
+  });
+
+  html += '</tbody></table>';
+  el.innerHTML = html;
+}
+
+function restoreEntry(dataset, snapshot, srcPath) {
+  var dst = document.getElementById('restore-dst').value.trim();
+  var resultEl = document.getElementById('restore-result');
+  resultEl.textContent = 'Restoring…'; resultEl.style.color = '#8b949e';
+
+  var params = new URLSearchParams({
+    action:   'restore',
+    dataset:  dataset,
+    snapshot: snapshot,
+    src_path: srcPath,
+    dst_path: dst
+  });
+  if (typeof csrf_token !== 'undefined') params.append('csrf_token', csrf_token);
+
+  fetch(_base + '/snapshot_browse.php', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: params
+  }).then(function(r){ return r.json(); })
+  .then(function(res) {
+    if (res.ok) {
+      resultEl.style.color = '#56d364';
+      resultEl.textContent = '✓ Restored to ' + res.dst;
+    } else {
+      resultEl.style.color = '#f85149';
+      resultEl.textContent = '✗ ' + (res.error || 'Failed');
+    }
+    setTimeout(function(){ resultEl.textContent=''; }, 5000);
+  }).catch(function(e){
+    resultEl.style.color = '#f85149';
+    resultEl.textContent = '✗ Error: ' + e;
+  });
+}
+
+/* Init snapshot section */
+updateSnapPreview();
+loadDatasetPickers();
+loadSnapDatasetConfig();
+if (document.getElementById('snapshots_enabled').checked) loadSnapshotStatus();
 </script>

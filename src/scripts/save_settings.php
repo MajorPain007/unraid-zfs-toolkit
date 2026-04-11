@@ -26,8 +26,12 @@ $allowed = [
     'should_process_containers', 'appdata_pool', 'appdata_dataset',
     'should_process_vms', 'vm_pool', 'vm_dataset', 'vm_forceshutdown_wait',
     'buffer_zone', 'validation_tolerance', 'extra_datasets',
-    // Cron schedule
+    // Converter cron schedule
     'cron_enabled', 'cron_preset', 'cron_hour', 'cron_minute', 'cron_weekday', 'cron_custom',
+    // Snapshot scheduler
+    'snapshots_enabled', 'snap_frequent', 'snap_hourly', 'snap_daily', 'snap_weekly',
+    'snap_monthly', 'snap_yearly', 'snap_daily_hour',
+    'snap_schedule_preset', 'snap_schedule_custom',
 ];
 
 $configDir  = '/boot/config/plugins/zfs.dataset.converter';
@@ -52,10 +56,15 @@ if (file_put_contents($configFile, implode("\n", $lines)) === false) {
     exit;
 }
 
-// Update cron job
+// Update converter cron
 $setupCron = '/usr/local/emhttp/plugins/zfs.dataset.converter/scripts/setup_cron.sh';
 if (file_exists($setupCron)) {
     shell_exec('/bin/bash ' . escapeshellarg($setupCron) . ' 2>/dev/null');
+}
+// Update snapshot cron
+$setupSnap = '/usr/local/emhttp/plugins/zfs.dataset.converter/scripts/setup_snapshots.sh';
+if (file_exists($setupSnap)) {
+    shell_exec('/bin/bash ' . escapeshellarg($setupSnap) . ' 2>/dev/null');
 }
 
 echo json_encode(['success' => true]);

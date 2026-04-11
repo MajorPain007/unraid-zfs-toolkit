@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.dataset.converter">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2025.04.13">
-<!ENTITY md5       "17423dd46b844d8d5deb4928042a690a">
+<!ENTITY version   "2025.04.14">
+<!ENTITY md5       "e47d3629bb34b247d53b4c9b3629279c">
 <!ENTITY launch    "Settings/ZFSDatasetConverter">
 <!ENTITY github    "MajorPain007/zfs-dataset-converter">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,12 @@
         icon="database">
 
 <CHANGES>
+## Version 2025.04.14
+- Add native ZFS snapshot management (no external tools required)
+- Snapshot scheduler: frequent / hourly / daily / weekly / monthly / yearly retention
+- Snapshot browser: browse any snapshot, restore files/folders to live dataset
+- Fix converter cron accumulating duplicate entries on update
+
 ## Version 2025.04.13
 - Fix containers being stopped unnecessarily when their bind mount points to the appdata root instead of a subdirectory
 
@@ -61,11 +67,13 @@ rm -f $(ls &configDir;/&name;-*.txz 2>/dev/null | grep -v '&version;')
 </INLINE>
 </FILE>
 
-<!-- rc.d script: recreate cron job on every boot -->
+<!-- rc.d script: recreate all cron jobs on every boot -->
 <FILE Name="/etc/rc.d/rc.&name;" Mode="755">
 <INLINE>
 #!/bin/bash
+mkdir -p /tmp/zfs.dataset.converter
 /usr/local/emhttp/plugins/zfs.dataset.converter/scripts/setup_cron.sh &gt;/tmp/zfs.dataset.converter/setup_cron.log 2&gt;&amp;1
+/usr/local/emhttp/plugins/zfs.dataset.converter/scripts/setup_snapshots.sh &gt;/tmp/zfs.dataset.converter/setup_snapshots.log 2&gt;&amp;1
 </INLINE>
 </FILE>
 
@@ -95,17 +103,34 @@ cron_hour=2
 cron_minute=0
 cron_weekday=0
 cron_custom=0 2 * * *
+snapshots_enabled=no
+snap_frequent=0
+snap_hourly=24
+snap_daily=30
+snap_weekly=4
+snap_monthly=3
+snap_yearly=0
+snap_daily_hour=2
+snap_schedule_preset=15min
+snap_schedule_custom=*/15 * * * *
 SETTINGS_EOF
 fi
 
-# Apply cron from saved settings
+# Apply cron jobs from saved settings
 /usr/local/emhttp/plugins/zfs.dataset.converter/scripts/setup_cron.sh &gt;/tmp/zfs.dataset.converter/setup_cron.log 2&gt;&amp;1
+/usr/local/emhttp/plugins/zfs.dataset.converter/scripts/setup_snapshots.sh &gt;/tmp/zfs.dataset.converter/setup_snapshots.log 2&gt;&amp;1
 </INLINE>
 </FILE>
 
 <!-- Uninstall -->
 <FILE Run="/bin/bash" Method="remove">
 <INLINE>
+# Remove cron entries
+( crontab -l 2>/dev/null \
+  | grep -v "# zfs-dataset-converter" \
+  | grep -v "run_auto\.sh" \
+  | grep -v "snapshot_manager\.sh" \
+) | crontab - 2>/dev/null
 rm -f /etc/cron.d/&name;
 rm -f /etc/rc.d/rc.&name;
 [ -f /var/run/crond.pid ] &amp;&amp; kill -HUP "$(cat /var/run/crond.pid)" 2&gt;/dev/null
