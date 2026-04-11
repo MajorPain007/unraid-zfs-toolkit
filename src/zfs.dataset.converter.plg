@@ -3,7 +3,7 @@
 <!ENTITY name      "zfs.dataset.converter">
 <!ENTITY author    "MajorPain007">
 <!ENTITY version   "2025.04.12">
-<!ENTITY md5       "63e2877d6e8697fe44861613947fbe23">
+<!ENTITY md5       "3d8002bf67460c9aa6964238f1317f99">
 <!ENTITY launch    "Settings/ZFSDatasetConverter">
 <!ENTITY github    "MajorPain007/zfs-dataset-converter">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
