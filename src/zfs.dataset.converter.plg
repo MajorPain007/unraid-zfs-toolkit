@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.dataset.converter">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.04.11.03">
-<!ENTITY md5       "c621148eb6e2f9d7133897ae76f37691">
+<!ENTITY version   "2026.04.12.01">
+<!ENTITY md5       "7cdc74d7fff032dc491d61296288841a">
 <!ENTITY launch    "Settings/ZFSDatasetConverter">
 <!ENTITY github    "MajorPain007/zfs-dataset-converter">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,13 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.04.12.01
+- Add snapshot log viewer (shows last 30 lines of snapshots.log)
+- Show configured dataset count in snapshot status bar
+- Warn when "Run Now" is clicked but no datasets are configured
+- Log section opens automatically on Run Now; View Log button to toggle manually
+- get_snapshot_status.php now returns dataset_count + recent_log
+
 ## Version 2026.04.11.03
 - Fix snapshot browser empty response: add missing CSRF token to POST request
 

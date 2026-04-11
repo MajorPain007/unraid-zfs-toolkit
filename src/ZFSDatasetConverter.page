@@ -435,15 +435,29 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
     <!-- Status -->
     <div style="margin-top:12px;margin-left:20px;display:flex;flex-wrap:wrap;gap:16px;font-size:12px;color:#8b949e;">
       <span>Cron: <span id="snap-cron-badge" style="font-family:monospace;color:#e3b341;">—</span></span>
+      <span>Datasets: <span id="snap-dataset-count">—</span></span>
       <span>Snapshots: <span id="snap-total-count">—</span></span>
       <span>Last run: <span id="snap-last-run">—</span></span>
     </div>
+    <div id="snap-no-datasets-warn" style="color:#e3b341;font-size:12px;margin:6px 0 0 20px;display:none;">
+      ⚠ No datasets configured — add at least one dataset above and click "Save Snapshot Settings".
+    </div>
   </div>
 
-  <div style="margin-top:12px;display:flex;gap:8px;align-items:center;">
+  <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
     <button type="button" class="btn-secondary" onclick="saveSnapshotSettings()">Save Snapshot Settings</button>
     <button type="button" class="btn-primary" id="snap-run-btn" onclick="runSnapshotNow()" <?= cfgBool('snapshots_enabled')?'':'disabled' ?>>Run Now</button>
+    <button type="button" class="btn-secondary" id="snap-log-toggle-btn" onclick="toggleSnapLog()">View Log</button>
     <span id="snap-save-result" style="font-size:13px;"></span>
+  </div>
+
+  <!-- Snapshot Log Viewer (toggled) -->
+  <div id="snap-log-section" style="margin-top:10px;display:none;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
+      <span style="font-size:12px;font-weight:600;color:#8b949e;">Snapshot Log <span id="snap-log-hint" style="font-weight:400;color:#555;">(last 30 lines of /tmp/zfs.dataset.converter/snapshots.log)</span></span>
+      <button type="button" class="btn-secondary" style="padding:2px 10px;font-size:11px;" onclick="clearSnapLog()">Clear view</button>
+    </div>
+    <div id="snap-log-viewer" style="background:#0d1117;color:#c9d1d9;font-family:'Consolas','Monaco',monospace;font-size:12px;line-height:1.6;padding:10px;height:220px;overflow-y:auto;border-radius:4px;border:1px solid #30363d;white-space:pre-wrap;word-break:break-all;"></div>
   </div>
 </div>
 
@@ -982,7 +996,6 @@ function loadSnapshotStatus() {
     var badge = document.getElementById('snap-cron-badge');
     if (res.active) {
       badge.style.color = '#56d364';
-      // Show just the cron time part (first 5 fields)
       badge.textContent = res.entry.split(' ').slice(0,5).join(' ') + ' ✓';
     } else {
       badge.style.color = '#e3b341';
@@ -990,30 +1003,90 @@ function loadSnapshotStatus() {
     }
     document.getElementById('snap-total-count').textContent = res.snapshot_count;
     document.getElementById('snap-last-run').textContent = res.last_run || '—';
+
+    // Dataset count + warning
+    var dc = (typeof res.dataset_count !== 'undefined') ? res.dataset_count : '?';
+    var dcEl = document.getElementById('snap-dataset-count');
+    if (dcEl) dcEl.textContent = dc;
+    var warnEl = document.getElementById('snap-no-datasets-warn');
+    if (warnEl) warnEl.style.display = (dc === 0) ? '' : 'none';
+
+    // Populate log viewer if open
+    var logSec = document.getElementById('snap-log-section');
+    if (logSec && logSec.style.display !== 'none' && res.recent_log && res.recent_log.length) {
+      renderSnapLog(res.recent_log);
+    }
   }).catch(function(){});
 }
 
 function runSnapshotNow() {
+  var resultEl = document.getElementById('snap-save-result');
+
+  // Guard: no datasets configured
+  if (_snapDatasets.length === 0) {
+    var warnEl = document.getElementById('snap-no-datasets-warn');
+    if (warnEl) warnEl.style.display = '';
+    resultEl.style.color = '#e3b341';
+    resultEl.textContent = 'No datasets — add and save first.';
+    setTimeout(function(){ resultEl.textContent = ''; }, 5000);
+    return;
+  }
+
   var btn = document.getElementById('snap-run-btn');
   btn.disabled = true; btn.textContent = 'Running…';
+
+  // Open log section automatically
+  var logSec = document.getElementById('snap-log-section');
+  logSec.style.display = '';
+  document.getElementById('snap-log-viewer').innerHTML =
+    '<span style="color:#8b949e;">Starting snapshot_manager.sh --now …\n</span>';
+
   postForm(_base + '/run_snapshot_manual.php', {})
   .then(function(res) {
     if (res.ok) {
-      document.getElementById('snap-save-result').style.color = '#56d364';
-      document.getElementById('snap-save-result').textContent = 'Started (PID '+res.pid+')';
+      resultEl.style.color = '#56d364';
+      resultEl.textContent = 'Started (PID ' + res.pid + ')';
+      // Poll log at 2 s and 5 s so user sees output quickly
+      setTimeout(loadSnapshotStatus, 2000);
+      setTimeout(loadSnapshotStatus, 5000);
     } else {
-      document.getElementById('snap-save-result').style.color = '#f85149';
-      document.getElementById('snap-save-result').textContent = res.error || 'Failed';
+      resultEl.style.color = '#f85149';
+      resultEl.textContent = res.error || 'Failed';
     }
     setTimeout(function(){
       btn.disabled = false; btn.textContent = 'Run Now';
-      document.getElementById('snap-save-result').textContent = '';
-      loadSnapshotStatus();
-    }, 3000);
+      resultEl.textContent = '';
+    }, 6000);
   }).catch(function(e){
     btn.disabled = false; btn.textContent = 'Run Now';
-    alert('Error: ' + e);
+    resultEl.style.color = '#f85149';
+    resultEl.textContent = 'Error: ' + e;
   });
+}
+
+function toggleSnapLog() {
+  var sec = document.getElementById('snap-log-section');
+  var open = sec.style.display !== 'none';
+  sec.style.display = open ? 'none' : '';
+  if (!open) loadSnapshotStatus();  // refresh log content when opening
+}
+
+function clearSnapLog() {
+  document.getElementById('snap-log-viewer').innerHTML = '';
+}
+
+function renderSnapLog(lines) {
+  var el = document.getElementById('snap-log-viewer');
+  el.innerHTML = '';
+  lines.forEach(function(line) {
+    var sp = document.createElement('span');
+    if (/ERROR/.test(line))   sp.style.color = '#f85149';
+    else if (/WARNING/.test(line)) sp.style.color = '#e3b341';
+    else if (/\bOK:/.test(line))   sp.style.color = '#56d364';
+    sp.textContent = line + '\n';
+    el.appendChild(sp);
+  });
+  el.scrollTop = el.scrollHeight;
 }
 
 /* ================================================================
