@@ -1032,14 +1032,27 @@ function loadBrowserSnapshots() {
   if (!dataset) return;
 
   fetch(_base + '/snapshot_browse.php?action=list_snapshots&dataset=' + encodeURIComponent(dataset))
-  .then(function(r){ return r.json(); })
+  .then(function(r) {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.text().then(function(txt) {
+      try { return JSON.parse(txt); }
+      catch(e) { throw new Error('Non-JSON response: ' + txt.slice(0, 200)); }
+    });
+  })
   .then(function(res) {
-    if (!res.ok) { alert('Error: ' + res.error); return; }
+    if (!res.ok) {
+      document.getElementById('snap-file-list').innerHTML =
+        '<p style="color:#f85149;">Error loading snapshots: ' + esc(res.error) + '</p>';
+      return;
+    }
     if (!res.snapshots.length) {
-      var o = new Option('No snapshots found', '');
-      sel.add(o); return;
+      sel.add(new Option('No snapshots found', ''));
+      return;
     }
     res.snapshots.forEach(function(s) { sel.add(new Option(s, s)); });
+  }).catch(function(e) {
+    document.getElementById('snap-file-list').innerHTML =
+      '<p style="color:#f85149;">Could not load snapshots: ' + esc(String(e)) + '</p>';
   });
 }
 
@@ -1056,11 +1069,26 @@ function browserBrowse(path) {
   browserPath = path || '/';
   fileList.innerHTML = '<p style="color:#8b949e;font-size:13px;">Loading…</p>';
 
-  fetch(_base + '/snapshot_browse.php?action=browse'
-      + '&dataset='  + encodeURIComponent(dataset)
-      + '&snapshot=' + encodeURIComponent(snapshot)
-      + '&path='     + encodeURIComponent(browserPath))
-  .then(function(r){ return r.json(); })
+  // Use POST to avoid URL-based ad blockers triggering on snapshot names with colons/timestamps
+  var params = new URLSearchParams({
+    action:   'browse',
+    dataset:  dataset,
+    snapshot: snapshot,
+    path:     browserPath
+  });
+
+  fetch(_base + '/snapshot_browse.php', {
+    method:  'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body:    params
+  })
+  .then(function(r) {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.text().then(function(txt) {
+      try { return JSON.parse(txt); }
+      catch(e) { throw new Error('Non-JSON: ' + txt.slice(0, 300)); }
+    });
+  })
   .then(function(res) {
     if (!res.ok) {
       fileList.innerHTML = '<p style="color:#f85149;">Error: ' + esc(res.error) + '</p>';

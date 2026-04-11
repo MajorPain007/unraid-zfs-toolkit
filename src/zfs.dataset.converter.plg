@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.dataset.converter">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2025.04.16">
-<!ENTITY md5       "b0f7bbb9c6261678612c32e0ab2bc585">
+<!ENTITY version   "2026.04.11.01">
+<!ENTITY md5       "b62919cf20dd59453f12404ac92d5f2e">
 <!ENTITY launch    "Settings/ZFSDatasetConverter">
 <!ENTITY github    "MajorPain007/zfs-dataset-converter">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,13 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.04.11.01
+- Fix snapshot browser blocked by ad blocker (snapshot names with colons/timestamps in URL)
+- Browse now uses POST request instead of GET to avoid URL pattern matching
+- PHP rewrite: remove all type annotations for PHP 7 compat, use ob_start for reliable error capture
+- Snapshot name regex now allows colons (for existing snapshots like autosnap_2026-04-11_22:50:05)
+- Switch to date-based versioning format YYYY.MM.DD.NN
+
 ## Version 2025.04.16
 - Fix snapshot browser "Failed to fetch" (PHP 8 union type, realpath on .zfs virtual dir)
 - Fix Run Now creating no snapshots (add --now flag to bypass time checks)
