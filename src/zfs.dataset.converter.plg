@@ -1,14 +1,16 @@
 <?xml version='1.0' standalone='yes'?>
 <!DOCTYPE PLUGIN [
-<!ENTITY name        "zfs.dataset.converter">
-<!ENTITY author      "MajorPain007">
-<!ENTITY version     "2025.04.12">
-<!ENTITY launch      "Settings/ZFSDatasetConverter">
-<!ENTITY pluginURL   "https://raw.githubusercontent.com/MajorPain007/zfs-dataset-converter/main/src/zfs.dataset.converter.plg">
-<!ENTITY pkgURL      "https://raw.githubusercontent.com/MajorPain007/zfs-dataset-converter/main/build">
-<!ENTITY pluginDir   "/usr/local/emhttp/plugins/&name;">
-<!ENTITY configDir   "/boot/config/plugins/&name;">
-<!ENTITY tmpDir      "/tmp/&name;">
+<!ENTITY name      "zfs.dataset.converter">
+<!ENTITY author    "MajorPain007">
+<!ENTITY version   "2025.04.12">
+<!ENTITY md5       "63e2877d6e8697fe44861613947fbe23">
+<!ENTITY launch    "Settings/ZFSDatasetConverter">
+<!ENTITY github    "MajorPain007/zfs-dataset-converter">
+<!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
+<!ENTITY pkgURL    "https://raw.githubusercontent.com/&github;/main/archive">
+<!ENTITY pluginDir "/usr/local/emhttp/plugins/&name;">
+<!ENTITY configDir "/boot/config/plugins/&name;">
+<!ENTITY tmpDir    "/tmp/&name;">
 ]>
 
 <PLUGIN name="&name;" author="&author;" version="&version;" launch="&launch;"
@@ -21,9 +23,9 @@
 - Add automatic schedule (cron) with hourly/6h/daily/weekly/custom options
 - Cron job auto-restored on reboot via rc.d script
 - Fix cron settings not persisting after page reload
-- Fix plugin update via Unraid GUI (versioned txz package)
-- Fix HTML entity encoding in log viewer (&amp;#039; → ')
-- Fix "Error" status badge when nothing to convert
+- Fix plugin update via Unraid GUI (standard versioned txz naming)
+- Fix HTML entity encoding in log viewer
+- Fix misleading "Error" badge when nothing to convert
 
 ## Version 2025.04.11
 - Initial release
@@ -43,17 +45,23 @@ mkdir -p &tmpDir;
 </INLINE>
 </FILE>
 
-<!-- Download and install versioned plugin package (guaranteed fresh on each version bump) -->
-<FILE Name="&configDir;/&name;-&version;.txz" Run="upgradepkg --install-new">
-<URL>&pkgURL;/&name;-&version;.txz</URL>
-<MD5>af65ab43c44744b7b69e92166a7be3b9</MD5>
+<!-- Install plugin package -->
+<FILE Name="&configDir;/&name;-&version;-x86_64-1.txz" Run="upgradepkg --install-new">
+<URL>&pkgURL;/&name;-&version;-x86_64-1.txz</URL>
+<MD5>&md5;</MD5>
 </FILE>
 
-<!-- rc.d script for boot persistence of cron job -->
-<FILE Name="/etc/rc.d/rc.zfs-dataset-converter" Mode="755">
+<!-- Remove old package versions (standard Unraid plugin pattern) -->
+<FILE Run="/bin/bash">
+<INLINE>
+rm -f $(ls &configDir;/&name;-*.txz 2>/dev/null | grep -v '&version;')
+</INLINE>
+</FILE>
+
+<!-- rc.d script: recreate cron job on every boot -->
+<FILE Name="/etc/rc.d/rc.&name;" Mode="755">
 <INLINE>
 #!/bin/bash
-# Restore ZFS Dataset Converter cron job after boot
 /usr/local/emhttp/plugins/zfs.dataset.converter/scripts/setup_cron.sh &gt;/tmp/zfs.dataset.converter/setup_cron.log 2&gt;&amp;1
 </INLINE>
 </FILE>
@@ -88,7 +96,7 @@ SETTINGS_EOF
 fi
 
 # Apply cron from saved settings
-/usr/local/emhttp/plugins/zfs.dataset.converter/scripts/setup_cron.sh &gt;&amp;1
+/usr/local/emhttp/plugins/zfs.dataset.converter/scripts/setup_cron.sh &gt;/tmp/zfs.dataset.converter/setup_cron.log 2&gt;&amp;1
 </INLINE>
 </FILE>
 
@@ -96,9 +104,9 @@ fi
 <FILE Run="/bin/bash" Method="remove">
 <INLINE>
 rm -f /etc/cron.d/&name;
-rm -f /etc/rc.d/rc.zfs-dataset-converter
+rm -f /etc/rc.d/rc.&name;
 [ -f /var/run/crond.pid ] &amp;&amp; kill -HUP "$(cat /var/run/crond.pid)" 2&gt;/dev/null
-removepkg &configDir;/&name;-&version;.txz 2&gt;/dev/null || rm -rf &pluginDir;
+removepkg &name; 2&gt;/dev/null || rm -rf &pluginDir;
 rm -rf &tmpDir;
 echo "ZFS Dataset Converter removed. Settings in &configDir; preserved."
 </INLINE>
