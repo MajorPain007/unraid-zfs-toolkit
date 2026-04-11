@@ -4,12 +4,6 @@ while (ob_get_level() > 0) ob_end_clean();
 header('Content-Type: application/json');
 header('Cache-Control: no-cache, no-store');
 
-$csrf = $_POST['csrf_token'] ?? '';
-if (empty($csrf)) {
-    echo json_encode(['ok' => false, 'error' => 'Missing CSRF token']);
-    exit;
-}
-
 $plugin_dir = '/usr/local/emhttp/plugins/zfs.dataset.converter';
 $log_dir    = '/tmp/zfs.dataset.converter';
 $runner     = "$plugin_dir/scripts/snapshot_manager.sh";

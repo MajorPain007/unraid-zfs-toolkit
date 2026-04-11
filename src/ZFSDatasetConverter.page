@@ -467,15 +467,16 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
         <option value="">— select snapshot —</option>
       </select>
     </div>
-    <div style="align-self:flex-end;">
+    <div style="align-self:flex-end;display:flex;gap:6px;">
+      <button type="button" class="btn-primary" style="padding:5px 16px;font-size:12px;" onclick="browserBrowse('/')">Browse</button>
       <button type="button" class="btn-secondary" style="padding:5px 14px;font-size:12px;" onclick="browserBrowse(browserPath || '/')">Refresh</button>
     </div>
   </div>
 
-  <div id="snap-browser-area" style="display:none;">
+  <div id="snap-browser-area">
     <div class="snap-browser-path" id="snap-breadcrumb"></div>
     <div id="snap-file-list">
-      <p style="color:#8b949e;font-size:13px;">Select a dataset and snapshot above.</p>
+      <p style="color:#8b949e;font-size:13px;">Select a dataset and snapshot above, then click Browse.</p>
     </div>
     <!-- Restore destination override -->
     <div style="margin-top:10px;display:flex;align-items:center;gap:10px;font-size:12px;">
@@ -855,21 +856,10 @@ function loadDatasetPickers() {
   });
 }
 
-/* Load saved dataset config from snap_datasets.json */
+/* Load saved dataset config via PHP endpoint */
 function loadSnapDatasetConfig() {
-  fetch(_base + '/list_zfs_datasets.php')
+  fetch(_base + '/get_snap_datasets.php')
   .then(function(r){ return r.json(); })
-  .then(function() {})
-  .catch(function(){});
-
-  // Load saved datasets from backend
-  fetch('/plugins/zfs.dataset.converter/scripts/list_zfs_datasets.php')
-  .then(function(r){ return r.json(); })
-  .catch(function(){ return {datasets:[]}; });
-
-  // Fetch the saved snap_datasets.json
-  fetch('/boot/config/plugins/zfs.dataset.converter/snap_datasets.json')
-  .then(function(r){ return r.ok ? r.json() : {datasets:[]}; })
   .then(function(data) {
     _snapDatasets = (data && data.datasets) ? data.datasets : [];
     renderSnapTable();
@@ -898,6 +888,12 @@ function removeSnapDataset(idx) {
   renderSnapTable();
 }
 
+/* Get current global retention value for a field */
+function getGlobalRetention(field) {
+  var el = document.querySelector('[name="snap_' + field + '"]');
+  return el ? (el.value || '0') : '0';
+}
+
 function renderSnapTable() {
   var tbody = document.getElementById('snap-ds-tbody');
   if (!_snapDatasets.length) {
@@ -911,9 +907,13 @@ function renderSnapTable() {
     html += '<td>' + esc(ds.name) + '</td>';
     html += '<td><label class="zdc-toggle" style="margin:auto;"><input type="checkbox" onchange="snapDsField('+i+',\'recursive\',this.checked)" '+(ds.recursive?'checked':'')+'><span class="zdc-slider"></span></label></td>';
     html += '<td><label class="zdc-toggle" style="margin:auto;"><input type="checkbox" id="snap-tpl-'+i+'" onchange="snapToggleTpl('+i+',this.checked)" '+(tpl?'checked':'')+'><span class="zdc-slider"></span></label></td>';
-    var dis = tpl ? 'disabled style="opacity:.4"' : '';
     ['hourly','daily','weekly','monthly','yearly'].forEach(function(f) {
-      html += '<td><input type="number" min="0" max="999" '+dis+' value="'+(ds[f]||'')+'" oninput="snapDsField('+i+',\''+f+'\',this.value)" style="width:52px;text-align:center;padding:2px 4px;font-size:12px;"></td>';
+      // When using template: show global value (grayed), otherwise show override input
+      var val = tpl ? getGlobalRetention(f) : (ds[f] !== undefined && ds[f] !== '' ? ds[f] : '');
+      var attrs = tpl
+        ? 'disabled title="Using global template value" style="opacity:.55;width:52px;text-align:center;padding:2px 4px;font-size:12px;background:#1e2b1e;"'
+        : 'oninput="snapDsField('+i+',\''+f+'\',this.value)" style="width:52px;text-align:center;padding:2px 4px;font-size:12px;"';
+      html += '<td><input type="number" min="0" max="999" ' + attrs + ' value="' + esc(String(val)) + '"></td>';
     });
     html += '<td><button type="button" class="btn-danger" style="padding:2px 8px;font-size:11px;" onclick="removeSnapDataset('+i+')">✕</button></td>';
     html += '</tr>';
@@ -1026,7 +1026,9 @@ function loadBrowserSnapshots() {
   var dataset = document.getElementById('browser-dataset').value;
   var sel = document.getElementById('browser-snapshot');
   while (sel.options.length > 1) sel.remove(1);
-  document.getElementById('snap-browser-area').style.display = 'none';
+  document.getElementById('snap-file-list').innerHTML =
+    '<p style="color:#8b949e;font-size:13px;">Select a dataset and snapshot above, then click Browse.</p>';
+  document.getElementById('snap-breadcrumb').innerHTML = '';
   if (!dataset) return;
 
   fetch(_base + '/snapshot_browse.php?action=list_snapshots&dataset=' + encodeURIComponent(dataset))
@@ -1044,9 +1046,15 @@ function loadBrowserSnapshots() {
 function browserBrowse(path) {
   var dataset  = document.getElementById('browser-dataset').value;
   var snapshot = document.getElementById('browser-snapshot').value;
-  if (!dataset || !snapshot) return;
+  var fileList = document.getElementById('snap-file-list');
+
+  if (!dataset || !snapshot) {
+    fileList.innerHTML = '<p style="color:#e3b341;font-size:13px;">Please select a dataset and snapshot first.</p>';
+    return;
+  }
 
   browserPath = path || '/';
+  fileList.innerHTML = '<p style="color:#8b949e;font-size:13px;">Loading…</p>';
 
   fetch(_base + '/snapshot_browse.php?action=browse'
       + '&dataset='  + encodeURIComponent(dataset)
@@ -1054,17 +1062,14 @@ function browserBrowse(path) {
       + '&path='     + encodeURIComponent(browserPath))
   .then(function(r){ return r.json(); })
   .then(function(res) {
-    document.getElementById('snap-browser-area').style.display = '';
     if (!res.ok) {
-      document.getElementById('snap-file-list').innerHTML =
-        '<p style="color:#f85149;">' + esc(res.error) + '</p>';
+      fileList.innerHTML = '<p style="color:#f85149;">Error: ' + esc(res.error) + '</p>';
       return;
     }
     renderBreadcrumb(res.crumbs);
     renderFileList(res.entries, dataset, snapshot, res.path);
   }).catch(function(e){
-    document.getElementById('snap-file-list').innerHTML =
-      '<p style="color:#f85149;">Error: ' + esc(String(e)) + '</p>';
+    fileList.innerHTML = '<p style="color:#f85149;">Request failed: ' + esc(String(e)) + '</p>';
   });
 }
 

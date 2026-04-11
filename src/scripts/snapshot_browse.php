@@ -162,12 +162,6 @@ if ($action === 'browse') {
 // Copies a file or directory from snapshot back to the live dataset
 // -----------------------------------------------------------------------
 if ($action === 'restore') {
-    $csrf = $_POST['csrf_token'] ?? '';
-    if (empty($csrf)) {
-        echo json_encode(['ok' => false, 'error' => 'Missing CSRF token']);
-        exit;
-    }
-
     $dataset  = $_POST['dataset']  ?? '';
     $snapshot = $_POST['snapshot'] ?? '';
     $src_rel  = $_POST['src_path'] ?? '';   // path relative to snapshot root

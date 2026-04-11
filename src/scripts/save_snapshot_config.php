@@ -9,12 +9,6 @@ set_error_handler(function($errno, $errstr) {
     exit;
 });
 
-$csrf = $_POST['csrf_token'] ?? '';
-if (empty($csrf)) {
-    echo json_encode(['ok' => false, 'error' => 'Missing CSRF token']);
-    exit;
-}
-
 $config_dir = '/boot/config/plugins/zfs.dataset.converter';
 $datasets_raw = $_POST['datasets_json'] ?? '';
 

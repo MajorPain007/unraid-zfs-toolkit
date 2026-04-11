@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.dataset.converter">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2025.04.14">
-<!ENTITY md5       "e47d3629bb34b247d53b4c9b3629279c">
+<!ENTITY version   "2025.04.15">
+<!ENTITY md5       "ee4f76b768cbb72e1973caa282ce528d">
 <!ENTITY launch    "Settings/ZFSDatasetConverter">
 <!ENTITY github    "MajorPain007/zfs-dataset-converter">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,12 @@
         icon="database">
 
 <CHANGES>
+## Version 2025.04.15
+- Fix "Missing CSRF token" on Run Now and Restore buttons
+- Fix snapshot browser not opening (removed hidden state, added Browse button)
+- Fix template datasets showing blank values (now shows global retention values)
+- Fix dataset config loading (was fetching /boot/config directly over HTTP)
+
 ## Version 2025.04.14
 - Add native ZFS snapshot management (no external tools required)
 - Snapshot scheduler: frequent / hourly / daily / weekly / monthly / yearly retention
