@@ -351,13 +351,15 @@ function toggle(id, show) { document.getElementById(id).style.display = show ? '
 function formData() {
   var f = document.getElementById('settings-form');
   var bools = ['dry_run','cleanup','replace_spaces','send_notifications',
-               'should_process_containers','should_process_vms'];
+               'should_process_containers','should_process_vms',
+               'cron_enabled'];
   var d = {};
   bools.forEach(function(n) {
     d[n] = (f.elements[n] && f.elements[n].checked) ? 'yes' : 'no';
   });
   ['buffer_zone','validation_tolerance','appdata_pool','appdata_dataset',
-   'vm_pool','vm_dataset','vm_forceshutdown_wait','extra_datasets'].forEach(function(n) {
+   'vm_pool','vm_dataset','vm_forceshutdown_wait','extra_datasets',
+   'cron_preset','cron_hour','cron_minute','cron_weekday','cron_custom'].forEach(function(n) {
     if (f.elements[n]) d[n] = f.elements[n].value;
   });
   return d;

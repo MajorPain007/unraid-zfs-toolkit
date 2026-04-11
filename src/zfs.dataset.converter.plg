@@ -5,7 +5,7 @@
 <!ENTITY version     "2025.04.12">
 <!ENTITY launch      "Settings/ZFSDatasetConverter">
 <!ENTITY pluginURL   "https://raw.githubusercontent.com/MajorPain007/zfs-dataset-converter/main/src/zfs.dataset.converter.plg">
-<!ENTITY srcURL      "https://raw.githubusercontent.com/MajorPain007/zfs-dataset-converter/main/src">
+<!ENTITY pkgURL      "https://raw.githubusercontent.com/MajorPain007/zfs-dataset-converter/main/build">
 <!ENTITY pluginDir   "/usr/local/emhttp/plugins/&name;">
 <!ENTITY configDir   "/boot/config/plugins/&name;">
 <!ENTITY tmpDir      "/tmp/&name;">
@@ -20,9 +20,10 @@
 ## Version 2025.04.12
 - Add automatic schedule (cron) with hourly/6h/daily/weekly/custom options
 - Cron job auto-restored on reboot via rc.d script
-- Fix HTML entity encoding in log viewer
+- Fix cron settings not persisting after page reload
+- Fix plugin update via Unraid GUI (versioned txz package)
+- Fix HTML entity encoding in log viewer (&amp;#039; → ')
 - Fix "Error" status badge when nothing to convert
-- PHP error handlers always return JSON
 
 ## Version 2025.04.11
 - Initial release
@@ -34,54 +35,21 @@
 - Unraid notification support
 </CHANGES>
 
-<!-- Create directories -->
+<!-- Create required directories -->
 <FILE Run="/bin/bash">
 <INLINE>
-mkdir -p &pluginDir;/scripts
 mkdir -p &configDir;
 mkdir -p &tmpDir;
 </INLINE>
 </FILE>
 
-<!-- GUI page -->
-<FILE Name="&pluginDir;/ZFSDatasetConverter.page">
-<URL>&srcURL;/ZFSDatasetConverter.page</URL>
+<!-- Download and install versioned plugin package (guaranteed fresh on each version bump) -->
+<FILE Name="&configDir;/&name;-&version;.txz" Run="upgradepkg --install-new">
+<URL>&pkgURL;/&name;-&version;.txz</URL>
+<MD5>af65ab43c44744b7b69e92166a7be3b9</MD5>
 </FILE>
 
-<!-- Backend scripts -->
-<FILE Name="&pluginDir;/scripts/scan_folders.php">
-<URL>&srcURL;/scripts/scan_folders.php</URL>
-</FILE>
-
-<FILE Name="&pluginDir;/scripts/start_conversion.php">
-<URL>&srcURL;/scripts/start_conversion.php</URL>
-</FILE>
-
-<FILE Name="&pluginDir;/scripts/get_status.php">
-<URL>&srcURL;/scripts/get_status.php</URL>
-</FILE>
-
-<FILE Name="&pluginDir;/scripts/get_logs.php">
-<URL>&srcURL;/scripts/get_logs.php</URL>
-</FILE>
-
-<FILE Name="&pluginDir;/scripts/save_settings.php">
-<URL>&srcURL;/scripts/save_settings.php</URL>
-</FILE>
-
-<FILE Name="&pluginDir;/scripts/zfs_converter.sh" Mode="755">
-<URL>&srcURL;/scripts/zfs_converter.sh</URL>
-</FILE>
-
-<FILE Name="&pluginDir;/scripts/run_auto.sh" Mode="755">
-<URL>&srcURL;/scripts/run_auto.sh</URL>
-</FILE>
-
-<FILE Name="&pluginDir;/scripts/setup_cron.sh" Mode="755">
-<URL>&srcURL;/scripts/setup_cron.sh</URL>
-</FILE>
-
-<!-- rc.d script: recreate cron on every boot -->
+<!-- rc.d script for boot persistence of cron job -->
 <FILE Name="/etc/rc.d/rc.zfs-dataset-converter" Mode="755">
 <INLINE>
 #!/bin/bash
@@ -90,11 +58,11 @@ mkdir -p &tmpDir;
 </INLINE>
 </FILE>
 
-<!-- Default config (only written if not already present) -->
+<!-- Write default config if not present, then apply cron -->
 <FILE Run="/bin/bash">
 <INLINE>
 if [ ! -f &configDir;/settings.cfg ]; then
-cat > &configDir;/settings.cfg &lt;&lt; 'EOF'
+cat &gt; &configDir;/settings.cfg &lt;&lt; 'SETTINGS_EOF'
 # ZFS Dataset Converter - default settings
 dry_run=yes
 cleanup=yes
@@ -116,22 +84,21 @@ cron_hour=2
 cron_minute=0
 cron_weekday=0
 cron_custom=0 2 * * *
-EOF
+SETTINGS_EOF
 fi
 
-# Apply cron from saved settings (if enabled)
-/usr/local/emhttp/plugins/zfs.dataset.converter/scripts/setup_cron.sh &gt;/tmp/zfs.dataset.converter/setup_cron.log 2&gt;&amp;1
+# Apply cron from saved settings
+/usr/local/emhttp/plugins/zfs.dataset.converter/scripts/setup_cron.sh &gt;&amp;1
 </INLINE>
 </FILE>
 
 <!-- Uninstall -->
 <FILE Run="/bin/bash" Method="remove">
 <INLINE>
-# Remove cron job
 rm -f /etc/cron.d/&name;
 rm -f /etc/rc.d/rc.zfs-dataset-converter
-if [ -f /var/run/crond.pid ]; then kill -HUP "$(cat /var/run/crond.pid)" 2>/dev/null; fi
-rm -rf &pluginDir;
+[ -f /var/run/crond.pid ] &amp;&amp; kill -HUP "$(cat /var/run/crond.pid)" 2&gt;/dev/null
+removepkg &configDir;/&name;-&version;.txz 2&gt;/dev/null || rm -rf &pluginDir;
 rm -rf &tmpDir;
 echo "ZFS Dataset Converter removed. Settings in &configDir; preserved."
 </INLINE>
