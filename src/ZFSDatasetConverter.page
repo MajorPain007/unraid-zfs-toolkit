@@ -1076,6 +1076,7 @@ function browserBrowse(path) {
     snapshot: snapshot,
     path:     browserPath
   });
+  if (typeof csrf_token !== 'undefined') params.append('csrf_token', csrf_token);
 
   fetch(_base + '/snapshot_browse.php', {
     method:  'POST',
