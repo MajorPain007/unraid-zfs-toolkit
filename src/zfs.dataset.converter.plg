@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.dataset.converter">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2025.04.12">
-<!ENTITY md5       "3d8002bf67460c9aa6964238f1317f99">
+<!ENTITY version   "2025.04.13">
+<!ENTITY md5       "17423dd46b844d8d5deb4928042a690a">
 <!ENTITY launch    "Settings/ZFSDatasetConverter">
 <!ENTITY github    "MajorPain007/zfs-dataset-converter">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,9 @@
         icon="database">
 
 <CHANGES>
+## Version 2025.04.13
+- Fix containers being stopped unnecessarily when their bind mount points to the appdata root instead of a subdirectory
+
 ## Version 2025.04.12
 - Add automatic schedule (cron) with hourly/6h/daily/weekly/custom options
 - Cron job auto-restored on reboot via rc.d script

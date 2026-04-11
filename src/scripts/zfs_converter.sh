@@ -211,6 +211,13 @@ stop_docker_containers() {
 
             local immediate_child
             immediate_child=$(echo "$bindmount" | sed -n "s|^/mnt/$source_path_appdata/||p" | cut -d "/" -f 1)
+
+            # Bind mount is to the appdata root itself (no subdirectory) — skip
+            if [[ -z "$immediate_child" ]]; then
+                log "Container ${container_name}: bind mount '${bindmount}' is to appdata root, skipping."
+                continue
+            fi
+
             local combined_path="/mnt/$source_path_appdata/$immediate_child"
 
             if ! is_zfs_dataset "$combined_path"; then
@@ -309,6 +316,13 @@ stop_virtual_machines() {
 
         local immediate_child
         immediate_child=$(echo "$vm_disk" | sed -n "s|^/mnt/$source_path_vms/||p" | cut -d "/" -f 1)
+
+        # vdisk is at the VM root itself (no subdirectory) — skip
+        if [[ -z "$immediate_child" ]]; then
+            log "VM ${vm}: vdisk '${vm_disk}' is at VM root, skipping."
+            continue
+        fi
+
         local combined_path="/mnt/$source_path_vms/$immediate_child"
 
         if ! is_zfs_dataset "$combined_path"; then
