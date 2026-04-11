@@ -26,6 +26,8 @@ $allowed = [
     'should_process_containers', 'appdata_pool', 'appdata_dataset',
     'should_process_vms', 'vm_pool', 'vm_dataset', 'vm_forceshutdown_wait',
     'buffer_zone', 'validation_tolerance', 'extra_datasets',
+    // Cron schedule
+    'cron_enabled', 'cron_preset', 'cron_hour', 'cron_minute', 'cron_weekday', 'cron_custom',
 ];
 
 $configDir  = '/boot/config/plugins/zfs.dataset.converter';
@@ -48,6 +50,12 @@ $lines[] = '';
 if (file_put_contents($configFile, implode("\n", $lines)) === false) {
     echo json_encode(['success' => false, 'error' => 'Cannot write: ' . $configFile]);
     exit;
+}
+
+// Update cron job
+$setupCron = '/usr/local/emhttp/plugins/zfs.dataset.converter/scripts/setup_cron.sh';
+if (file_exists($setupCron)) {
+    shell_exec('/bin/bash ' . escapeshellarg($setupCron) . ' 2>/dev/null');
 }
 
 echo json_encode(['success' => true]);

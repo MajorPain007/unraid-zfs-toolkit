@@ -2,7 +2,7 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name        "zfs.dataset.converter">
 <!ENTITY author      "MajorPain007">
-<!ENTITY version     "2025.04.11">
+<!ENTITY version     "2025.04.12">
 <!ENTITY launch      "Settings/ZFSDatasetConverter">
 <!ENTITY pluginURL   "https://raw.githubusercontent.com/MajorPain007/zfs-dataset-converter/main/src/zfs.dataset.converter.plg">
 <!ENTITY srcURL      "https://raw.githubusercontent.com/MajorPain007/zfs-dataset-converter/main/src">
@@ -17,6 +17,13 @@
         icon="database">
 
 <CHANGES>
+## Version 2025.04.12
+- Add automatic schedule (cron) with hourly/6h/daily/weekly/custom options
+- Cron job auto-restored on reboot via rc.d script
+- Fix HTML entity encoding in log viewer
+- Fix "Error" status badge when nothing to convert
+- PHP error handlers always return JSON
+
 ## Version 2025.04.11
 - Initial release
 - Convert regular folders to ZFS child datasets
@@ -66,6 +73,23 @@ mkdir -p &tmpDir;
 <URL>&srcURL;/scripts/zfs_converter.sh</URL>
 </FILE>
 
+<FILE Name="&pluginDir;/scripts/run_auto.sh" Mode="755">
+<URL>&srcURL;/scripts/run_auto.sh</URL>
+</FILE>
+
+<FILE Name="&pluginDir;/scripts/setup_cron.sh" Mode="755">
+<URL>&srcURL;/scripts/setup_cron.sh</URL>
+</FILE>
+
+<!-- rc.d script: recreate cron on every boot -->
+<FILE Name="/etc/rc.d/rc.zfs-dataset-converter" Mode="755">
+<INLINE>
+#!/bin/bash
+# Restore ZFS Dataset Converter cron job after boot
+/usr/local/emhttp/plugins/zfs.dataset.converter/scripts/setup_cron.sh &gt;/tmp/zfs.dataset.converter/setup_cron.log 2&gt;&amp;1
+</INLINE>
+</FILE>
+
 <!-- Default config (only written if not already present) -->
 <FILE Run="/bin/bash">
 <INLINE>
@@ -86,14 +110,27 @@ buffer_zone=11
 send_notifications=yes
 validation_tolerance=5
 extra_datasets=
+cron_enabled=no
+cron_preset=daily
+cron_hour=2
+cron_minute=0
+cron_weekday=0
+cron_custom=0 2 * * *
 EOF
 fi
+
+# Apply cron from saved settings (if enabled)
+/usr/local/emhttp/plugins/zfs.dataset.converter/scripts/setup_cron.sh &gt;/tmp/zfs.dataset.converter/setup_cron.log 2&gt;&amp;1
 </INLINE>
 </FILE>
 
 <!-- Uninstall -->
 <FILE Run="/bin/bash" Method="remove">
 <INLINE>
+# Remove cron job
+rm -f /etc/cron.d/&name;
+rm -f /etc/rc.d/rc.zfs-dataset-converter
+if [ -f /var/run/crond.pid ]; then kill -HUP "$(cat /var/run/crond.pid)" 2>/dev/null; fi
 rm -rf &pluginDir;
 rm -rf &tmpDir;
 echo "ZFS Dataset Converter removed. Settings in &configDir; preserved."

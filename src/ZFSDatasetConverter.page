@@ -256,6 +256,53 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
   </div>
 </div>
 
+<!-- Schedule / Cron -->
+<div class="zdc-card">
+  <h3>Automatic Schedule</h3>
+  <div class="zdc-row">
+    <label class="row-label">Enable auto-conversion</label>
+    <label class="zdc-toggle"><input type="checkbox" name="cron_enabled" id="cron_enabled" <?= cfgBool('cron_enabled')?'checked':'' ?> onchange="toggleCronDetails()"><span class="zdc-slider"></span></label>
+    <span class="zdc-note">Run automatically on a schedule</span>
+  </div>
+  <div id="cron-details" <?= cfgBool('cron_enabled')?'':'style="display:none"' ?>>
+    <div class="zdc-row" style="margin-left:20px">
+      <label class="row-label">Schedule</label>
+      <select name="cron_preset" id="cron_preset" onchange="updateCronPreview()" style="width:160px;background:#161b22;border:1px solid #30363d;color:#c9d1d9;border-radius:4px;padding:4px 8px;font-size:13px;">
+        <option value="hourly"  <?= cfg('cron_preset','daily')==='hourly' ?'selected':'' ?>>Every hour</option>
+        <option value="6hourly" <?= cfg('cron_preset','daily')==='6hourly'?'selected':'' ?>>Every 6 hours</option>
+        <option value="daily"   <?= cfg('cron_preset','daily')==='daily'  ?'selected':'' ?>>Daily</option>
+        <option value="weekly"  <?= cfg('cron_preset','daily')==='weekly' ?'selected':'' ?>>Weekly</option>
+        <option value="custom"  <?= cfg('cron_preset','daily')==='custom' ?'selected':'' ?>>Custom cron</option>
+      </select>
+    </div>
+    <div id="cron-time-row" class="zdc-row" style="margin-left:20px">
+      <label class="row-label">Time</label>
+      <input type="number" name="cron_hour"   id="cron_hour"   value="<?= cfg('cron_hour','2') ?>"  min="0" max="23" class="w80" style="width:60px" oninput="updateCronPreview()"> h &nbsp;
+      <input type="number" name="cron_minute" id="cron_minute" value="<?= cfg('cron_minute','0') ?>" min="0" max="59" class="w80" style="width:60px" oninput="updateCronPreview()"> min
+    </div>
+    <div id="cron-weekday-row" class="zdc-row" style="margin-left:20px;display:none">
+      <label class="row-label">Day of week</label>
+      <select name="cron_weekday" id="cron_weekday" onchange="updateCronPreview()" style="width:130px;background:#161b22;border:1px solid #30363d;color:#c9d1d9;border-radius:4px;padding:4px 8px;font-size:13px;">
+        <option value="0" <?= cfg('cron_weekday','0')==='0'?'selected':'' ?>>Sunday</option>
+        <option value="1" <?= cfg('cron_weekday','0')==='1'?'selected':'' ?>>Monday</option>
+        <option value="2" <?= cfg('cron_weekday','0')==='2'?'selected':'' ?>>Tuesday</option>
+        <option value="3" <?= cfg('cron_weekday','0')==='3'?'selected':'' ?>>Wednesday</option>
+        <option value="4" <?= cfg('cron_weekday','0')==='4'?'selected':'' ?>>Thursday</option>
+        <option value="5" <?= cfg('cron_weekday','0')==='5'?'selected':'' ?>>Friday</option>
+        <option value="6" <?= cfg('cron_weekday','0')==='6'?'selected':'' ?>>Saturday</option>
+      </select>
+    </div>
+    <div id="cron-custom-row" class="zdc-row" style="margin-left:20px;display:none">
+      <label class="row-label">Cron expression</label>
+      <input type="text" name="cron_custom" id="cron_custom" value="<?= cfg('cron_custom','0 2 * * *') ?>" style="width:180px" placeholder="0 2 * * *" oninput="updateCronPreview()">
+    </div>
+    <div class="zdc-row" style="margin-left:20px">
+      <label class="row-label">Next run</label>
+      <span id="cron-preview" style="font-size:13px;color:#79c0ff;font-family:monospace;"></span>
+    </div>
+  </div>
+</div>
+
 <div style="margin-bottom:16px;display:flex;align-items:center;gap:10px;">
   <button type="button" class="btn-secondary" onclick="saveSettings()">Save Settings</button>
   <span id="save-result" style="font-size:13px;"></span>
@@ -434,7 +481,27 @@ function pollStatus() {
     if (_logFile) fetchLogs();
     if (res.current_folder) document.getElementById('progress-text').textContent = 'Processing: ' + res.current_folder;
     if (res.status === 'completed') { stopPoll(); setStatus('done','Done'); resetButtons(); scanFolders(); }
-    else if (res.status === 'error') { stopPoll(); setStatus('error','Error'); resetButtons(); }
+    // "error" from script means "exit 0 with nothing to do" → show as Done, not Error
+    else if (res.status === 'error') {
+      stopPoll(); resetButtons();
+      // Check log to distinguish real errors from "nothing to convert"
+      if (_logFile) {
+        fetch(_base + '/get_logs.php?file=' + encodeURIComponent(_logFile) + '&offset=0')
+        .then(function(r){ return r.json(); })
+        .then(function(lg) {
+          var text = (lg.lines || []).join('\n');
+          if (text.indexOf('All folders are already datasets') !== -1 ||
+              text.indexOf('Nothing to convert') !== -1) {
+            setStatus('done','Done — nothing to convert');
+          } else {
+            setStatus('error','Error');
+          }
+          scanFolders();
+        });
+      } else {
+        setStatus('error','Error'); scanFolders();
+      }
+    }
   });
 }
 
@@ -476,9 +543,62 @@ function resetButtons() {
   document.getElementById('progress-text').textContent = '';
 }
 
+/* Cron helpers */
+function toggleCronDetails() {
+  var en = document.getElementById('cron_enabled').checked;
+  document.getElementById('cron-details').style.display = en ? '' : 'none';
+  if (en) updateCronPreview();
+}
+
+function updateCronPreview() {
+  var preset  = document.getElementById('cron_preset').value;
+  var hour    = parseInt(document.getElementById('cron_hour').value)   || 0;
+  var minute  = parseInt(document.getElementById('cron_minute').value) || 0;
+  var weekday = parseInt(document.getElementById('cron_weekday').value);
+  var custom  = document.getElementById('cron_custom').value.trim();
+
+  // Show/hide sub-rows
+  var timeRow    = document.getElementById('cron-time-row');
+  var weekRow    = document.getElementById('cron-weekday-row');
+  var customRow  = document.getElementById('cron-custom-row');
+  timeRow.style.display   = (preset === 'custom' || preset === 'hourly') ? 'none' : '';
+  weekRow.style.display   = preset === 'weekly'  ? '' : 'none';
+  customRow.style.display = preset === 'custom'  ? '' : 'none';
+
+  var days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  var pad  = function(n){ return n < 10 ? '0'+n : n; };
+  var expr, label;
+
+  switch (preset) {
+    case 'hourly':
+      expr = '0 * * * *';
+      label = 'Every hour at :00';
+      break;
+    case '6hourly':
+      expr = pad(minute) + ' */6 * * *';
+      label = 'Every 6 hours at :' + pad(minute);
+      break;
+    case 'daily':
+      expr = pad(minute) + ' ' + hour + ' * * *';
+      label = 'Daily at ' + pad(hour) + ':' + pad(minute);
+      break;
+    case 'weekly':
+      expr = pad(minute) + ' ' + hour + ' * * ' + weekday;
+      label = 'Every ' + days[weekday] + ' at ' + pad(hour) + ':' + pad(minute);
+      break;
+    case 'custom':
+      expr  = custom || '0 2 * * *';
+      label = expr;
+      break;
+  }
+
+  document.getElementById('cron-preview').textContent = expr + (label !== expr ? '  (' + label + ')' : '');
+}
+
 /* Init */
 document.getElementById('dry_run').addEventListener('change', updateDryBanner);
 updateDryBanner();
+updateCronPreview();
 fetch(_base + '/get_status.php').then(function(r){ return r.json(); })
 .then(function(res) {
   if (res.status === 'running') {
