@@ -5,7 +5,7 @@
 <!ENTITY version     "2025.04.11">
 <!ENTITY launch      "Settings/ZFSDatasetConverter">
 <!ENTITY pluginURL   "https://raw.githubusercontent.com/MajorPain007/zfs-dataset-converter/main/src/zfs.dataset.converter.plg">
-<!ENTITY rawURL      "https://raw.githubusercontent.com/MajorPain007/zfs-dataset-converter/main/src">
+<!ENTITY pkgURL      "https://raw.githubusercontent.com/MajorPain007/zfs-dataset-converter/main/build">
 <!ENTITY pluginDir   "/usr/local/emhttp/plugins/&name;">
 <!ENTITY configDir   "/boot/config/plugins/&name;">
 <!ENTITY tmpDir      "/tmp/&name;">
@@ -27,7 +27,7 @@
 - Unraid notification support
 </CHANGES>
 
-<!-- Create required directories -->
+<!-- Create config and tmp directories -->
 <FILE Run="/bin/bash">
 <INLINE>
 mkdir -p &configDir;
@@ -35,33 +35,10 @@ mkdir -p &tmpDir;
 </INLINE>
 </FILE>
 
-<!-- Install plugin files from GitHub -->
-<FILE Name="&pluginDir;/ZFSDatasetConverter.page">
-<URL>&rawURL;/ZFSDatasetConverter.page</URL>
-</FILE>
-
-<FILE Name="&pluginDir;/scripts/scan_folders.php">
-<URL>&rawURL;/scripts/scan_folders.php</URL>
-</FILE>
-
-<FILE Name="&pluginDir;/scripts/start_conversion.php">
-<URL>&rawURL;/scripts/start_conversion.php</URL>
-</FILE>
-
-<FILE Name="&pluginDir;/scripts/get_status.php">
-<URL>&rawURL;/scripts/get_status.php</URL>
-</FILE>
-
-<FILE Name="&pluginDir;/scripts/get_logs.php">
-<URL>&rawURL;/scripts/get_logs.php</URL>
-</FILE>
-
-<FILE Name="&pluginDir;/scripts/save_settings.php">
-<URL>&rawURL;/scripts/save_settings.php</URL>
-</FILE>
-
-<FILE Name="&pluginDir;/scripts/zfs_converter.sh" Mode="755">
-<URL>&rawURL;/scripts/zfs_converter.sh</URL>
+<!-- Download and install plugin package -->
+<FILE Name="&configDir;/&name;-&version;.txz" Run="tar xf &configDir;/&name;-&version;.txz -C / 2&gt;&amp;1">
+<URL>&pkgURL;/&name;-&version;.txz</URL>
+<MD5>f95bb934022601ca5fec558046e847d2</MD5>
 </FILE>
 
 <!-- Write default config if none exists -->

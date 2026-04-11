@@ -4,7 +4,6 @@ Icon="database"
 Tag="exchange-alt"
 ---
 <?php
-// Load settings
 $configFile = '/boot/config/plugins/zfs.dataset.converter/settings.cfg';
 $settings = [];
 if (file_exists($configFile)) {
@@ -15,560 +14,426 @@ if (file_exists($configFile)) {
         $settings[trim($key)] = trim($val);
     }
 }
-
 function cfg($key, $default = '') {
     global $settings;
     return htmlspecialchars($settings[$key] ?? $default, ENT_QUOTES);
 }
 function cfgBool($key, $default = 'no') {
     global $settings;
-    $v = strtolower($settings[$key] ?? $default);
-    return in_array($v, ['yes','true','1'], true);
+    return in_array(strtolower($settings[$key] ?? $default), ['yes','true','1'], true);
 }
 ?>
-
-<link rel="stylesheet" href="/webGui/styles/jquery.filetree.css">
 <style>
-  .zdc-card {
-    background: var(--bg-primary, #1e2329);
-    border: 1px solid var(--border, #3a4049);
-    border-radius: 6px;
-    padding: 18px 20px;
-    margin-bottom: 18px;
-  }
-  .zdc-card h3 {
-    margin: 0 0 14px 0;
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--text-primary, #e0e6f0);
-    text-transform: uppercase;
-    letter-spacing: .05em;
-    border-bottom: 1px solid var(--border, #3a4049);
-    padding-bottom: 8px;
-  }
-  .zdc-row {
-    display: flex;
-    align-items: center;
-    margin-bottom: 10px;
-    gap: 12px;
-  }
-  .zdc-row label {
-    min-width: 220px;
-    font-size: 13px;
-    color: var(--text-secondary, #9ba5b5);
-  }
-  .zdc-row span.note {
-    font-size: 11px;
-    color: var(--text-muted, #666);
-    margin-left: 6px;
-  }
-  .zdc-toggle {
-    position: relative;
-    display: inline-block;
-    width: 44px;
-    height: 24px;
-  }
-  .zdc-toggle input { opacity: 0; width: 0; height: 0; }
-  .zdc-slider {
-    position: absolute; inset: 0;
-    background: #555;
-    border-radius: 24px;
-    cursor: pointer;
-    transition: .2s;
-  }
-  .zdc-slider:before {
-    content: '';
-    position: absolute;
-    width: 18px; height: 18px;
-    left: 3px; bottom: 3px;
-    background: #fff;
-    border-radius: 50%;
-    transition: .2s;
-  }
-  .zdc-toggle input:checked + .zdc-slider { background: #3498db; }
-  .zdc-toggle input:checked + .zdc-slider:before { transform: translateX(20px); }
-
-  #log-viewer {
-    background: #0d1117;
-    color: #c9d1d9;
-    font-family: 'Consolas', 'Monaco', monospace;
-    font-size: 12px;
-    line-height: 1.6;
-    padding: 12px;
-    height: 340px;
-    overflow-y: auto;
-    border-radius: 4px;
-    border: 1px solid #30363d;
-    white-space: pre-wrap;
-    word-break: break-all;
-  }
-  #log-viewer .log-error   { color: #f85149; }
-  #log-viewer .log-warn    { color: #e3b341; }
-  #log-viewer .log-ok      { color: #56d364; }
-  #log-viewer .log-step    { color: #79c0ff; font-weight: bold; }
-
-  #status-badge {
-    display: inline-block;
-    padding: 3px 12px;
-    border-radius: 12px;
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: .04em;
-  }
-  .badge-idle     { background: #30363d; color: #8b949e; }
-  .badge-running  { background: #1f6feb44; color: #58a6ff; }
-  .badge-done     { background: #1a4a2744; color: #56d364; }
-  .badge-error    { background: #5a1a1a44; color: #f85149; }
-
-  #folder-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  #folder-table th {
-    text-align: left;
-    padding: 7px 10px;
-    background: var(--bg-secondary, #161b22);
-    color: var(--text-secondary, #8b949e);
-    font-weight: 600;
-    border-bottom: 1px solid var(--border, #30363d);
-  }
-  #folder-table td { padding: 6px 10px; border-bottom: 1px solid var(--border, #21262d); }
-  #folder-table tr:last-child td { border-bottom: none; }
-  .tag-folder  { color: #e3b341; }
-  .tag-dataset { color: #56d364; }
-
-  .btn-primary {
-    background: #238636;
-    color: #fff;
-    border: none;
-    padding: 8px 20px;
-    border-radius: 6px;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background .15s;
-  }
-  .btn-primary:hover  { background: #2ea043; }
-  .btn-primary:disabled { background: #555; cursor: default; }
-  .btn-secondary {
-    background: #21262d;
-    color: #c9d1d9;
-    border: 1px solid #30363d;
-    padding: 8px 16px;
-    border-radius: 6px;
-    font-size: 13px;
-    cursor: pointer;
-    transition: background .15s;
-  }
-  .btn-secondary:hover { background: #30363d; }
-  .btn-danger {
-    background: #da3633;
-    color: #fff;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 6px;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-  }
-  .btn-danger:hover { background: #f85149; }
-
-  input[type=text], input[type=number], select {
-    background: #161b22;
-    border: 1px solid #30363d;
-    color: #c9d1d9;
-    border-radius: 4px;
-    padding: 5px 8px;
-    font-size: 13px;
-    width: 160px;
-  }
-  input[type=text]:focus, input[type=number]:focus, select:focus {
-    outline: none;
-    border-color: #58a6ff;
-  }
-  .dry-run-banner {
-    background: #e3b34120;
-    border: 1px solid #e3b341;
-    border-radius: 6px;
-    padding: 8px 14px;
-    color: #e3b341;
-    font-size: 13px;
-    margin-bottom: 14px;
-    display: none;
-  }
-  #scan-spinner { display: none; margin-left: 8px; }
-</style>
-
-<div style="max-width:960px; margin:0 auto; padding:10px 0;">
-
-  <!-- Header -->
-  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
-    <div>
-      <h2 style="margin:0; font-size:20px;">ZFS Dataset Converter</h2>
-      <p style="margin:4px 0 0 0; color:#8b949e; font-size:13px;">
-        Convert plain folders to ZFS child datasets — with Docker &amp; VM awareness.
-      </p>
-    </div>
-    <div>
-      <span id="status-badge" class="badge-idle">Idle</span>
-    </div>
-  </div>
-
-  <!-- Settings -->
-  <form id="settings-form">
-  <div class="zdc-card">
-    <h3>Settings</h3>
-
-    <div class="zdc-row">
-      <label>Dry Run</label>
-      <label class="zdc-toggle">
-        <input type="checkbox" name="dry_run" id="dry_run" <?= cfgBool('dry_run','yes') ? 'checked' : '' ?>>
-        <span class="zdc-slider"></span>
-      </label>
-      <span class="note">Simulate — no changes made</span>
-    </div>
-
-    <div class="zdc-row">
-      <label>Cleanup after conversion</label>
-      <label class="zdc-toggle">
-        <input type="checkbox" name="cleanup" id="cleanup" <?= cfgBool('cleanup','yes') ? 'checked' : '' ?>>
-        <span class="zdc-slider"></span>
-      </label>
-      <span class="note">Remove temp folder after successful copy</span>
-    </div>
-
-    <div class="zdc-row">
-      <label>Replace spaces with underscores</label>
-      <label class="zdc-toggle">
-        <input type="checkbox" name="replace_spaces" id="replace_spaces" <?= cfgBool('replace_spaces') ? 'checked' : '' ?>>
-        <span class="zdc-slider"></span>
-      </label>
-    </div>
-
-    <div class="zdc-row">
-      <label>Send Unraid notifications</label>
-      <label class="zdc-toggle">
-        <input type="checkbox" name="send_notifications" id="send_notifications" <?= cfgBool('send_notifications','yes') ? 'checked' : '' ?>>
-        <span class="zdc-slider"></span>
-      </label>
-    </div>
-
-    <div class="zdc-row">
-      <label>Buffer zone (%)</label>
-      <input type="number" name="buffer_zone" id="buffer_zone" value="<?= cfg('buffer_zone','11') ?>" min="0" max="100" style="width:70px;">
-      <span class="note">Extra free space required beyond folder size</span>
-    </div>
-
-    <div class="zdc-row">
-      <label>Validation tolerance (%)</label>
-      <input type="number" name="validation_tolerance" id="validation_tolerance" value="<?= cfg('validation_tolerance','5') ?>" min="0" max="20" style="width:70px;">
-      <span class="note">Allowed size difference after copy (default 5%)</span>
-    </div>
-  </div>
-
-  <!-- Docker -->
-  <div class="zdc-card">
-    <h3>Docker Containers</h3>
-
-    <div class="zdc-row">
-      <label>Process appdata</label>
-      <label class="zdc-toggle">
-        <input type="checkbox" name="should_process_containers" id="should_process_containers"
-          <?= cfgBool('should_process_containers','yes') ? 'checked' : '' ?>
-          onchange="toggleSection('container-details', this.checked)">
-        <span class="zdc-slider"></span>
-      </label>
-    </div>
-
-    <div id="container-details" <?= cfgBool('should_process_containers','yes') ? '' : 'style="display:none"' ?>>
-      <div class="zdc-row" style="margin-left:20px;">
-        <label>Appdata pool</label>
-        <input type="text" name="appdata_pool" value="<?= cfg('appdata_pool','cache') ?>">
-      </div>
-      <div class="zdc-row" style="margin-left:20px;">
-        <label>Appdata dataset</label>
-        <input type="text" name="appdata_dataset" value="<?= cfg('appdata_dataset','appdata') ?>">
-      </div>
-    </div>
-  </div>
-
-  <!-- VMs -->
-  <div class="zdc-card">
-    <h3>Virtual Machines</h3>
-
-    <div class="zdc-row">
-      <label>Process VM domains</label>
-      <label class="zdc-toggle">
-        <input type="checkbox" name="should_process_vms" id="should_process_vms"
-          <?= cfgBool('should_process_vms') ? 'checked' : '' ?>
-          onchange="toggleSection('vm-details', this.checked)">
-        <span class="zdc-slider"></span>
-      </label>
-    </div>
-
-    <div id="vm-details" <?= cfgBool('should_process_vms') ? '' : 'style="display:none"' ?>>
-      <div class="zdc-row" style="margin-left:20px;">
-        <label>VM pool</label>
-        <input type="text" name="vm_pool" value="<?= cfg('vm_pool','cache') ?>">
-      </div>
-      <div class="zdc-row" style="margin-left:20px;">
-        <label>VM dataset</label>
-        <input type="text" name="vm_dataset" value="<?= cfg('vm_dataset','domains') ?>">
-      </div>
-      <div class="zdc-row" style="margin-left:20px;">
-        <label>Graceful shutdown timeout (s)</label>
-        <input type="number" name="vm_forceshutdown_wait" value="<?= cfg('vm_forceshutdown_wait','90') ?>" min="10" max="600" style="width:80px;">
-      </div>
-    </div>
-  </div>
-
-  <!-- Extra datasets -->
-  <div class="zdc-card">
-    <h3>Additional Source Datasets</h3>
-    <div class="zdc-row">
-      <label>Extra datasets</label>
-      <input type="text" name="extra_datasets" value="<?= cfg('extra_datasets') ?>" style="width:340px;" placeholder="pool/dataset,pool/other">
-      <span class="note">Comma-separated pool/dataset paths</span>
-    </div>
-  </div>
-
-  <div style="margin-bottom:18px;">
-    <button type="button" class="btn-secondary" onclick="saveSettings()">Save Settings</button>
-    <span id="save-result" style="margin-left:10px; font-size:13px;"></span>
-  </div>
-  </form>
-
-  <!-- Folder scanner -->
-  <div class="zdc-card">
-    <h3>Folder Scanner
-      <button type="button" class="btn-secondary" style="float:right; padding:4px 12px; font-size:12px;" onclick="scanFolders()">
-        Refresh
-      </button>
-      <span id="scan-spinner" style="float:right; margin-right:8px; color:#8b949e; font-size:12px;">Scanning...</span>
-    </h3>
-    <div id="folder-list">
-      <p style="color:#8b949e; font-size:13px; margin:0;">Click Refresh to scan for folders.</p>
-    </div>
-  </div>
-
-  <!-- Actions -->
-  <div class="zdc-card">
-    <h3>Conversion</h3>
-    <div id="dry-run-banner" class="dry-run-banner">
-      Dry run mode is active — no actual changes will be made.
-    </div>
-    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-      <button type="button" class="btn-primary" id="btn-start" onclick="startConversion()">
-        Start Conversion
-      </button>
-      <button type="button" class="btn-danger" id="btn-stop" onclick="stopConversion()" style="display:none;">
-        Stop
-      </button>
-      <span id="progress-text" style="font-size:13px; color:#8b949e;"></span>
-    </div>
-  </div>
-
-  <!-- Log viewer -->
-  <div class="zdc-card">
-    <h3>Live Log
-      <button type="button" class="btn-secondary" style="float:right; padding:4px 12px; font-size:12px;" onclick="clearLog()">Clear</button>
-    </h3>
-    <div id="log-viewer"></div>
-  </div>
-
-</div><!-- /max-width -->
-
-<script>
-var _pollInterval = null;
-var _logFile = null;
-var _logOffset = 0;
-var _pluginBase = '/plugins/zfs.dataset.converter/scripts';
-
-function toggleSection(id, show) {
-  document.getElementById(id).style.display = show ? '' : 'none';
+.zdc-wrap { max-width: 900px; }
+.zdc-card {
+  background: var(--bg-primary, #1e2329);
+  border: 1px solid var(--border, #3a4049);
+  border-radius: 6px;
+  padding: 16px 18px;
+  margin-bottom: 16px;
+}
+.zdc-card h3 {
+  margin: 0 0 12px 0;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  border-bottom: 1px solid var(--border, #3a4049);
+  padding-bottom: 7px;
+  overflow: hidden;
+}
+.zdc-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 9px;
+  min-height: 30px;
+}
+.zdc-row label.row-label {
+  min-width: 210px;
+  width: 210px;
+  font-size: 13px;
+  color: var(--text-secondary, #9ba5b5);
+  flex-shrink: 0;
+}
+.zdc-note {
+  font-size: 11px;
+  color: var(--text-muted, #666);
 }
 
-function getFormData() {
+/* Toggle switch */
+.zdc-toggle {
+  position: relative;
+  display: inline-block;
+  width: 42px;
+  height: 22px;
+  flex-shrink: 0;
+}
+.zdc-toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+.zdc-slider {
+  position: absolute; inset: 0;
+  background: #484e57;
+  border-radius: 22px;
+  cursor: pointer;
+  transition: background .2s;
+}
+.zdc-slider::before {
+  content: '';
+  position: absolute;
+  width: 16px; height: 16px;
+  left: 3px; top: 3px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform .2s;
+}
+.zdc-toggle input:checked + .zdc-slider { background: #3498db; }
+.zdc-toggle input:checked + .zdc-slider::before { transform: translateX(20px); }
+
+/* Log viewer */
+#log-viewer {
+  background: #0d1117;
+  color: #c9d1d9;
+  font-family: 'Consolas','Monaco',monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  padding: 10px;
+  height: 320px;
+  overflow-y: auto;
+  border-radius: 4px;
+  border: 1px solid #30363d;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+#log-viewer .log-error { color: #f85149; }
+#log-viewer .log-warn  { color: #e3b341; }
+#log-viewer .log-ok    { color: #56d364; }
+#log-viewer .log-step  { color: #79c0ff; font-weight: bold; }
+
+/* Status badge */
+#status-badge {
+  display: inline-block;
+  padding: 3px 11px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.badge-idle    { background:#30363d; color:#8b949e; }
+.badge-running { background:#1f6feb44; color:#58a6ff; }
+.badge-done    { background:#1a4a2744; color:#56d364; }
+.badge-error   { background:#5a1a1a44; color:#f85149; }
+
+/* Folder table */
+.zdc-table { width:100%; border-collapse:collapse; font-size:13px; margin-top:4px; }
+.zdc-table th { text-align:left; padding:6px 10px; background:var(--bg-secondary,#161b22); color:#8b949e; font-weight:600; border-bottom:1px solid #30363d; }
+.zdc-table td { padding:5px 10px; border-bottom:1px solid #21262d; }
+.zdc-table tr:last-child td { border-bottom:none; }
+.tag-folder  { color:#e3b341; font-size:12px; }
+.tag-dataset { color:#56d364; font-size:12px; }
+
+/* Buttons */
+.btn-primary   { background:#238636; color:#fff; border:none; padding:7px 18px; border-radius:5px; font-size:13px; font-weight:600; cursor:pointer; }
+.btn-primary:hover { background:#2ea043; }
+.btn-primary:disabled { background:#3d4449; color:#888; cursor:default; }
+.btn-secondary { background:#21262d; color:#c9d1d9; border:1px solid #444d56; padding:6px 14px; border-radius:5px; font-size:13px; cursor:pointer; }
+.btn-secondary:hover { background:#30363d; }
+.btn-danger    { background:#b91c1c; color:#fff; border:none; padding:7px 14px; border-radius:5px; font-size:13px; font-weight:600; cursor:pointer; }
+.btn-danger:hover { background:#f85149; }
+
+input[type=text], input[type=number] {
+  background:#161b22; border:1px solid #30363d; color:#c9d1d9;
+  border-radius:4px; padding:4px 8px; font-size:13px;
+}
+input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#58a6ff; }
+.w80  { width:80px; }
+.w180 { width:180px; }
+
+.dry-run-banner {
+  background:#e3b34118; border:1px solid #e3b34188;
+  border-radius:5px; padding:7px 13px; color:#e3b341;
+  font-size:13px; margin-bottom:12px; display:none;
+}
+</style>
+
+<div class="zdc-wrap">
+
+<!-- Header -->
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+  <div>
+    <h2 style="margin:0;font-size:18px;">ZFS Dataset Converter</h2>
+    <p style="margin:3px 0 0;color:#8b949e;font-size:12px;">Convert plain folders to ZFS child datasets — with Docker &amp; VM awareness.</p>
+  </div>
+  <span id="status-badge" class="badge-idle">Idle</span>
+</div>
+
+<form id="settings-form">
+
+<!-- General Settings -->
+<div class="zdc-card">
+  <h3>General Settings</h3>
+
+  <div class="zdc-row">
+    <label class="row-label">Dry Run</label>
+    <label class="zdc-toggle"><input type="checkbox" name="dry_run" id="dry_run" <?= cfgBool('dry_run','yes')?'checked':'' ?>><span class="zdc-slider"></span></label>
+    <span class="zdc-note">Simulate — no changes made</span>
+  </div>
+  <div class="zdc-row">
+    <label class="row-label">Cleanup after conversion</label>
+    <label class="zdc-toggle"><input type="checkbox" name="cleanup" id="cleanup" <?= cfgBool('cleanup','yes')?'checked':'' ?>><span class="zdc-slider"></span></label>
+    <span class="zdc-note">Remove temp folder after successful copy</span>
+  </div>
+  <div class="zdc-row">
+    <label class="row-label">Replace spaces with underscores</label>
+    <label class="zdc-toggle"><input type="checkbox" name="replace_spaces" id="replace_spaces" <?= cfgBool('replace_spaces')?'checked':'' ?>><span class="zdc-slider"></span></label>
+  </div>
+  <div class="zdc-row">
+    <label class="row-label">Send Unraid notifications</label>
+    <label class="zdc-toggle"><input type="checkbox" name="send_notifications" id="send_notifications" <?= cfgBool('send_notifications','yes')?'checked':'' ?>><span class="zdc-slider"></span></label>
+  </div>
+  <div class="zdc-row">
+    <label class="row-label">Buffer zone (%)</label>
+    <input type="number" name="buffer_zone" value="<?= cfg('buffer_zone','11') ?>" min="0" max="100" class="w80">
+    <span class="zdc-note">Extra free space required beyond folder size</span>
+  </div>
+  <div class="zdc-row">
+    <label class="row-label">Validation tolerance (%)</label>
+    <input type="number" name="validation_tolerance" value="<?= cfg('validation_tolerance','5') ?>" min="0" max="20" class="w80">
+    <span class="zdc-note">Allowed size difference after copy</span>
+  </div>
+</div>
+
+<!-- Docker -->
+<div class="zdc-card">
+  <h3>Docker Containers</h3>
+  <div class="zdc-row">
+    <label class="row-label">Process appdata</label>
+    <label class="zdc-toggle"><input type="checkbox" name="should_process_containers" id="should_process_containers" <?= cfgBool('should_process_containers','yes')?'checked':'' ?> onchange="toggle('container-details',this.checked)"><span class="zdc-slider"></span></label>
+  </div>
+  <div id="container-details" <?= cfgBool('should_process_containers','yes')?'':'style="display:none"' ?>>
+    <div class="zdc-row" style="margin-left:20px">
+      <label class="row-label">Appdata pool</label>
+      <input type="text" name="appdata_pool" value="<?= cfg('appdata_pool','cache') ?>" class="w180">
+    </div>
+    <div class="zdc-row" style="margin-left:20px">
+      <label class="row-label">Appdata dataset</label>
+      <input type="text" name="appdata_dataset" value="<?= cfg('appdata_dataset','appdata') ?>" class="w180">
+    </div>
+  </div>
+</div>
+
+<!-- VMs -->
+<div class="zdc-card">
+  <h3>Virtual Machines</h3>
+  <div class="zdc-row">
+    <label class="row-label">Process VM domains</label>
+    <label class="zdc-toggle"><input type="checkbox" name="should_process_vms" id="should_process_vms" <?= cfgBool('should_process_vms')?'checked':'' ?> onchange="toggle('vm-details',this.checked)"><span class="zdc-slider"></span></label>
+  </div>
+  <div id="vm-details" <?= cfgBool('should_process_vms')?'':'style="display:none"' ?>>
+    <div class="zdc-row" style="margin-left:20px">
+      <label class="row-label">VM pool</label>
+      <input type="text" name="vm_pool" value="<?= cfg('vm_pool','cache') ?>" class="w180">
+    </div>
+    <div class="zdc-row" style="margin-left:20px">
+      <label class="row-label">VM dataset</label>
+      <input type="text" name="vm_dataset" value="<?= cfg('vm_dataset','domains') ?>" class="w180">
+    </div>
+    <div class="zdc-row" style="margin-left:20px">
+      <label class="row-label">Graceful shutdown timeout (s)</label>
+      <input type="number" name="vm_forceshutdown_wait" value="<?= cfg('vm_forceshutdown_wait','90') ?>" min="10" max="600" class="w80">
+    </div>
+  </div>
+</div>
+
+<!-- Extra datasets -->
+<div class="zdc-card">
+  <h3>Additional Source Datasets</h3>
+  <div class="zdc-row">
+    <label class="row-label">Extra datasets</label>
+    <input type="text" name="extra_datasets" value="<?= cfg('extra_datasets') ?>" style="width:300px" placeholder="pool/dataset,pool/other">
+    <span class="zdc-note">Comma-separated</span>
+  </div>
+</div>
+
+<div style="margin-bottom:16px;display:flex;align-items:center;gap:10px;">
+  <button type="button" class="btn-secondary" onclick="saveSettings()">Save Settings</button>
+  <span id="save-result" style="font-size:13px;"></span>
+</div>
+</form>
+
+<!-- Folder Scanner -->
+<div class="zdc-card">
+  <h3>Folder Scanner
+    <span style="float:right;display:flex;gap:8px;align-items:center;">
+      <span id="scan-spinner" style="display:none;font-size:12px;color:#8b949e;">Scanning…</span>
+      <button type="button" class="btn-secondary" style="padding:3px 11px;font-size:12px;" onclick="scanFolders()">Refresh</button>
+    </span>
+  </h3>
+  <div id="folder-list"><p style="color:#8b949e;font-size:13px;margin:0;">Click Refresh to scan for folders.</p></div>
+</div>
+
+<!-- Conversion -->
+<div class="zdc-card">
+  <h3>Conversion</h3>
+  <div id="dry-run-banner" class="dry-run-banner">⚠ Dry run mode active — no actual changes will be made.</div>
+  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+    <button type="button" class="btn-primary" id="btn-start" onclick="startConversion()">Start Conversion</button>
+    <button type="button" class="btn-danger" id="btn-stop" onclick="stopConversion()" style="display:none;">Stop</button>
+    <span id="progress-text" style="font-size:13px;color:#8b949e;"></span>
+  </div>
+</div>
+
+<!-- Log viewer -->
+<div class="zdc-card">
+  <h3>Live Log
+    <button type="button" class="btn-secondary" style="float:right;padding:3px 11px;font-size:12px;" onclick="clearLog()">Clear</button>
+  </h3>
+  <div id="log-viewer"></div>
+</div>
+
+</div><!-- /zdc-wrap -->
+
+<script>
+var _poll = null, _logFile = null, _logOffset = 0;
+var _base = '/plugins/zfs.dataset.converter/scripts';
+
+function toggle(id, show) { document.getElementById(id).style.display = show ? '' : 'none'; }
+
+/* Collect form values as plain object */
+function formData() {
   var f = document.getElementById('settings-form');
   var bools = ['dry_run','cleanup','replace_spaces','send_notifications',
                'should_process_containers','should_process_vms'];
-  var data = {};
+  var d = {};
   bools.forEach(function(n) {
-    data[n] = f.elements[n] && f.elements[n].checked ? 'yes' : 'no';
+    d[n] = (f.elements[n] && f.elements[n].checked) ? 'yes' : 'no';
   });
   ['buffer_zone','validation_tolerance','appdata_pool','appdata_dataset',
    'vm_pool','vm_dataset','vm_forceshutdown_wait','extra_datasets'].forEach(function(n) {
-    if (f.elements[n]) data[n] = f.elements[n].value;
+    if (f.elements[n]) d[n] = f.elements[n].value;
   });
-  return data;
+  return d;
+}
+
+/* POST with form-encoding (works reliably in Unraid's PHP) */
+function postForm(url, data) {
+  return fetch(url, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: new URLSearchParams(data)
+  }).then(function(r) { return r.json(); });
 }
 
 function saveSettings() {
-  var data = getFormData();
-  fetch(_pluginBase + '/save_settings.php', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify(data)
-  })
-  .then(function(r){ return r.json(); })
+  postForm(_base + '/save_settings.php', formData())
   .then(function(res) {
     var el = document.getElementById('save-result');
     if (res.success) {
-      el.style.color = '#56d364';
-      el.textContent = 'Settings saved.';
-      updateDryRunBanner();
+      el.style.color = '#56d364'; el.textContent = 'Saved.';
+      updateDryBanner();
     } else {
-      el.style.color = '#f85149';
-      el.textContent = 'Error: ' + (res.error || 'unknown');
+      el.style.color = '#f85149'; el.textContent = 'Error: ' + (res.error||'?');
     }
-    setTimeout(function(){ el.textContent = ''; }, 3000);
-  });
+    setTimeout(function(){ el.textContent=''; }, 3000);
+  }).catch(function(e){ alert('Save failed: ' + e); });
 }
 
-function updateDryRunBanner() {
+function updateDryBanner() {
   var cb = document.getElementById('dry_run');
-  var banner = document.getElementById('dry-run-banner');
-  banner.style.display = cb && cb.checked ? 'block' : 'none';
+  document.getElementById('dry-run-banner').style.display = (cb && cb.checked) ? 'block' : 'none';
 }
 
 function scanFolders() {
-  var spinner = document.getElementById('scan-spinner');
-  spinner.style.display = 'inline';
-  var data = getFormData();
-  fetch(_pluginBase + '/scan_folders.php', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify(data)
-  })
-  .then(function(r){ return r.json(); })
+  document.getElementById('scan-spinner').style.display = 'inline';
+  postForm(_base + '/scan_folders.php', formData())
   .then(function(res) {
-    spinner.style.display = 'none';
+    document.getElementById('scan-spinner').style.display = 'none';
     renderFolderTable(res);
-  })
-  .catch(function() {
-    spinner.style.display = 'none';
-    document.getElementById('folder-list').innerHTML =
-      '<p style="color:#f85149;">Error scanning folders.</p>';
+  }).catch(function() {
+    document.getElementById('scan-spinner').style.display = 'none';
+    document.getElementById('folder-list').innerHTML = '<p style="color:#f85149;">Error scanning folders.</p>';
   });
 }
 
 function renderFolderTable(res) {
   var el = document.getElementById('folder-list');
-  if (!res || !res.sources || res.sources.length === 0) {
-    el.innerHTML = '<p style="color:#8b949e; font-size:13px;">No sources configured or no entries found.</p>';
+  if (!res || !res.sources || !res.sources.length) {
+    el.innerHTML = '<p style="color:#8b949e;font-size:13px;">No sources configured.</p>';
     return;
   }
   var html = '';
   res.sources.forEach(function(src) {
-    html += '<p style="font-weight:600; color:#79c0ff; margin:10px 0 6px 0;">' +
-             escHtml(src.path) + '</p>';
-    if (!src.entries || src.entries.length === 0) {
-      html += '<p style="color:#8b949e; font-size:13px; margin:0 0 8px 16px;">No entries found.</p>';
-      return;
-    }
-    html += '<table id="folder-table"><thead><tr>' +
-            '<th>Name</th><th>Type</th><th>Size</th></tr></thead><tbody>';
+    html += '<p style="font-weight:600;color:#79c0ff;margin:10px 0 5px">' + esc(src.path) + '</p>';
+    if (src.error) { html += '<p style="color:#f85149;font-size:12px;margin:0 0 8px 8px;">' + esc(src.error) + '</p>'; return; }
+    if (!src.entries || !src.entries.length) { html += '<p style="color:#8b949e;font-size:13px;margin:0 0 8px 8px;">No entries.</p>'; return; }
+    html += '<table class="zdc-table"><thead><tr><th>Name</th><th>Type</th><th>Size</th></tr></thead><tbody>';
     src.entries.forEach(function(e) {
-      var typeClass = e.type === 'dataset' ? 'tag-dataset' : 'tag-folder';
-      var typeLabel = e.type === 'dataset' ? 'Dataset' : 'Folder (will convert)';
-      html += '<tr><td>' + escHtml(e.name) + '</td>' +
-              '<td class="' + typeClass + '">' + typeLabel + '</td>' +
-              '<td>' + escHtml(e.size) + '</td></tr>';
+      var cls = e.type === 'dataset' ? 'tag-dataset' : 'tag-folder';
+      var lbl = e.type === 'dataset' ? '✓ Dataset' : '→ Will convert';
+      html += '<tr><td>' + esc(e.name) + '</td><td class="'+cls+'">' + lbl + '</td><td>' + esc(e.size) + '</td></tr>';
     });
     html += '</tbody></table>';
   });
   el.innerHTML = html;
 }
 
-function escHtml(s) {
-  return String(s)
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 function startConversion() {
-  clearLog();
-  _logOffset = 0;
-  var data = getFormData();
-
+  clearLog(); _logOffset = 0;
   document.getElementById('btn-start').disabled = true;
   document.getElementById('btn-stop').style.display = 'inline-block';
-  setStatus('running', 'Running');
-  appendLog('Starting conversion...\n', 'log-step');
+  setStatus('running','Running');
+  appendLog('Starting conversion…\n','log-step');
 
-  fetch(_pluginBase + '/start_conversion.php', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify(data)
-  })
-  .then(function(r){ return r.json(); })
+  postForm(_base + '/start_conversion.php', formData())
   .then(function(res) {
     if (res.success) {
       _logFile = res.log_file;
-      appendLog('Process started (PID ' + res.pid + ')\n', 'log-ok');
-      startPolling();
+      appendLog('Process started (PID ' + res.pid + ')\n','log-ok');
+      startPoll();
     } else {
-      appendLog('ERROR: ' + (res.error || 'Could not start conversion') + '\n', 'log-error');
-      setStatus('error', 'Error');
-      document.getElementById('btn-start').disabled = false;
-      document.getElementById('btn-stop').style.display = 'none';
+      appendLog('ERROR: ' + (res.error||'Could not start') + '\n','log-error');
+      resetButtons(); setStatus('error','Error');
     }
-  })
-  .catch(function(e) {
-    appendLog('ERROR: ' + e + '\n', 'log-error');
-    setStatus('error', 'Error');
-    document.getElementById('btn-start').disabled = false;
-    document.getElementById('btn-stop').style.display = 'none';
+  }).catch(function(e) {
+    appendLog('ERROR: ' + e + '\n','log-error');
+    resetButtons(); setStatus('error','Error');
   });
 }
 
 function stopConversion() {
-  fetch(_pluginBase + '/get_status.php?action=stop', {method:'POST'})
-    .then(function(){ appendLog('\nStop requested.\n', 'log-warn'); });
+  postForm(_base + '/get_status.php', {action:'stop'})
+  .then(function(){ appendLog('\nStop requested.\n','log-warn'); });
 }
 
-function startPolling() {
-  if (_pollInterval) clearInterval(_pollInterval);
-  _pollInterval = setInterval(pollStatus, 1500);
-}
-
-function stopPolling() {
-  if (_pollInterval) { clearInterval(_pollInterval); _pollInterval = null; }
-}
+function startPoll() { if (_poll) clearInterval(_poll); _poll = setInterval(pollStatus, 1500); }
+function stopPoll()  { if (_poll) { clearInterval(_poll); _poll = null; } }
 
 function pollStatus() {
-  var url = _pluginBase + '/get_status.php';
-  fetch(url)
-  .then(function(r){ return r.json(); })
+  fetch(_base + '/get_status.php').then(function(r){ return r.json(); })
   .then(function(res) {
-    if (_logFile) fetchNewLogs();
-    if (res.status === 'completed') {
-      stopPolling();
-      setStatus('done', 'Done');
-      document.getElementById('btn-start').disabled = false;
-      document.getElementById('btn-stop').style.display = 'none';
-      scanFolders();
-    } else if (res.status === 'error') {
-      stopPolling();
-      setStatus('error', 'Error');
-      document.getElementById('btn-start').disabled = false;
-      document.getElementById('btn-stop').style.display = 'none';
-    }
-    if (res.current_folder) {
-      document.getElementById('progress-text').textContent = 'Processing: ' + res.current_folder;
-    }
+    if (_logFile) fetchLogs();
+    if (res.current_folder) document.getElementById('progress-text').textContent = 'Processing: ' + res.current_folder;
+    if (res.status === 'completed') { stopPoll(); setStatus('done','Done'); resetButtons(); scanFolders(); }
+    else if (res.status === 'error') { stopPoll(); setStatus('error','Error'); resetButtons(); }
   });
 }
 
-function fetchNewLogs() {
-  fetch(_pluginBase + '/get_logs.php?file=' + encodeURIComponent(_logFile) + '&offset=' + _logOffset)
+function fetchLogs() {
+  fetch(_base + '/get_logs.php?file=' + encodeURIComponent(_logFile) + '&offset=' + _logOffset)
   .then(function(r){ return r.json(); })
   .then(function(res) {
-    if (res.lines && res.lines.length > 0) {
+    if (res.lines && res.lines.length) {
       res.lines.forEach(function(line) {
         var cls = '';
-        if (/ERROR|FAILED|VALIDATION FAILED/.test(line)) cls = 'log-error';
-        else if (/WARNING/.test(line))                    cls = 'log-warn';
-        else if (/^=== Step/.test(line))                  cls = 'log-step';
-        else if (/\bOK:/.test(line))                      cls = 'log-ok';
+        if (/ERROR|FAILED/.test(line))     cls = 'log-error';
+        else if (/WARNING/.test(line))     cls = 'log-warn';
+        else if (/^=== Step/.test(line))   cls = 'log-step';
+        else if (/\bOK:/.test(line))       cls = 'log-ok';
         appendLog(line + '\n', cls);
       });
       _logOffset = res.next_offset;
@@ -578,40 +443,35 @@ function fetchNewLogs() {
 
 function appendLog(text, cls) {
   var el = document.getElementById('log-viewer');
-  var span = document.createElement('span');
-  if (cls) span.className = cls;
-  span.textContent = text;
-  el.appendChild(span);
+  var sp = document.createElement('span');
+  if (cls) sp.className = cls;
+  sp.textContent = text;
+  el.appendChild(sp);
   el.scrollTop = el.scrollHeight;
 }
-
-function clearLog() {
-  document.getElementById('log-viewer').innerHTML = '';
-}
-
+function clearLog() { document.getElementById('log-viewer').innerHTML = ''; }
 function setStatus(type, label) {
   var el = document.getElementById('status-badge');
-  el.className = '';
-  el.classList.add('badge-' + type);
+  el.className = 'badge-' + type;
   el.textContent = label;
 }
+function resetButtons() {
+  document.getElementById('btn-start').disabled = false;
+  document.getElementById('btn-stop').style.display = 'none';
+  document.getElementById('progress-text').textContent = '';
+}
 
-// Init
-document.addEventListener('DOMContentLoaded', function() {
-  updateDryRunBanner();
-  document.getElementById('dry_run').addEventListener('change', updateDryRunBanner);
-
-  // Check if a conversion is already running
-  fetch(_pluginBase + '/get_status.php')
-  .then(function(r){ return r.json(); })
-  .then(function(res) {
-    if (res.status === 'running') {
-      _logFile = res.log_file;
-      setStatus('running', 'Running');
-      document.getElementById('btn-start').disabled = true;
-      document.getElementById('btn-stop').style.display = 'inline-block';
-      startPolling();
-    }
-  });
+/* Init */
+document.getElementById('dry_run').addEventListener('change', updateDryBanner);
+updateDryBanner();
+fetch(_base + '/get_status.php').then(function(r){ return r.json(); })
+.then(function(res) {
+  if (res.status === 'running') {
+    _logFile = res.log_file;
+    setStatus('running','Running');
+    document.getElementById('btn-start').disabled = true;
+    document.getElementById('btn-stop').style.display = 'inline-block';
+    startPoll();
+  }
 });
 </script>

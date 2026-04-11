@@ -1,17 +1,8 @@
 <?php
-/**
- * save_settings.php - Persist plugin settings to /boot/config
- */
 header('Content-Type: application/json');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     echo json_encode(['success' => false, 'error' => 'POST required']);
-    exit;
-}
-
-$input = json_decode(file_get_contents('php://input'), true);
-if (!is_array($input)) {
-    echo json_encode(['success' => false, 'error' => 'Invalid JSON body']);
     exit;
 }
 
@@ -31,8 +22,7 @@ if (!is_dir($configDir)) {
 
 $lines = ['# ZFS Dataset Converter settings - saved ' . date('Y-m-d H:i:s'), ''];
 foreach ($allowed as $key) {
-    if (!isset($input[$key])) continue;
-    $val = preg_replace('/[\r\n]/', '', $input[$key]);   // strip newlines
+    $val = isset($_POST[$key]) ? preg_replace('/[\r\n]/', '', $_POST[$key]) : '';
     $lines[] = $key . '=' . $val;
 }
 $lines[] = '';
