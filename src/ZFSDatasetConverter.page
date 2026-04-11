@@ -316,13 +316,28 @@ function formData() {
   return d;
 }
 
-/* POST with form-encoding (works reliably in Unraid's PHP) */
+/* POST with form-encoding + CSRF token (required by Unraid) */
 function postForm(url, data) {
+  var params = new URLSearchParams(data);
+  // Unraid sets csrf_token as a global JS variable
+  if (typeof csrf_token !== 'undefined') params.append('csrf_token', csrf_token);
   return fetch(url, {
     method: 'POST',
     headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-    body: new URLSearchParams(data)
-  }).then(function(r) { return r.json(); });
+    body: params
+  }).then(function(r) {
+    // Parse as text first so we can show the raw response on error
+    return r.text().then(function(txt) {
+      if (!txt || txt.trim() === '') {
+        throw new Error('Empty response (HTTP ' + r.status + '). Check Unraid logs.');
+      }
+      try { return JSON.parse(txt); }
+      catch(e) {
+        // Show first 300 chars of the actual response to help diagnose
+        throw new Error('Non-JSON (HTTP ' + r.status + '): ' + txt.slice(0,300));
+      }
+    });
+  });
 }
 
 function saveSettings() {

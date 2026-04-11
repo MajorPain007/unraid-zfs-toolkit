@@ -1,5 +1,20 @@
 <?php
+while (ob_get_level() > 0) ob_end_clean();
 header('Content-Type: application/json');
+header('Cache-Control: no-cache, no-store');
+
+set_error_handler(function(int $errno, string $errstr): bool {
+    echo json_encode(['success' => false, 'error' => "PHP[$errno]: $errstr"]);
+    exit(1);
+});
+register_shutdown_function(function(): void {
+    $e = error_get_last();
+    if ($e && ($e['type'] & (E_ERROR | E_PARSE | E_CORE_ERROR | E_COMPILE_ERROR))) {
+        while (ob_get_level() > 0) ob_end_clean();
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'error' => 'Fatal: ' . $e['message']]);
+    }
+});
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     echo json_encode(['success' => false, 'error' => 'POST required']);
@@ -17,7 +32,10 @@ $configDir  = '/boot/config/plugins/zfs.dataset.converter';
 $configFile = $configDir . '/settings.cfg';
 
 if (!is_dir($configDir)) {
-    mkdir($configDir, 0755, true);
+    if (!mkdir($configDir, 0755, true)) {
+        echo json_encode(['success' => false, 'error' => 'Cannot create config dir: ' . $configDir]);
+        exit;
+    }
 }
 
 $lines = ['# ZFS Dataset Converter settings - saved ' . date('Y-m-d H:i:s'), ''];
@@ -28,7 +46,7 @@ foreach ($allowed as $key) {
 $lines[] = '';
 
 if (file_put_contents($configFile, implode("\n", $lines)) === false) {
-    echo json_encode(['success' => false, 'error' => 'Could not write config file']);
+    echo json_encode(['success' => false, 'error' => 'Cannot write: ' . $configFile]);
     exit;
 }
 

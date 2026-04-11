@@ -1,5 +1,20 @@
 <?php
+while (ob_get_level() > 0) ob_end_clean();
 header('Content-Type: application/json');
+header('Cache-Control: no-cache, no-store');
+
+set_error_handler(function(int $errno, string $errstr): bool {
+    echo json_encode(['success' => false, 'error' => "PHP[$errno]: $errstr"]);
+    exit(1);
+});
+register_shutdown_function(function(): void {
+    $e = error_get_last();
+    if ($e && ($e['type'] & (E_ERROR | E_PARSE | E_CORE_ERROR | E_COMPILE_ERROR))) {
+        while (ob_get_level() > 0) ob_end_clean();
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'error' => 'Fatal: ' . $e['message']]);
+    }
+});
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     echo json_encode(['success' => false, 'error' => 'POST required']);
@@ -13,17 +28,18 @@ $tmpDir     = '/tmp/zfs.dataset.converter';
 if (file_exists($statusFile)) {
     $st = json_decode(file_get_contents($statusFile), true);
     if (isset($st['pid']) && file_exists('/proc/' . (int)$st['pid'])) {
-        echo json_encode(['success' => false, 'error' => 'A conversion is already running (PID ' . (int)$st['pid'] . ')']);
+        echo json_encode(['success' => false, 'error' => 'Already running (PID ' . (int)$st['pid'] . ')']);
         exit;
     }
 }
 
-if (!is_dir($tmpDir)) mkdir($tmpDir, 0755, true);
+if (!is_dir($tmpDir) && !mkdir($tmpDir, 0755, true)) {
+    echo json_encode(['success' => false, 'error' => 'Cannot create tmp dir: ' . $tmpDir]);
+    exit;
+}
 
-// Sanitize helpers
 function sanitizeBool(string $key, string $default = 'no'): string {
-    $v = strtolower(trim($_POST[$key] ?? $default));
-    return in_array($v, ['yes','true','1'], true) ? 'yes' : 'no';
+    return in_array(strtolower($_POST[$key] ?? $default), ['yes','true','1'], true) ? 'yes' : 'no';
 }
 function sanitizePath(string $key, string $default = ''): string {
     return preg_replace('/[^a-zA-Z0-9_\-. ]/', '', $_POST[$key] ?? $default);
@@ -32,7 +48,6 @@ function sanitizeInt(string $key, int $default, int $min, int $max): int {
     return max($min, min($max, (int)($_POST[$key] ?? $default)));
 }
 
-// Build extra datasets string
 $extraParts = [];
 foreach (explode(',', $_POST['extra_datasets'] ?? '') as $e) {
     $e = trim($e);
@@ -60,27 +75,26 @@ $vars = [
 
 $templateFile = __DIR__ . '/zfs_converter.sh';
 if (!file_exists($templateFile)) {
-    echo json_encode(['success' => false, 'error' => 'Template script not found: ' . $templateFile]);
+    echo json_encode(['success' => false, 'error' => 'Script not found: ' . $templateFile]);
     exit;
 }
 
 $script = file_get_contents($templateFile);
-foreach ($vars as $placeholder => $value) {
-    $script = str_replace($placeholder, $value, $script);
+foreach ($vars as $ph => $val) {
+    $script = str_replace($ph, $val, $script);
 }
 
-$scriptFile = $tmpDir . '/zfs_converter_run.sh';
-file_put_contents($scriptFile, $script);
-chmod($scriptFile, 0755);
+$runScript = $tmpDir . '/zfs_converter_run.sh';
+file_put_contents($runScript, $script);
+chmod($runScript, 0755);
 
 $logFile = $tmpDir . '/conversion_' . date('Ymd_His') . '.log';
-
-$cmd = 'nohup ' . escapeshellarg($scriptFile) . ' > ' . escapeshellarg($logFile) . ' 2>&1 & echo $!';
-$output = shell_exec('/bin/bash -c ' . escapeshellarg($cmd));
-$pid = (int)trim($output ?? '0');
+$cmd     = 'nohup ' . escapeshellarg($runScript) . ' >' . escapeshellarg($logFile) . ' 2>&1 & echo $!';
+$raw     = shell_exec('/bin/bash -c ' . escapeshellarg($cmd));
+$pid     = (int)trim($raw ?? '0');
 
 if ($pid <= 0) {
-    echo json_encode(['success' => false, 'error' => 'Failed to start background process. shell_exec output: ' . var_export($output, true)]);
+    echo json_encode(['success' => false, 'error' => 'Failed to start process. shell_exec returned: ' . var_export($raw, true)]);
     exit;
 }
 
