@@ -18,7 +18,7 @@ if (!empty($datasets_raw)) {
         echo json_encode(['ok' => false, 'error' => 'Invalid JSON: ' . json_last_error_msg()]);
         exit;
     }
-    if (file_put_contents($config_dir . '/snap_datasets.json', json_encode($datasets, JSON_PRETTY_PRINT)) === false) {
+    if (file_put_contents($config_dir . '/snap_datasets.json', json_encode($datasets, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)) === false) {
         echo json_encode(['ok' => false, 'error' => 'Failed to write snap_datasets.json']);
         exit;
     }

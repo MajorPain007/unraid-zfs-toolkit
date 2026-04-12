@@ -60,7 +60,9 @@ while ($json =~ /\{([^}]+)\}/g) {
     my $block = $1;
     my %ds;
     while ($block =~ /"(\w+)"\s*:\s*(?:"([^"]*)"|(true|false|-?\d+))/g) {
-        $ds{$1} = defined($2) ? $2 : $3;
+        my $val = defined($2) ? $2 : $3;
+        $val =~ s/\\\///g;  # unescape \/ -> / (PHP json_encode default)
+        $ds{$1} = $val;
     }
     next unless $ds{name};
     my $rec = ($ds{recursive} && $ds{recursive} eq "true") ? "1" : "0";

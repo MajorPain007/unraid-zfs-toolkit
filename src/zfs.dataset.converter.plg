@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.dataset.converter">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.04.12.04">
-<!ENTITY md5       "de750fd05ebecd8744d78a62fdf836c9">
+<!ENTITY version   "2026.04.12.05">
+<!ENTITY md5       "ff3f9f784ad73854ad28aa3d0eb2e6a9">
 <!ENTITY launch    "Settings/ZFSDatasetConverter">
 <!ENTITY github    "MajorPain007/zfs-dataset-converter">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,12 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.04.12.05
+- Fix snapshots never creating: PHP json_encode() escaped slashes as \/
+  causing snapshot_manager.sh to look for "cache\/appdata" instead of
+  "cache/appdata" — fixed with JSON_UNESCAPED_SLASHES in PHP + unescape
+  in Perl parser as fallback for existing configs
+
 ## Version 2026.04.12.04
 - Pure two-column layout: Folder Scanner / Conversion / Live Log moved
   into left column — no more full-width block at the bottom
