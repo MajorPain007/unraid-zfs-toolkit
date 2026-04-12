@@ -3,11 +3,11 @@ while (ob_get_level() > 0) ob_end_clean();
 header('Content-Type: application/json');
 header('Cache-Control: no-cache, no-store');
 
-set_error_handler(function(int $errno, string $errstr): bool {
+set_error_handler(function($errno, $errstr) {
     echo json_encode(['success' => false, 'error' => "PHP[$errno]: $errstr"]);
     exit(1);
 });
-register_shutdown_function(function(): void {
+register_shutdown_function(function() {
     $e = error_get_last();
     if ($e && ($e['type'] & (E_ERROR | E_PARSE | E_CORE_ERROR | E_COMPILE_ERROR))) {
         while (ob_get_level() > 0) ob_end_clean();
@@ -44,9 +44,24 @@ if (!is_dir($configDir)) {
     }
 }
 
+// Load existing settings so keys absent from POST are not wiped
+$existing = [];
+if (file_exists($configFile)) {
+    foreach (file($configFile) as $line) {
+        $line = trim($line);
+        if ($line === '' || $line[0] === '#') continue;
+        $parts = explode('=', $line, 2);
+        if (count($parts) === 2) $existing[trim($parts[0])] = trim($parts[1]);
+    }
+}
+
 $lines = ['# ZFS Dataset Converter settings - saved ' . date('Y-m-d H:i:s'), ''];
 foreach ($allowed as $key) {
-    $val = isset($_POST[$key]) ? preg_replace('/[\r\n]/', '', $_POST[$key]) : '';
+    if (isset($_POST[$key])) {
+        $val = preg_replace('/[\r\n]/', '', $_POST[$key]);
+    } else {
+        $val = isset($existing[$key]) ? $existing[$key] : '';
+    }
     $lines[] = $key . '=' . $val;
 }
 $lines[] = '';

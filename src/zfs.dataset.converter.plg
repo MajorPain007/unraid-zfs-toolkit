@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.dataset.converter">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.04.12.08">
-<!ENTITY md5       "07126449ef80b80d88851910d5c7626f">
+<!ENTITY version   "2026.04.12.09">
+<!ENTITY md5       "8f861f4ee8b600e9439c579c8a2b9948">
 <!ENTITY launch    "Settings/ZFSDatasetConverter">
 <!ENTITY github    "MajorPain007/zfs-dataset-converter">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,14 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.04.12.09
+- Fix settings loss: "Save Settings" (left column) was wiping all
+  snapshot settings (snapshots_enabled, snap_hourly, cron schedule etc.)
+  because save_settings.php wrote empty strings for POST keys that were
+  absent. Now merges with existing settings.cfg — only keys present in
+  the POST request are updated.
+- Fix PHP type hints in save_settings.php error handler (PHP 7 compat)
+
 ## Version 2026.04.12.08
 - Add checkboxes to snapshot browser for multi-select restore
 - "Restore Selected (N)" button with sequential restore + progress counter
