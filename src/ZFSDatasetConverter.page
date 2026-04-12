@@ -206,7 +206,10 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
     <h2 style="margin:0;font-size:18px;">ZFS Dataset Converter</h2>
     <p style="margin:3px 0 0;color:#8b949e;font-size:12px;">Convert plain folders to ZFS child datasets — with Docker &amp; VM awareness.</p>
   </div>
-  <span id="status-badge" class="badge-idle">Idle</span>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <span id="autosave-status" style="font-size:11px;color:#56d364;opacity:0;transition:opacity .4s;"></span>
+    <span id="status-badge" class="badge-idle">Idle</span>
+  </div>
 </div>
 
 <div class="zdc-main-grid">
@@ -361,8 +364,7 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
   </div>
 </div>
 
-<div style="margin-bottom:16px;display:flex;align-items:center;gap:10px;">
-  <button type="button" class="btn-secondary" onclick="saveSettings()">Save Settings</button>
+<div style="margin-bottom:16px;">
   <span id="save-result" style="font-size:13px;"></span>
 </div>
 </form>
@@ -498,7 +500,6 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
   </div>
 
   <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-    <button type="button" class="btn-secondary" onclick="saveSnapshotSettings()">Save Snapshot Settings</button>
     <button type="button" class="btn-primary" id="snap-run-btn" onclick="runSnapshotNow()" <?= cfgBool('snapshots_enabled')?'':'disabled' ?>>Run Now</button>
     <button type="button" class="btn-secondary" id="snap-log-toggle-btn" onclick="toggleSnapLog()">View Log</button>
     <span id="snap-save-result" style="font-size:13px;"></span>
@@ -838,6 +839,18 @@ document.getElementById('dry_run').addEventListener('change', updateDryBanner);
 updateDryBanner();
 updateCronPreview();
 loadCronStatus();
+
+// Auto-save: left column (all form inputs)
+document.getElementById('settings-form').addEventListener('change', _triggerAutoSave);
+document.getElementById('settings-form').addEventListener('input',  _triggerAutoSave);
+
+// Auto-save: right column snapshot settings
+document.getElementById('snapshots_enabled').addEventListener('change', _triggerAutoSave);
+var _snapDetailsEl = document.getElementById('snap-details');
+if (_snapDetailsEl) {
+  _snapDetailsEl.addEventListener('change', _triggerAutoSave);
+  _snapDetailsEl.addEventListener('input',  _triggerAutoSave);
+}
 fetch(_base + '/get_status.php').then(function(r){ return r.json(); })
 .then(function(res) {
   if (res.status === 'running') {
@@ -854,6 +867,66 @@ fetch(_base + '/get_status.php').then(function(r){ return r.json(); })
    ================================================================ */
 
 var _snapDatasets = [];  // in-memory dataset list
+
+/* ================================================================
+   Auto-save
+   ================================================================ */
+var _autoSaveTimer = null;
+
+function _showAutoStatus(msg, color, fadeMs) {
+  var el = document.getElementById('autosave-status');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.color = color || '#8b949e';
+  el.style.opacity = '1';
+  if (fadeMs) setTimeout(function() { el.style.opacity = '0'; }, fadeMs);
+}
+
+function _triggerAutoSave() {
+  clearTimeout(_autoSaveTimer);
+  _autoSaveTimer = setTimeout(_doAutoSave, 800);
+}
+
+function _doAutoSave() {
+  _showAutoStatus('Saving\u2026', '#8b949e', 0);
+
+  var d = formData();
+  d['snapshots_enabled'] = document.getElementById('snapshots_enabled').checked ? 'yes' : 'no';
+  ['snap_hourly','snap_daily','snap_weekly','snap_monthly','snap_yearly',
+   'snap_frequent','snap_daily_hour'].forEach(function(n) {
+    var el = document.querySelector('[name="'+n+'"]');
+    if (el) d[n] = el.value;
+  });
+  var presetEl = document.getElementById('snap_schedule_preset');
+  if (presetEl) d['snap_schedule_preset'] = presetEl.value;
+  var customEl = document.getElementById('snap_schedule_custom');
+  if (customEl) d['snap_schedule_custom'] = customEl.value;
+
+  postForm(_base + '/save_settings.php', d)
+  .then(function(res) {
+    if (!res.success) throw new Error(res.error || 'save_settings failed');
+    updateDryBanner();
+    setTimeout(loadCronStatus, 500);
+    if (document.getElementById('snapshots_enabled').checked) setTimeout(loadSnapshotStatus, 500);
+    var params = new URLSearchParams({datasets_json: JSON.stringify({datasets: _snapDatasets})});
+    if (typeof csrf_token !== 'undefined') params.append('csrf_token', csrf_token);
+    return fetch(_base + '/save_snapshot_config.php', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: params
+    }).then(function(r) { return r.json(); });
+  })
+  .then(function(res2) {
+    if (res2.ok) {
+      _showAutoStatus('\u2713 Saved', '#56d364', 2000);
+    } else {
+      _showAutoStatus('\u2717 ' + (res2.error || 'Error'), '#f85149', 0);
+    }
+  })
+  .catch(function() {
+    _showAutoStatus('\u2717 Save error', '#f85149', 0);
+  });
+}
 
 function toggleSnapDetails() {
   var en = document.getElementById('snapshots_enabled').checked;
@@ -921,11 +994,13 @@ function addSnapDataset() {
                        hourly:'', daily:'', weekly:'', monthly:'', yearly:''});
   picker.value = '';
   renderSnapTable();
+  _triggerAutoSave();
 }
 
 function removeSnapDataset(idx) {
   _snapDatasets.splice(idx, 1);
   renderSnapTable();
+  _triggerAutoSave();
 }
 
 /* Get current global retention value for a field */
@@ -962,13 +1037,14 @@ function renderSnapTable() {
 }
 
 function snapDsField(idx, field, val) {
-  if (field === 'recursive') _snapDatasets[idx][field] = val;
-  else _snapDatasets[idx][field] = val;
+  _snapDatasets[idx][field] = val;
+  _triggerAutoSave();
 }
 
 function snapToggleTpl(idx, checked) {
   _snapDatasets[idx].use_template = checked;
   renderSnapTable();
+  _triggerAutoSave();
 }
 
 function saveSnapshotSettings() {

@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.dataset.converter">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.04.12.09">
-<!ENTITY md5       "8f861f4ee8b600e9439c579c8a2b9948">
+<!ENTITY version   "2026.04.12.10">
+<!ENTITY md5       "4b68171943ba180f9cc7eeea0e5dfb45">
 <!ENTITY launch    "Settings/ZFSDatasetConverter">
 <!ENTITY github    "MajorPain007/zfs-dataset-converter">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,13 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.04.12.10
+- Auto-save: all settings are saved automatically 800 ms after the last
+  change — no Save buttons needed. Small "✓ Saved" indicator appears in
+  the header and fades after 2 s. Covers: all left-column inputs, all
+  snapshot settings, dataset add/remove/toggle, retention overrides.
+- Remove "Save Settings" and "Save Snapshot Settings" buttons
+
 ## Version 2026.04.12.09
 - Fix settings loss: "Save Settings" (left column) was wiping all
   snapshot settings (snapshots_enabled, snap_hourly, cron schedule etc.)
