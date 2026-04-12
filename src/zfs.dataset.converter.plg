@@ -19,6 +19,14 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.04.12.04
+- Pure two-column layout: Folder Scanner / Conversion / Live Log moved
+  into left column — no more full-width block at the bottom
+- snapshot_manager.sh: when dataset not found, log all available ZFS
+  datasets so the correct name can be identified
+- snapshot_manager.sh: silent zfs failures now logged as
+  "no error output from zfs" instead of an empty suffix
+
 ## Version 2026.04.12.02
 - Full-width two-column layout: settings left, snapshots+browser right
 - Folder Scanner / Conversion / Live Log span full width at bottom
