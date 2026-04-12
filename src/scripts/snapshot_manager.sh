@@ -93,8 +93,13 @@ create_snapshot() {
     local snap_name="${dataset}@auto-${type}-${label}"
 
     # Verify dataset exists before attempting snapshot
-    if ! zfs list -H -o name "${dataset}" &>/dev/null; then
+    local ds_check
+    ds_check=$(zfs list -H -o name "${dataset}" 2>&1)
+    if [ $? -ne 0 ]; then
+        local avail
+        avail=$(zfs list -H -o name 2>/dev/null | tr '\n' ' ')
         log_err "Dataset does not exist: ${dataset}"
+        log_err "Available ZFS datasets: ${avail:-none found / zfs not available}"
         return 1
     fi
 
@@ -111,7 +116,7 @@ create_snapshot() {
     if out=$(zfs snapshot $flags "${snap_name}" 2>&1); then
         log_ok "Created ${snap_name}"
     else
-        log_err "Failed to create ${snap_name}: ${out}"
+        log_err "Failed to create ${snap_name}: ${out:-no error output from zfs}"
     fi
 }
 

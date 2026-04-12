@@ -366,6 +366,37 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
   <span id="save-result" style="font-size:13px;"></span>
 </div>
 </form>
+
+<!-- Folder Scanner -->
+<div class="zdc-card">
+  <h3>Folder Scanner
+    <span style="float:right;display:flex;gap:8px;align-items:center;">
+      <span id="scan-spinner" style="display:none;font-size:12px;color:#8b949e;">Scanning…</span>
+      <button type="button" class="btn-secondary" style="padding:3px 11px;font-size:12px;" onclick="scanFolders()">Refresh</button>
+    </span>
+  </h3>
+  <div id="folder-list"><p style="color:#8b949e;font-size:13px;margin:0;">Click Refresh to scan for folders.</p></div>
+</div>
+
+<!-- Conversion -->
+<div class="zdc-card">
+  <h3>Conversion</h3>
+  <div id="dry-run-banner" class="dry-run-banner">⚠ Dry run mode active — no actual changes will be made.</div>
+  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+    <button type="button" class="btn-primary" id="btn-start" onclick="startConversion()">Start Conversion</button>
+    <button type="button" class="btn-danger" id="btn-stop" onclick="stopConversion()" style="display:none;">Stop</button>
+    <span id="progress-text" style="font-size:13px;color:#8b949e;"></span>
+  </div>
+</div>
+
+<!-- Live Log -->
+<div class="zdc-card">
+  <h3>Live Log
+    <button type="button" class="btn-secondary" style="float:right;padding:3px 11px;font-size:12px;" onclick="clearLog()">Clear</button>
+  </h3>
+  <div id="log-viewer"></div>
+</div>
+
 </div><!-- /left col -->
 
 <!-- ════ RIGHT COLUMN: Snapshots ════ -->
@@ -524,38 +555,6 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
 </div>
 </div><!-- /right col -->
 </div><!-- /main grid -->
-
-<!-- ════ FULL-WIDTH BOTTOM ════ -->
-
-<!-- Folder Scanner -->
-<div class="zdc-card">
-  <h3>Folder Scanner
-    <span style="float:right;display:flex;gap:8px;align-items:center;">
-      <span id="scan-spinner" style="display:none;font-size:12px;color:#8b949e;">Scanning…</span>
-      <button type="button" class="btn-secondary" style="padding:3px 11px;font-size:12px;" onclick="scanFolders()">Refresh</button>
-    </span>
-  </h3>
-  <div id="folder-list"><p style="color:#8b949e;font-size:13px;margin:0;">Click Refresh to scan for folders.</p></div>
-</div>
-
-<!-- Conversion -->
-<div class="zdc-card">
-  <h3>Conversion</h3>
-  <div id="dry-run-banner" class="dry-run-banner">⚠ Dry run mode active — no actual changes will be made.</div>
-  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-    <button type="button" class="btn-primary" id="btn-start" onclick="startConversion()">Start Conversion</button>
-    <button type="button" class="btn-danger" id="btn-stop" onclick="stopConversion()" style="display:none;">Stop</button>
-    <span id="progress-text" style="font-size:13px;color:#8b949e;"></span>
-  </div>
-</div>
-
-<!-- Log viewer -->
-<div class="zdc-card">
-  <h3>Live Log
-    <button type="button" class="btn-secondary" style="float:right;padding:3px 11px;font-size:12px;" onclick="clearLog()">Clear</button>
-  </h3>
-  <div id="log-viewer"></div>
-</div>
 
 </div><!-- /zdc-wrap -->
 
