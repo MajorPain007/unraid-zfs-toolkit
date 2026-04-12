@@ -92,18 +92,26 @@ create_snapshot() {
 
     local snap_name="${dataset}@auto-${type}-${label}"
 
+    # Verify dataset exists before attempting snapshot
+    if ! zfs list -H -o name "${dataset}" &>/dev/null; then
+        log_err "Dataset does not exist: ${dataset}"
+        return 1
+    fi
+
     # Skip if already exists (idempotent runs)
-    if zfs list -H -t snapshot -o name "$snap_name" &>/dev/null 2>&1; then
+    if zfs list -H -t snapshot -o name "${snap_name}" &>/dev/null; then
+        log "Skipping ${snap_name} (already exists)"
         return 0
     fi
 
     local flags=""
     [ "$recursive" = "1" ] && flags="-r"
 
-    if zfs snapshot $flags "${snap_name}" 2>/dev/null; then
+    local out
+    if out=$(zfs snapshot $flags "${snap_name}" 2>&1); then
         log_ok "Created ${snap_name}"
     else
-        log_err "Failed to create ${snap_name}"
+        log_err "Failed to create ${snap_name}: ${out}"
     fi
 }
 
@@ -132,10 +140,11 @@ prune_snapshots() {
         local snap="${snaps[$i]}"
         local flags=""
         [ "$recursive" = "1" ] && flags="-r"
-        if zfs destroy $flags "$snap" 2>/dev/null; then
+        local derr
+        if derr=$(zfs destroy $flags "$snap" 2>&1); then
             log "Pruned ${snap}"
         else
-            log_warn "Could not prune ${snap}"
+            log_warn "Could not prune ${snap}: ${derr}"
         fi
     done
 }

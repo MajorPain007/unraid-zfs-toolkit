@@ -24,7 +24,17 @@ function cfgBool($key, $default = 'no') {
 }
 ?>
 <style>
-.zdc-wrap { max-width: 900px; }
+.zdc-wrap { width: 100%; }
+.zdc-main-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 54fr) minmax(0, 46fr);
+  gap: 0 16px;
+  align-items: start;
+}
+@media (max-width: 1050px) {
+  .zdc-main-grid { grid-template-columns: 1fr; }
+}
+.zdc-col { min-width: 0; }
 .zdc-card {
   background: var(--bg-primary, #1e2329);
   border: 1px solid var(--border, #3a4049);
@@ -51,12 +61,15 @@ function cfgBool($key, $default = 'no') {
   min-height: 30px;
 }
 .zdc-row label.row-label {
-  min-width: 210px;
-  width: 210px;
+  min-width: 180px;
+  width: 180px;
   font-size: 13px;
   color: var(--text-secondary, #9ba5b5);
   flex-shrink: 0;
 }
+/* Snapshot dataset table: allow horizontal scroll on narrow columns */
+.snap-table-scroll { overflow-x: auto; }
+.snap-table { width:100%; border-collapse:collapse; font-size:12px; margin-top:6px; min-width:540px; }
 .zdc-note {
   font-size: 11px;
   color: var(--text-muted, #666);
@@ -125,8 +138,7 @@ function cfgBool($key, $default = 'no') {
 .badge-done    { background:#1a4a2744; color:#56d364; }
 .badge-error   { background:#5a1a1a44; color:#f85149; }
 
-/* Snapshot dataset table */
-.snap-table { width:100%; border-collapse:collapse; font-size:12px; margin-top:6px; }
+/* Snapshot dataset table (kept for th/td styles) */
 .snap-table th { text-align:center; padding:5px 8px; background:var(--bg-secondary,#161b22); color:#8b949e; font-weight:600; border-bottom:1px solid #30363d; }
 .snap-table td { padding:4px 6px; border-bottom:1px solid #21262d; text-align:center; vertical-align:middle; }
 .snap-table td:first-child { text-align:left; font-family:monospace; font-size:12px; }
@@ -197,6 +209,10 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
   <span id="status-badge" class="badge-idle">Idle</span>
 </div>
 
+<div class="zdc-main-grid">
+
+<!-- ════ LEFT COLUMN: Settings ════ -->
+<div class="zdc-col">
 <form id="settings-form">
 
 <!-- General Settings -->
@@ -350,6 +366,10 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
   <span id="save-result" style="font-size:13px;"></span>
 </div>
 </form>
+</div><!-- /left col -->
+
+<!-- ════ RIGHT COLUMN: Snapshots ════ -->
+<div class="zdc-col">
 
 <!-- ================================================================ -->
 <!-- Snapshot Settings                                              -->
@@ -414,6 +434,7 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
     <!-- Datasets -->
     <p style="font-size:12px;color:#8b949e;margin:10px 0 6px 20px;font-weight:600;">Datasets to snapshot</p>
     <div style="margin-left:20px;">
+      <div class="snap-table-scroll">
       <table class="snap-table" id="snap-ds-table">
         <thead><tr>
           <th style="text-align:left">Dataset</th>
@@ -424,6 +445,7 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
         </tr></thead>
         <tbody id="snap-ds-tbody"></tbody>
       </table>
+      </div><!-- /snap-table-scroll -->
       <div style="margin-top:8px;display:flex;gap:8px;align-items:center;">
         <select id="snap-ds-picker" class="snap-sel" style="width:260px">
           <option value="">— select dataset —</option>
@@ -471,13 +493,13 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
   <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px;">
     <div>
       <label style="font-size:12px;color:#9ba5b5;display:block;margin-bottom:3px;">Dataset</label>
-      <select id="browser-dataset" class="snap-sel" style="width:260px" onchange="loadBrowserSnapshots()">
+      <select id="browser-dataset" class="snap-sel" style="width:min(260px,100%)" onchange="loadBrowserSnapshots()">
         <option value="">— select dataset —</option>
       </select>
     </div>
     <div>
       <label style="font-size:12px;color:#9ba5b5;display:block;margin-bottom:3px;">Snapshot</label>
-      <select id="browser-snapshot" class="snap-sel" style="width:260px" onchange="browserBrowse('/')">
+      <select id="browser-snapshot" class="snap-sel" style="width:min(260px,100%)" onchange="browserBrowse('/')">
         <option value="">— select snapshot —</option>
       </select>
     </div>
@@ -500,6 +522,10 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
     </div>
   </div>
 </div>
+</div><!-- /right col -->
+</div><!-- /main grid -->
+
+<!-- ════ FULL-WIDTH BOTTOM ════ -->
 
 <!-- Folder Scanner -->
 <div class="zdc-card">

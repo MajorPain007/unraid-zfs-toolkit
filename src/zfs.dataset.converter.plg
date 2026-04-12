@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.dataset.converter">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.04.12.01">
-<!ENTITY md5       "7cdc74d7fff032dc491d61296288841a">
+<!ENTITY version   "2026.04.12.02">
+<!ENTITY md5       "21a3d03b833a65cdba8833bb3123d749">
 <!ENTITY launch    "Settings/ZFSDatasetConverter">
 <!ENTITY github    "MajorPain007/zfs-dataset-converter">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,14 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.04.12.02
+- Full-width two-column layout: settings left, snapshots+browser right
+- Folder Scanner / Conversion / Live Log span full width at bottom
+- Snapshot dataset table gets horizontal scroll on narrow screens
+- snapshot_manager.sh now captures and logs actual zfs error messages
+  (was: silently swallowed via 2>/dev/null)
+- Add dataset-existence check before attempting snapshot creation
+
 ## Version 2026.04.12.01
 - Add snapshot log viewer (shows last 30 lines of snapshots.log)
 - Show configured dataset count in snapshot status bar
