@@ -223,24 +223,28 @@ if ($action === 'restore') {
         }
     }
 
-    $dst_dir = dirname($dst);
-    if (!is_dir($dst_dir)) {
-        if (!mkdir($dst_dir, 0755, true)) {
-            zdc_out(array('ok' => false, 'error' => 'Cannot create directory: ' . $dst_dir));
+    // Ensure destination directory exists
+    if (!is_dir($dst)) {
+        if (!mkdir($dst, 0755, true)) {
+            zdc_out(array('ok' => false, 'error' => 'Cannot create directory: ' . $dst));
         }
     }
 
     if (is_dir($src)) {
+        // Directory: rsync contents into dst
         $cmd = 'rsync -a ' . escapeshellarg($src . '/') . ' ' . escapeshellarg($dst . '/') . ' 2>&1';
+        $check = $dst;
     } else {
-        $cmd = 'cp -a ' . escapeshellarg($src) . ' ' . escapeshellarg($dst) . ' 2>&1';
+        // File: copy into dst directory, keeping original filename
+        $cmd = 'cp -a ' . escapeshellarg($src) . ' ' . escapeshellarg($dst . '/') . ' 2>&1';
+        $check = $dst . '/' . basename($src);
     }
     $output = shell_exec($cmd);
 
-    if (!file_exists($dst)) {
+    if (!file_exists($check)) {
         zdc_out(array('ok' => false, 'error' => 'Restore failed: ' . trim($output)));
     }
-    zdc_out(array('ok' => true, 'dst' => $dst, 'message' => 'Restored successfully.'));
+    zdc_out(array('ok' => true, 'dst' => $check, 'message' => 'Restored successfully.'));
 }
 
 zdc_out(array('ok' => false, 'error' => 'Unknown action: ' . htmlspecialchars($action)));

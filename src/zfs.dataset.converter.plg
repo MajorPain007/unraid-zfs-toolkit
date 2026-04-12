@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.dataset.converter">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.04.12.06">
-<!ENTITY md5       "834391b5ded58a637cce673bafd80d2d">
+<!ENTITY version   "2026.04.12.07">
+<!ENTITY md5       "9d15cbdfbc20fe5680e47a679969edea">
 <!ENTITY launch    "Settings/ZFSDatasetConverter">
 <!ENTITY github    "MajorPain007/zfs-dataset-converter">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,13 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.04.12.07
+- Fix restore: destination is now always treated as a folder — files are
+  restored inside it with their original filename (e.g. restoring
+  traefik.yml to /mnt/user/Backup → /mnt/user/Backup/traefik.yml).
+  Previously cp renamed the file to the destination name when the folder
+  did not yet exist.
+
 ## Version 2026.04.12.06
 - Fix restore to absolute destination path (e.g. /mnt/user/Backup):
   zdc_safe_path() was stripping the leading slash and appending the path
