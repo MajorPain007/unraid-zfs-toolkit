@@ -545,10 +545,11 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
     <div id="snap-file-list">
       <p style="color:#8b949e;font-size:13px;">Select a dataset and snapshot above, then click Browse.</p>
     </div>
-    <!-- Restore destination override -->
-    <div style="margin-top:10px;display:flex;align-items:center;gap:10px;font-size:12px;">
-      <span style="color:#9ba5b5;white-space:nowrap;">Restore destination:</span>
-      <input type="text" id="restore-dst" style="flex:1;max-width:400px;font-size:12px;" placeholder="Destination folder — empty = original location">
+    <!-- Restore controls -->
+    <div style="margin-top:10px;display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:12px;">
+      <span style="color:#9ba5b5;white-space:nowrap;">Destination folder:</span>
+      <input type="text" id="restore-dst" style="flex:1;min-width:160px;max-width:320px;font-size:12px;" placeholder="empty = original location">
+      <button type="button" class="btn-primary" style="padding:4px 12px;font-size:12px;" onclick="restoreSelected()">Restore Selected (<span id="sel-count">0</span>)</button>
       <span id="restore-result" style="font-size:12px;"></span>
     </div>
   </div>
@@ -1214,10 +1215,12 @@ function renderFileList(entries, dataset, snapshot, currentPath) {
   var el = document.getElementById('snap-file-list');
   if (!entries.length) {
     el.innerHTML = '<p style="color:#8b949e;font-size:13px;">Empty directory.</p>';
+    updateSelCount();
     return;
   }
 
   var html = '<table class="snap-file-table"><thead><tr>'
+    + '<th style="width:24px;padding:5px 6px;text-align:center;"><input type="checkbox" id="snap-sel-all" onchange="snapSelectAll(this)" title="Select all"></th>'
     + '<th>Name</th><th>Size</th><th>Modified</th><th></th>'
     + '</tr></thead><tbody>';
 
@@ -1233,6 +1236,7 @@ function renderFileList(entries, dataset, snapshot, currentPath) {
     }
     var srcPath = (currentPath === '/' ? '' : currentPath) + '/' + e.name;
     html += '<tr>'
+      + '<td style="padding:4px 6px;text-align:center;"><input type="checkbox" class="snap-sel-cb" onchange="updateSelCount()" data-src="' + esc(srcPath) + '"></td>'
       + '<td>' + nameCell + '</td>'
       + '<td style="color:#8b949e">' + esc(e.size) + '</td>'
       + '<td style="color:#8b949e;font-size:11px">' + esc(e.mtime) + '</td>'
@@ -1245,6 +1249,7 @@ function renderFileList(entries, dataset, snapshot, currentPath) {
 
   html += '</tbody></table>';
   el.innerHTML = html;
+  updateSelCount();
 }
 
 function restoreEntry(dataset, snapshot, srcPath) {
@@ -1279,6 +1284,70 @@ function restoreEntry(dataset, snapshot, srcPath) {
     resultEl.style.color = '#f85149';
     resultEl.textContent = '✗ Error: ' + e;
   });
+}
+
+function snapSelectAll(cb) {
+  document.querySelectorAll('.snap-sel-cb').forEach(function(c) { c.checked = cb.checked; });
+  updateSelCount();
+}
+
+function updateSelCount() {
+  var n = document.querySelectorAll('.snap-sel-cb:checked').length;
+  var el = document.getElementById('sel-count');
+  if (el) el.textContent = n;
+}
+
+function restoreSelected() {
+  var dataset  = document.getElementById('browser-dataset').value;
+  var snapshot = document.getElementById('browser-snapshot').value;
+  var dst      = document.getElementById('restore-dst').value.trim();
+  var resultEl = document.getElementById('restore-result');
+
+  if (!dataset || !snapshot) {
+    resultEl.style.color = '#e3b341';
+    resultEl.textContent = 'Select a dataset and snapshot first.';
+    setTimeout(function(){ resultEl.textContent=''; }, 3000);
+    return;
+  }
+  var cbs = Array.from(document.querySelectorAll('.snap-sel-cb:checked'));
+  if (!cbs.length) {
+    resultEl.style.color = '#e3b341';
+    resultEl.textContent = 'Nothing selected.';
+    setTimeout(function(){ resultEl.textContent=''; }, 3000);
+    return;
+  }
+
+  var done = 0, errors = 0, total = cbs.length;
+  resultEl.style.color = '#8b949e';
+  resultEl.textContent = 'Restoring 0/' + total + '\u2026';
+
+  function next(i) {
+    if (i >= total) {
+      if (errors > 0) {
+        resultEl.style.color = '#f85149';
+        resultEl.textContent = '\u2717 ' + done + '/' + total + ' restored, ' + errors + ' error(s)';
+      } else {
+        resultEl.style.color = '#56d364';
+        resultEl.textContent = '\u2713 Restored ' + done + '/' + total;
+      }
+      setTimeout(function(){ resultEl.textContent=''; }, 6000);
+      return;
+    }
+    resultEl.textContent = 'Restoring ' + (i + 1) + '/' + total + '\u2026';
+    var params = new URLSearchParams({
+      action: 'restore', dataset: dataset, snapshot: snapshot,
+      src_path: cbs[i].dataset.src, dst_path: dst
+    });
+    if (typeof csrf_token !== 'undefined') params.append('csrf_token', csrf_token);
+    fetch(_base + '/snapshot_browse.php', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: params
+    }).then(function(r){ return r.json(); })
+    .then(function(res) { if (res.ok) done++; else errors++; next(i + 1); })
+    .catch(function()   { errors++; next(i + 1); });
+  }
+  next(0);
 }
 
 /* Init snapshot section */

@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.dataset.converter">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.04.12.07">
-<!ENTITY md5       "9d15cbdfbc20fe5680e47a679969edea">
+<!ENTITY version   "2026.04.12.08">
+<!ENTITY md5       "07126449ef80b80d88851910d5c7626f">
 <!ENTITY launch    "Settings/ZFSDatasetConverter">
 <!ENTITY github    "MajorPain007/zfs-dataset-converter">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,15 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.04.12.08
+- Add checkboxes to snapshot browser for multi-select restore
+- "Restore Selected (N)" button with sequential restore + progress counter
+- Fix directory restore: folder is now recreated by name inside the
+  destination (e.g. restoring "traefik/" to /mnt/user/Backup →
+  /mnt/user/Backup/traefik/ with contents inside)
+- Restore to original location vs. custom destination now handled
+  separately in PHP for correct path construction in both cases
+
 ## Version 2026.04.12.07
 - Fix restore: destination is now always treated as a folder — files are
   restored inside it with their original filename (e.g. restoring

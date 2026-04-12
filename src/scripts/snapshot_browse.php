@@ -223,21 +223,39 @@ if ($action === 'restore') {
         }
     }
 
-    // Ensure destination directory exists
-    if (!is_dir($dst)) {
-        if (!mkdir($dst, 0755, true)) {
+    if ($dst_rel === '') {
+        // ── Restore to original location: $dst is the exact target path ──
+        if (is_dir($src)) {
+            if (!is_dir($dst) && !mkdir($dst, 0755, true)) {
+                zdc_out(array('ok' => false, 'error' => 'Cannot create directory: ' . $dst));
+            }
+            $cmd   = 'rsync -a ' . escapeshellarg($src . '/') . ' ' . escapeshellarg($dst . '/') . ' 2>&1';
+            $check = $dst;
+        } else {
+            $dst_dir = dirname($dst);
+            if (!is_dir($dst_dir) && !mkdir($dst_dir, 0755, true)) {
+                zdc_out(array('ok' => false, 'error' => 'Cannot create directory: ' . $dst_dir));
+            }
+            $cmd   = 'cp -a ' . escapeshellarg($src) . ' ' . escapeshellarg($dst) . ' 2>&1';
+            $check = $dst;
+        }
+    } else {
+        // ── Custom destination: $dst is a target FOLDER ──
+        if (!is_dir($dst) && !mkdir($dst, 0755, true)) {
             zdc_out(array('ok' => false, 'error' => 'Cannot create directory: ' . $dst));
         }
-    }
-
-    if (is_dir($src)) {
-        // Directory: rsync contents into dst
-        $cmd = 'rsync -a ' . escapeshellarg($src . '/') . ' ' . escapeshellarg($dst . '/') . ' 2>&1';
-        $check = $dst;
-    } else {
-        // File: copy into dst directory, keeping original filename
-        $cmd = 'cp -a ' . escapeshellarg($src) . ' ' . escapeshellarg($dst . '/') . ' 2>&1';
-        $check = $dst . '/' . basename($src);
+        if (is_dir($src)) {
+            // Recreate the folder by name inside $dst
+            $dst_named = $dst . '/' . basename($src);
+            if (!is_dir($dst_named) && !mkdir($dst_named, 0755, true)) {
+                zdc_out(array('ok' => false, 'error' => 'Cannot create directory: ' . $dst_named));
+            }
+            $cmd   = 'rsync -a ' . escapeshellarg($src . '/') . ' ' . escapeshellarg($dst_named . '/') . ' 2>&1';
+            $check = $dst_named;
+        } else {
+            $cmd   = 'cp -a ' . escapeshellarg($src) . ' ' . escapeshellarg($dst . '/') . ' 2>&1';
+            $check = $dst . '/' . basename($src);
+        }
     }
     $output = shell_exec($cmd);
 
