@@ -42,6 +42,20 @@ function zdc_safe_path($base, $rel) {
     return $full;
 }
 
+// Sanitise an absolute destination path (no base restriction, but prevents .. escapes and null bytes)
+function zdc_safe_abs_path($path) {
+    $path = str_replace(array("\0", "\r", "\n"), '', $path);
+    $parts = explode('/', ltrim($path, '/'));
+    $resolved = array();
+    foreach ($parts as $p) {
+        if ($p === '' || $p === '.') continue;
+        if ($p === '..') { if ($resolved) array_pop($resolved); continue; }
+        $resolved[] = $p;
+    }
+    if (empty($resolved)) return false;
+    return '/' . implode('/', $resolved);
+}
+
 function zdc_fmt_size($bytes) {
     $bytes = (int)$bytes;
     if ($bytes >= 1073741824) return round($bytes / 1073741824, 1) . ' GB';
@@ -189,10 +203,24 @@ if ($action === 'restore') {
         zdc_out(array('ok' => false, 'error' => 'Source not found in snapshot: ' . $src_rel));
     }
 
-    if ($dst_rel === '') $dst_rel = $src_rel;
-    $dst = zdc_safe_path($live_base, $dst_rel);
-    if ($dst === false) {
-        zdc_out(array('ok' => false, 'error' => 'Invalid destination path'));
+    if ($dst_rel === '') {
+        // Restore to original location within dataset
+        $dst = zdc_safe_path($live_base, $src_rel);
+        if ($dst === false) {
+            zdc_out(array('ok' => false, 'error' => 'Invalid source path'));
+        }
+    } elseif (isset($dst_rel[0]) && $dst_rel[0] === '/') {
+        // Absolute destination path — use as-is, sanitised
+        $dst = zdc_safe_abs_path($dst_rel);
+        if ($dst === false) {
+            zdc_out(array('ok' => false, 'error' => 'Invalid destination path'));
+        }
+    } else {
+        // Relative destination — relative to dataset mountpoint
+        $dst = zdc_safe_path($live_base, $dst_rel);
+        if ($dst === false) {
+            zdc_out(array('ok' => false, 'error' => 'Invalid destination path'));
+        }
     }
 
     $dst_dir = dirname($dst);
