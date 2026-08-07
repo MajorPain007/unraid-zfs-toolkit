@@ -165,6 +165,53 @@ if ($action === 'browse') {
     zdc_out(array('ok' => true, 'path' => $path, 'crumbs' => $crumbs, 'entries' => $entries));
 }
 
+if ($action === 'list_dirs') {
+    $root = '/mnt';
+    $path = isset($_POST['path']) ? $_POST['path'] : $root;
+
+    $p = zdc_safe_abs_path($path);
+    if ($p === false) $p = $root;
+    if ($p !== $root && strpos($p . '/', $root . '/') !== 0) $p = $root;
+
+    if (!is_dir($p)) {
+        zdc_out(array('ok' => false, 'error' => 'Not a directory: ' . $p));
+    }
+
+    $items = @scandir($p);
+    if ($items === false) {
+        zdc_out(array('ok' => false, 'error' => 'Cannot read ' . $p));
+    }
+
+    $dirs = array();
+    foreach ($items as $item) {
+        if ($item === '.' || $item === '..') continue;
+        if ($item === '.zfs') continue;
+        if ($item[0] === '.') continue;
+        $full = $p . '/' . $item;
+        if (!is_dir($full)) continue;
+        $dirs[] = array('name' => $item, 'path' => $full);
+    }
+    usort($dirs, function($a, $b) { return strcasecmp($a['name'], $b['name']); });
+
+    $crumbs = array(array('label' => '/mnt', 'path' => $root));
+    $rest = trim(substr($p, strlen($root)), '/');
+    if ($rest !== '') {
+        $cum = $root;
+        foreach (explode('/', $rest) as $part) {
+            $cum .= '/' . $part;
+            $crumbs[] = array('label' => $part, 'path' => $cum);
+        }
+    }
+
+    zdc_out(array(
+        'ok'       => true,
+        'path'     => $p,
+        'crumbs'   => $crumbs,
+        'dirs'     => $dirs,
+        'writable' => is_writable($p),
+    ));
+}
+
 if ($action === 'restore_start') {
     $dataset  = isset($_POST['dataset'])  ? $_POST['dataset']  : '';
     $snapshot = isset($_POST['snapshot']) ? $_POST['snapshot'] : '';

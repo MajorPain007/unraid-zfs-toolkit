@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.dataset.converter">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.08.08.03">
-<!ENTITY md5       "58ac19e2d53c141c8c6300a78d525ef2">
+<!ENTITY version   "2026.08.08.04">
+<!ENTITY md5       "1129be50fc3800e7fa3f06c4625dde55">
 <!ENTITY launch    "Settings/ZFSDatasetConverter">
 <!ENTITY github    "MajorPain007/zfs-dataset-converter">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,20 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.08.08.04 — Folder picker and snapshot filtering
+
+- Restore destination is now a path picker: click the field and Unraid's own
+  file tree opens, the same widget the Docker templates use. Typing a path by
+  hand still works. If the widget is unavailable a built-in folder browser
+  takes over, so the feature never simply disappears.
+- Snapshot Manager: filter field. Plain substring, or `*` and `?` as wildcards,
+  case insensitive - e.g. `hourly` or `auto-daily-2026-07*`. The summary shows
+  "N of M shown" with the size of the filtered set.
+- Select-all now covers exactly the rows the filter leaves visible, so a
+  pattern plus one click selects everything matching it.
+- Hold and Release work on a whole selection, not just one row at a time.
+  Already-held and not-held snapshots count as success instead of erroring.
+
 ## Version 2026.08.08.03 — Fix file selection and snapshot comparison
 
 - Fix "ReferenceError: updateSelCount is not defined" when browsing a

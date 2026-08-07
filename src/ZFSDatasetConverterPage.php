@@ -18,6 +18,9 @@ function cfgBool($key, $default = 'no') {
     return in_array(strtolower($settings[$key] ?? $default), ['yes','true','1'], true);
 }
 ?>
+<link type="text/css" rel="stylesheet" href="<?= function_exists('autov') ? autov('/webGui/styles/jquery.filetree.css') : '/webGui/styles/jquery.filetree.css' ?>">
+<script src="<?= function_exists('autov') ? autov('/webGui/javascript/jquery.filetree.js') : '/webGui/javascript/jquery.filetree.js' ?>" charset="utf-8"></script>
+
 <style>
 .zdc-wrap { width: 100%; }
 .zdc-main-grid {
@@ -557,9 +560,27 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
     </div>
     <div style="margin-top:10px;display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:12px;">
       <span style="color:#9ba5b5;white-space:nowrap;">Destination folder:</span>
-      <input type="text" id="restore-dst" style="flex:1;min-width:160px;max-width:320px;font-size:12px;" placeholder="empty = original location">
+      <input type="text" id="restore-dst" class="textPath"
+             data-pickroot="/mnt/" data-picktop="/mnt/" data-pickfolders="true"
+             data-pickfilter="HIDE_FILES_FILTER"
+             style="flex:1;min-width:160px;max-width:320px;font-size:12px;"
+             placeholder="click to pick a folder — empty = original location">
+      <button type="button" id="dest-browse-btn" class="btn-secondary" style="padding:4px 12px;font-size:12px;display:none;" onclick="toggleDestPicker()">Browse…</button>
       <button type="button" class="btn-primary" style="padding:4px 12px;font-size:12px;" onclick="restoreSelected()">Restore Selected (<span id="sel-count">0</span>)</button>
       <span id="restore-result" style="font-size:12px;"></span>
+    </div>
+
+    <div id="dest-picker" style="display:none;margin-top:8px;border:1px solid var(--border,#3a4049);border-radius:4px;padding:8px;background:#0d1117;">
+      <div class="snap-browser-path" id="dest-crumbs" style="margin-bottom:6px;"></div>
+      <div id="dest-list" style="max-height:180px;overflow-y:auto;font-size:12px;"></div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px;">
+        <span style="font-size:12px;color:#9ba5b5;">Selected:</span>
+        <code id="dest-current" style="font-size:12px;color:#79c0ff;">/mnt</code>
+        <input type="text" id="dest-newfolder" placeholder="optional: new subfolder" style="font-size:12px;width:170px;">
+        <button type="button" class="btn-primary" style="padding:3px 10px;font-size:12px;" onclick="destUse()">Use this folder</button>
+        <button type="button" class="btn-secondary" style="padding:3px 10px;font-size:12px;" onclick="toggleDestPicker()">Cancel</button>
+        <span id="dest-note" style="font-size:11px;color:#8b949e;"></span>
+      </div>
     </div>
   </div>
 </div>
@@ -583,8 +604,16 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
     <label style="font-size:12px;color:#9ba5b5;display:flex;align-items:center;gap:5px;height:30px;">
       <input type="checkbox" id="mgr-only-auto" checked onchange="loadSnapManager()"> only plugin snapshots
     </label>
+    <div>
+      <label style="font-size:12px;color:#9ba5b5;display:block;margin-bottom:3px;">Filter</label>
+      <input type="text" id="mgr-filter" style="width:min(230px,100%);font-size:12px;"
+             placeholder="e.g. hourly  or  auto-daily-2026-07*"
+             oninput="renderSnapManager()" title="Substring match, or use * and ? as wildcards. Select-all only takes the rows shown.">
+    </div>
     <button type="button" class="btn-secondary" style="padding:5px 14px;font-size:12px;" onclick="loadSnapManager()">Refresh</button>
     <span style="flex:1"></span>
+    <button type="button" class="btn-secondary" style="padding:5px 12px;font-size:12px;" onclick="mgrHoldSelected(true)" title="Protect the selected snapshots from automatic pruning">Hold</button>
+    <button type="button" class="btn-secondary" style="padding:5px 12px;font-size:12px;" onclick="mgrHoldSelected(false)" title="Remove the plugin hold again">Release</button>
     <button type="button" class="btn-danger" style="padding:5px 14px;font-size:12px;" onclick="mgrDeleteSelected()">Delete selected (<span id="mgr-sel-count">0</span>)</button>
   </div>
 
@@ -1493,6 +1522,75 @@ function updateSelCount() {
   if (el) el.textContent = n;
 }
 
+var _destPath = '/mnt';
+
+function initDestPicker() {
+  var input = document.getElementById('restore-dst');
+  if (!input) return;
+  if (window.jQuery && jQuery.fn && typeof jQuery.fn.fileTreeAttach === 'function') {
+    jQuery(input).fileTreeAttach();
+    input.title = 'Click to browse for a folder';
+  } else {
+    document.getElementById('dest-browse-btn').style.display = '';
+    input.placeholder = 'empty = original location';
+  }
+}
+
+function toggleDestPicker() {
+  var el = document.getElementById('dest-picker');
+  var open = el.style.display !== 'none';
+  el.style.display = open ? 'none' : '';
+  if (!open) {
+    var cur = document.getElementById('restore-dst').value.trim();
+    destBrowse(cur.charAt(0) === '/' ? cur : '/mnt');
+  }
+}
+
+function destBrowse(path) {
+  var listEl = document.getElementById('dest-list');
+  listEl.innerHTML = '<span style="color:#8b949e;">Loading\u2026</span>';
+
+  postForm(_base + '/snapshot_browse.php', {action: 'list_dirs', path: path})
+  .then(function(res) {
+    if (!res.ok) {
+      listEl.innerHTML = '<span style="color:#f85149;">' + esc(res.error || 'Error') + '</span>';
+      return;
+    }
+    _destPath = res.path;
+    document.getElementById('dest-current').textContent = res.path;
+    document.getElementById('dest-note').textContent = res.writable ? '' : '\u26a0 not writable';
+
+    var cr = '';
+    res.crumbs.forEach(function(c, i) {
+      if (i > 0) cr += '<span style="color:#555;"> \u203a </span>';
+      cr += '<span class="snap-crumb" onclick="destBrowse(\'' + c.path.replace(/'/g, "\\'") + '\')">'
+          + esc(c.label) + '</span>';
+    });
+    document.getElementById('dest-crumbs').innerHTML = cr;
+
+    if (!res.dirs.length) {
+      listEl.innerHTML = '<span style="color:#8b949e;">No subfolders here.</span>';
+      return;
+    }
+    var html = '';
+    res.dirs.forEach(function(d) {
+      html += '<div class="snap-dir" style="padding:2px 0;" onclick="destBrowse(\''
+            + d.path.replace(/'/g, "\\'") + '\')">\ud83d\udcc1 ' + esc(d.name) + '</div>';
+    });
+    listEl.innerHTML = html;
+  }).catch(function(e) {
+    listEl.innerHTML = '<span style="color:#f85149;">' + esc(String(e)) + '</span>';
+  });
+}
+
+function destUse() {
+  var extra = document.getElementById('dest-newfolder').value.trim().replace(/^\/+|\/+$/g, '');
+  var target = _destPath + (extra ? '/' + extra : '');
+  document.getElementById('restore-dst').value = target;
+  document.getElementById('dest-newfolder').value = '';
+  toggleDestPicker();
+}
+
 function restoreEntry(dataset, snapshot, srcPath) {
   startRestore(dataset, snapshot, [srcPath]);
 }
@@ -1588,6 +1686,43 @@ function pollRestore(job, total) {
 }
 
 var _mgrSnaps = [];
+var _mgrLast = null;
+
+function fmtBytes(b) {
+  var u = ['B', 'KiB', 'MiB', 'GiB', 'TiB'], i = 0;
+  b = Number(b) || 0;
+  while (b >= 1024 && i < u.length - 1) { b /= 1024; i++; }
+  return (i === 0 ? b : b.toFixed(b < 10 ? 2 : 1)) + ' ' + u[i];
+}
+
+function mgrHoldSelected(hold) {
+  var cbs = Array.prototype.slice.call(document.querySelectorAll('.mgr-cb:checked'));
+  if (!cbs.length) { mgrResult('Nothing selected.', '#e3b341'); return; }
+  var names = cbs.map(function(c) { return c.dataset.name; });
+
+  mgrResult((hold ? 'Holding ' : 'Releasing ') + names.length + ' snapshot(s)\u2026');
+
+  var params = new URLSearchParams();
+  params.append('action', hold ? 'hold' : 'release');
+  names.forEach(function(n) { params.append('snapshots[]', n); });
+  if (typeof csrf_token !== 'undefined') params.append('csrf_token', csrf_token);
+
+  fetch(_base + '/snapshot_admin.php', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: params
+  }).then(function(r) { return r.json(); })
+  .then(function(res) {
+    if (!res.ok) { mgrResult(res.error || 'Failed', '#f85149'); return; }
+    var msg = res.changed + (hold ? ' held' : ' released');
+    if (res.failed) {
+      var first = (res.results || []).filter(function(r) { return !r.ok; })[0];
+      msg += ', ' + res.failed + ' failed' + (first ? ' (' + first.error + ')' : '');
+    }
+    mgrResult(msg, res.failed ? '#e3b341' : '#56d364');
+    loadSnapManager();
+  }).catch(function(e) { mgrResult('Error: ' + e, '#f85149'); });
+}
 
 function loadSnapManager() {
   var tbody = document.getElementById('mgr-tbody');
@@ -1603,32 +1738,49 @@ function loadSnapManager() {
       return;
     }
     _mgrSnaps = res.snapshots || [];
-    renderSnapManager(res);
+    _mgrLast = res;
+    renderSnapManager();
   }).catch(function(e) {
     tbody.innerHTML = '<tr><td colspan="8" style="color:#f85149;padding:10px;">' + esc(String(e)) + '</td></tr>';
   });
 }
 
-function renderSnapManager(res) {
+function mgrFilterMatcher() {
+  var p = document.getElementById('mgr-filter').value.trim();
+  if (!p) return null;
+  var rx = p.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.');
+  try { return new RegExp(rx, 'i'); } catch (e) { return null; }
+}
+
+function renderSnapManager() {
+  var res = _mgrLast || {count: 0, total_h: '0 B', datasets: []};
   var tbody = document.getElementById('mgr-tbody');
+  var rx = mgrFilterMatcher();
+  var shown = rx ? _mgrSnaps.filter(function(s) { return rx.test(s.name); }) : _mgrSnaps;
 
   var worst = (res.datasets || []).slice().sort(function(a, b) {
     return b.usedbysnapshots - a.usedbysnapshots;
   }).filter(function(d) { return d.usedbysnapshots > 0; }).slice(0, 4);
 
   var sum = document.getElementById('mgr-summary');
-  var parts = [res.count + ' snapshot(s), ' + res.total_h + ' total'];
+  var shownBytes = shown.reduce(function(a, s) { return a + (s.used || 0); }, 0);
+  var parts = [rx
+    ? shown.length + ' of ' + _mgrSnaps.length + ' snapshot(s) shown, ' + fmtBytes(shownBytes)
+    : res.count + ' snapshot(s), ' + res.total_h + ' total'];
   worst.forEach(function(d) { parts.push(d.name + ': ' + d.snapused_h + ' in snapshots'); });
   sum.textContent = parts.join('   •   ');
 
-  if (!_mgrSnaps.length) {
-    tbody.innerHTML = '<tr><td colspan="8" style="color:#8b949e;padding:10px;">No snapshots found.</td></tr>';
+  if (!shown.length) {
+    tbody.innerHTML = '<tr><td colspan="8" style="color:#8b949e;padding:10px;">'
+      + (_mgrSnaps.length ? 'No snapshot matches this filter.' : 'No snapshots found.') + '</td></tr>';
+    document.getElementById('mgr-all').checked = false;
     mgrUpdateSelCount();
     return;
   }
 
   var html = '';
-  _mgrSnaps.forEach(function(s, i) {
+  shown.forEach(function(s) {
+    var i = _mgrSnaps.indexOf(s);
     html += '<tr>'
       + '<td><input type="checkbox" class="mgr-cb" data-name="' + esc(s.name) + '" onchange="mgrUpdateSelCount()"></td>'
       + '<td style="text-align:left;font-family:monospace;font-size:11px;word-break:break-all;">' + esc(s.name) + '</td>'
@@ -1999,6 +2151,7 @@ if (_sendDetailsEl) {
   _sendDetailsEl.addEventListener('change', _triggerAutoSave);
   _sendDetailsEl.addEventListener('input',  _triggerAutoSave);
 }
+initDestPicker();
 updateSendPreview();
 loadSendJobs();
 if (document.getElementById('send_enabled').checked) loadSendStatus();

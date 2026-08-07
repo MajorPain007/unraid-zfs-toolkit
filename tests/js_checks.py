@@ -31,7 +31,7 @@ BUILTINS = {
     'new', 'do', 'else', 'delete', 'void', 'in', 'of', 'instanceof', 'await',
     'yield', 'throw', 'case', 'const', 'let', 'var',
     # provided by the Unraid page shell
-    'csrf_token',
+    'csrf_token', 'jQuery', '$', 'swal', 'autov', 'addRemoveTab',
 }
 
 
@@ -101,6 +101,11 @@ def main():
     undefined_handlers = sorted(handler_names(text) - defined - BUILTINS)
     for name in undefined_handlers:
         problems.append(f'referenced from an on* attribute but never defined: {name}()')
+
+    outside = re.sub(r'<script>.*?</script>', ' ', text, flags=re.S)
+    for m in re.finditer(r'\\u[0-9a-fA-F]{4}', outside):
+        ctx = outside[max(0, m.start() - 40):m.end() + 10].replace('\n', ' ')
+        problems.append(f'literal escape {m.group(0)} in HTML text (renders verbatim): ...{ctx.strip()}')
 
     ids_in_markup = element_ids(text)
     used_ids = set(re.findall(r"getElementById\(\s*'([A-Za-z0-9_-]+)'\s*\)", js))

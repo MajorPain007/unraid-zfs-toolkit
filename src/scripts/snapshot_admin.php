@@ -124,22 +124,46 @@ if ($action === 'destroy') {
 }
 
 if ($action === 'hold' || $action === 'release') {
-    $name = trim(zdc_post('snapshot'));
-    if (!zdc_valid_snapshot($name)) zdc_fail('Invalid snapshot name');
+    $names = isset($_POST['snapshots']) ? $_POST['snapshots'] : array();
+    if (!is_array($names)) $names = array($names);
+    if (!$names) {
+        $single = trim(zdc_post('snapshot'));
+        if ($single !== '') $names = array($single);
+    }
+    if (!$names) zdc_fail('No snapshot given');
+    if (count($names) > 500) zdc_fail('Refusing to change more than 500 holds in one request');
 
-    $verb = ($action === 'hold') ? 'hold' : 'release';
-    list($out, $rc) = zdc_run('zfs ' . $verb . ' ' . escapeshellarg(ZDC_HOLD_TAG) . ' ' . escapeshellarg($name));
+    $verb    = ($action === 'hold') ? 'hold' : 'release';
+    $results = array();
+    $okCount = 0;
 
-    if ($rc !== 0) {
+    foreach ($names as $name) {
+        $name = trim($name);
+        if (!zdc_valid_snapshot($name)) {
+            $results[] = array('name' => $name, 'ok' => false, 'error' => 'Invalid snapshot name');
+            continue;
+        }
+
+        list($out, $rc) = zdc_run('zfs ' . $verb . ' ' . escapeshellarg(ZDC_HOLD_TAG) . ' ' . escapeshellarg($name));
         $msg = trim(implode(' ', $out));
 
-        if ($verb === 'release' && stripos($msg, 'no such tag') !== false) {
-            zdc_out(array('ok' => true, 'note' => 'No plugin hold was set on this snapshot'));
+        if ($rc === 0) {
+            $results[] = array('name' => $name, 'ok' => true);
+            $okCount++;
+        } elseif ($verb === 'release' && stripos($msg, 'no such tag') !== false) {
+            $results[] = array('name' => $name, 'ok' => true, 'note' => 'no plugin hold was set');
+            $okCount++;
+        } elseif ($verb === 'hold' && stripos($msg, 'tag already exists') !== false) {
+            $results[] = array('name' => $name, 'ok' => true, 'note' => 'already held');
+            $okCount++;
+        } else {
+            $results[] = array('name' => $name, 'ok' => false,
+                               'error' => $msg !== '' ? $msg : ('zfs ' . $verb . ' failed'));
         }
-        zdc_fail($msg !== '' ? $msg : ('zfs ' . $verb . ' failed'));
     }
 
-    zdc_out(array('ok' => true, 'held' => ($verb === 'hold')));
+    zdc_out(array('ok' => true, 'held' => ($verb === 'hold'), 'changed' => $okCount,
+                  'failed' => count($results) - $okCount, 'results' => $results));
 }
 
 if ($action === 'rollback') {
