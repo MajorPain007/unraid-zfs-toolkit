@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.dataset.converter">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.08.08.04">
-<!ENTITY md5       "1129be50fc3800e7fa3f06c4625dde55">
+<!ENTITY version   "2026.08.08.05">
+<!ENTITY md5       "8d389ea64fa27a46601506cdbea08a0c">
 <!ENTITY launch    "Settings/ZFSDatasetConverter">
 <!ENTITY github    "MajorPain007/zfs-dataset-converter">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,25 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.08.08.05 — Selection survives filtering
+
+- Fix the Snapshot Manager losing your selection whenever the filter text was
+  changed or cleared. Selection lived in the checkboxes, and every filter
+  keystroke rebuilt the table. It is now kept per snapshot name, independent
+  of what the table currently shows.
+- You can therefore collect across several searches: filter `hourly`, select
+  all, filter `daily`, select all again, clear the filter - all of them stay
+  selected.
+- When part of the selection is hidden by the current filter, a note says how
+  many, so a delete can never quietly cover more than you can see.
+- The select-all checkbox reflects whether the visible rows are all selected.
+- Snapshots that no longer exist drop out of the selection on refresh.
+- Fix the folder tree floating on top of the destination field, where it
+  covered the input so nothing could be typed by hand, and looked cut off.
+  Unraid positions the tree absolutely; inside the plugin's cards that lands
+  in the wrong place. It is now a panel directly below the field, full width,
+  scrolling at 240px, styled like the other panels on the page.
+
 ## Version 2026.08.08.04 — Folder picker and snapshot filtering
 
 - Restore destination is now a path picker: click the field and Unraid's own

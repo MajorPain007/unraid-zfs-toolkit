@@ -67,6 +67,46 @@ function cfgBool($key, $default = 'no') {
 }
 .snap-table-scroll { overflow-x: auto; }
 .snap-table { width:100%; border-collapse:collapse; font-size:12px; margin-top:6px; min-width:540px; }
+/* Unraid's file tree, restyled to sit inside the cards */
+.zdc-wrap .fileTree {
+  position: static !important;
+  left: auto !important;
+  top: auto !important;
+  flex: 0 0 100%;
+  box-sizing: border-box;
+  max-height: 240px;
+  overflow: auto;
+  margin-top: 4px;
+  padding: 8px 10px;
+  background: #0d1117;
+  color: #c9d1d9;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  font-family: 'Consolas','Monaco',monospace;
+  font-size: 12px;
+}
+.zdc-wrap .fileTree UL.jqueryFileTree {
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 19px;
+}
+.zdc-wrap .fileTree UL.jqueryFileTree LI { padding-left: 22px; }
+.zdc-wrap .fileTree UL.jqueryFileTree LI.directory,
+.zdc-wrap .fileTree UL.jqueryFileTree LI.expanded,
+.zdc-wrap .fileTree UL.jqueryFileTree LI.file,
+.zdc-wrap .fileTree UL.jqueryFileTree LI.wait { background-position: left 2px; }
+.zdc-wrap .fileTree UL.jqueryFileTree A {
+  color: #c9d1d9;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+.zdc-wrap .fileTree UL.jqueryFileTree A:hover {
+  background: #1f6feb;
+  color: #fff;
+}
+.zdc-wrap .fileTree UL.jqueryFileTree LI.expanded > A { color: #79c0ff; }
+.zdc-wrap input.textPath { font-family: inherit; }
+
 .zdc-note {
   font-size: 11px;
   color: var(--text-muted, #666);
@@ -558,7 +598,7 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
     <div id="snap-file-list">
       <p style="color:#8b949e;font-size:13px;">Select a dataset and snapshot above, then click Browse.</p>
     </div>
-    <div style="margin-top:10px;display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:12px;">
+    <div id="restore-controls" style="position:relative;margin-top:10px;display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:12px;">
       <span style="color:#9ba5b5;white-space:nowrap;">Destination folder:</span>
       <input type="text" id="restore-dst" class="textPath"
              data-pickroot="/mnt/" data-picktop="/mnt/" data-pickfolders="true"
@@ -636,7 +676,10 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
       </tbody>
     </table>
   </div>
-  <div id="mgr-result" style="font-size:12px;margin-top:8px;"></div>
+  <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:8px;">
+    <span id="mgr-result" style="font-size:12px;"></span>
+    <span id="mgr-sel-note" style="font-size:12px;"></span>
+  </div>
 </div>
 
 <div class="zdc-card">
@@ -1687,6 +1730,27 @@ function pollRestore(job, total) {
 
 var _mgrSnaps = [];
 var _mgrLast = null;
+var _mgrVisible = [];
+var _mgrSelected = {};
+
+function mgrSelectedNames() {
+  return Object.keys(_mgrSelected);
+}
+
+function mgrToggle(cb) {
+  if (cb.checked) _mgrSelected[cb.getAttribute('data-name')] = true;
+  else delete _mgrSelected[cb.getAttribute('data-name')];
+  mgrSyncSelectAll();
+  mgrUpdateSelCount();
+}
+
+function mgrSyncSelectAll() {
+  var all = document.getElementById('mgr-all');
+  if (!all) return;
+  all.checked = _mgrVisible.length > 0 && _mgrVisible.every(function(s) {
+    return _mgrSelected[s.name];
+  });
+}
 
 function fmtBytes(b) {
   var u = ['B', 'KiB', 'MiB', 'GiB', 'TiB'], i = 0;
@@ -1696,9 +1760,8 @@ function fmtBytes(b) {
 }
 
 function mgrHoldSelected(hold) {
-  var cbs = Array.prototype.slice.call(document.querySelectorAll('.mgr-cb:checked'));
-  if (!cbs.length) { mgrResult('Nothing selected.', '#e3b341'); return; }
-  var names = cbs.map(function(c) { return c.dataset.name; });
+  var names = mgrSelectedNames();
+  if (!names.length) { mgrResult('Nothing selected.', '#e3b341'); return; }
 
   mgrResult((hold ? 'Holding ' : 'Releasing ') + names.length + ' snapshot(s)\u2026');
 
@@ -1739,6 +1802,9 @@ function loadSnapManager() {
     }
     _mgrSnaps = res.snapshots || [];
     _mgrLast = res;
+    var alive = {};
+    _mgrSnaps.forEach(function(s) { alive[s.name] = true; });
+    Object.keys(_mgrSelected).forEach(function(n) { if (!alive[n]) delete _mgrSelected[n]; });
     renderSnapManager();
   }).catch(function(e) {
     tbody.innerHTML = '<tr><td colspan="8" style="color:#f85149;padding:10px;">' + esc(String(e)) + '</td></tr>';
@@ -1757,6 +1823,7 @@ function renderSnapManager() {
   var tbody = document.getElementById('mgr-tbody');
   var rx = mgrFilterMatcher();
   var shown = rx ? _mgrSnaps.filter(function(s) { return rx.test(s.name); }) : _mgrSnaps;
+  _mgrVisible = shown;
 
   var worst = (res.datasets || []).slice().sort(function(a, b) {
     return b.usedbysnapshots - a.usedbysnapshots;
@@ -1773,7 +1840,7 @@ function renderSnapManager() {
   if (!shown.length) {
     tbody.innerHTML = '<tr><td colspan="8" style="color:#8b949e;padding:10px;">'
       + (_mgrSnaps.length ? 'No snapshot matches this filter.' : 'No snapshots found.') + '</td></tr>';
-    document.getElementById('mgr-all').checked = false;
+    mgrSyncSelectAll();
     mgrUpdateSelCount();
     return;
   }
@@ -1782,7 +1849,8 @@ function renderSnapManager() {
   shown.forEach(function(s) {
     var i = _mgrSnaps.indexOf(s);
     html += '<tr>'
-      + '<td><input type="checkbox" class="mgr-cb" data-name="' + esc(s.name) + '" onchange="mgrUpdateSelCount()"></td>'
+      + '<td><input type="checkbox" class="mgr-cb" data-name="' + esc(s.name) + '"'
+        + (_mgrSelected[s.name] ? ' checked' : '') + ' onchange="mgrToggle(this)"></td>'
       + '<td style="text-align:left;font-family:monospace;font-size:11px;word-break:break-all;">' + esc(s.name) + '</td>'
       + '<td>' + (s.type ? esc(s.type) : (s.managed ? '—' : '<span style="color:#8b949e;">external</span>')) + '</td>'
       + '<td style="text-align:right;' + (s.used > 1073741824 ? 'color:#e3b341;font-weight:600;' : '') + '">' + esc(s.used_h) + '</td>'
@@ -1798,18 +1866,35 @@ function renderSnapManager() {
       + '</tr>';
   });
   tbody.innerHTML = html;
-  document.getElementById('mgr-all').checked = false;
+  mgrSyncSelectAll();
   mgrUpdateSelCount();
 }
 
 function mgrSelectAll(cb) {
+  _mgrVisible.forEach(function(s) {
+    if (cb.checked) _mgrSelected[s.name] = true;
+    else delete _mgrSelected[s.name];
+  });
   document.querySelectorAll('.mgr-cb').forEach(function(x) { x.checked = cb.checked; });
   mgrUpdateSelCount();
 }
 
 function mgrUpdateSelCount() {
-  var n = document.querySelectorAll('.mgr-cb:checked').length;
-  document.getElementById('mgr-sel-count').textContent = n;
+  var names = mgrSelectedNames();
+  document.getElementById('mgr-sel-count').textContent = names.length;
+
+  var visible = {};
+  _mgrVisible.forEach(function(s) { visible[s.name] = true; });
+  var hidden = names.filter(function(n) { return !visible[n]; }).length;
+
+  var el = document.getElementById('mgr-sel-note');
+  if (!el) return;
+  if (hidden > 0) {
+    el.style.color = '#e3b341';
+    el.textContent = hidden + ' of the ' + names.length + ' selected are hidden by the filter';
+  } else {
+    el.textContent = '';
+  }
 }
 
 function mgrResult(msg, color) {
@@ -1819,10 +1904,8 @@ function mgrResult(msg, color) {
 }
 
 function mgrDeleteSelected() {
-  var cbs = Array.prototype.slice.call(document.querySelectorAll('.mgr-cb:checked'));
-  if (!cbs.length) { mgrResult('Nothing selected.', '#e3b341'); return; }
-
-  var names = cbs.map(function(c) { return c.dataset.name; });
+  var names = mgrSelectedNames();
+  if (!names.length) { mgrResult('Nothing selected.', '#e3b341'); return; }
   if (!confirm('Destroy ' + names.length + ' snapshot(s)?\n\nThis cannot be undone.\n\n'
                + names.slice(0, 10).join('\n') + (names.length > 10 ? '\n…' : ''))) return;
 
