@@ -4,6 +4,15 @@ header('Content-Type: application/json');
 header('Cache-Control: no-cache, no-store');
 
 $statusFile = '/tmp/zfs.dataset.converter/status.json';
+$tmpDir     = '/tmp/zfs.dataset.converter';
+
+function zdc_newest_log($dir) {
+    $files = array_merge(glob($dir . '/conversion_*.log') ?: array(),
+                         glob($dir . '/auto_*.log') ?: array());
+    if (!$files) return '';
+    usort($files, function($a, $b) { return filemtime($b) - filemtime($a); });
+    return $files[0];
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'stop') {
     if (file_exists($statusFile)) {
@@ -19,13 +28,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'stop'
     exit;
 }
 
+// Even with nothing running, hand back the most recent run's log so the GUI
+// can show what happened instead of an empty box.
+function zdc_idle_response($tmpDir) {
+    $last = zdc_newest_log($tmpDir);
+    return array(
+        'status'      => 'idle',
+        'log_file'    => $last,
+        'log_is_past' => $last !== '',
+        'log_time'    => $last !== '' ? date('Y-m-d H:i:s', filemtime($last)) : '',
+    );
+}
+
 if (!file_exists($statusFile)) {
-    echo json_encode(['status' => 'idle']);
+    echo json_encode(zdc_idle_response($tmpDir));
     exit;
 }
 
 $st = json_decode(file_get_contents($statusFile), true);
-if (!$st) { echo json_encode(['status' => 'idle']); exit; }
+if (!$st) { echo json_encode(zdc_idle_response($tmpDir)); exit; }
 
 $pid     = (int)($st['pid'] ?? 0);
 $logFile = $st['log_file'] ?? '';
@@ -55,10 +76,16 @@ if (!empty($logFile) && file_exists($logFile)) {
     }
 }
 
+if ($logFile === '' || !file_exists($logFile)) {
+    $logFile = zdc_newest_log($tmpDir);
+}
+
 echo json_encode([
     'status'         => $status,
     'pid'            => $pid,
     'log_file'       => $logFile,
+    'log_is_past'    => ($status !== 'running' && $logFile !== ''),
+    'log_time'       => ($logFile !== '' && file_exists($logFile)) ? date('Y-m-d H:i:s', filemtime($logFile)) : '',
     'started'        => $st['started'] ?? '',
     'current_folder' => $currentFolder,
 ]);

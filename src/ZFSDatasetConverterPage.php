@@ -604,8 +604,9 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
              data-pickroot="/mnt/" data-picktop="/mnt/" data-pickfolders="true"
              data-pickfilter="HIDE_FILES_FILTER"
              style="flex:1;min-width:160px;max-width:320px;font-size:12px;"
-             placeholder="click to pick a folder — empty = original location">
+             placeholder="click to pick, or type a path + Enter — empty = original location">
       <button type="button" id="dest-browse-btn" class="btn-secondary" style="padding:4px 12px;font-size:12px;display:none;" onclick="toggleDestPicker()">Browse…</button>
+      <span id="dest-hint" style="font-size:11px;color:#8b949e;"></span>
       <button type="button" class="btn-primary" style="padding:4px 12px;font-size:12px;" onclick="restoreSelected()">Restore Selected (<span id="sel-count">0</span>)</button>
       <span id="restore-result" style="font-size:12px;"></span>
     </div>
@@ -1036,6 +1037,20 @@ if (_snapDetailsEl) {
 }
 fetch(_base + '/get_status.php').then(function(r){ return r.json(); })
 .then(function(res) {
+  // Show the last run's log on load. Without this the viewer only ever had
+  // content while a conversion happened to be running.
+  if (res.log_file && res.status !== 'running') {
+    _logFile = res.log_file;
+    _logOffset = 0;
+    appendLog('--- log of the last run'
+      + (res.log_time ? ', ' + res.log_time : '') + ' ---\n', 'log-step');
+    fetchLogs();
+    if (res.status === 'completed')   setStatus('done', 'Done');
+    else if (res.status === 'error')  setStatus('error', 'Error');
+  } else if (!res.log_file && res.status !== 'running') {
+    appendLog('No conversion has run yet. Output appears here while one is running.\n', 'log-warn');
+  }
+
   if (res.status === 'running') {
     _logFile = res.log_file;
     setStatus('running','Running');
@@ -1567,12 +1582,83 @@ function updateSelCount() {
 
 var _destPath = '/mnt';
 
+function destHint(msg, color) {
+  var el = document.getElementById('dest-hint');
+  if (!el) return;
+  el.style.color = color || '#8b949e';
+  el.textContent = msg || '';
+  if (msg) setTimeout(function() { if (el.textContent === msg) el.textContent = ''; }, 6000);
+}
+
+function destNativeAvailable() {
+  return !!(window.jQuery && jQuery.fn && typeof jQuery.fn.fileTree === 'function');
+}
+
+function destShowNativeAt(path) {
+  var input = document.getElementById('restore-dst');
+  var $i = jQuery(input);
+  var $t = $i.next('.fileTree');
+  if (!$t.length) {
+    $t = jQuery('<div class="textarea fileTree"></div>');
+    $i.after($t);
+  }
+  $t.html('');
+  $t.fileTree(
+    {root: path.replace(/\/*$/, '/'), top: '/mnt/', filter: ['HIDE_FILES_FILTER'],
+     match: '.*', allowBrowsing: true},
+    function(file) {},
+    function(folder) { input.value = String(folder).replace(/\/\/+/g, '/'); }
+  );
+  $t.show();
+}
+
+/* Enter in the destination field: point the tree at what was typed, so you
+   can see where you are instead of guessing. A path that does not exist yet
+   opens its parent, which is what you want when creating a new folder. */
+function destGoTo() {
+  var input = document.getElementById('restore-dst');
+  var raw = input.value.trim();
+
+  if (!raw) { destHint('empty = restore to the original location'); return; }
+  if (raw.charAt(0) !== '/') { destHint('Path must start with /', '#e3b341'); return; }
+
+  var path = raw.replace(/\/+$/, '') || '/';
+
+  function open(p, note) {
+    if (destNativeAvailable()) destShowNativeAt(p);
+    else {
+      document.getElementById('dest-picker').style.display = '';
+      destBrowse(p);
+    }
+    destHint(note || '');
+  }
+
+  postForm(_base + '/snapshot_browse.php', {action: 'list_dirs', path: path})
+  .then(function(res) {
+    if (res.ok && res.path === path) { open(path); return; }
+
+    var parent = path.replace(/\/[^/]+$/, '') || '/mnt';
+    return postForm(_base + '/snapshot_browse.php', {action: 'list_dirs', path: parent})
+      .then(function(res2) {
+        if (res2.ok && res2.path === parent) {
+          open(parent, 'does not exist yet \u2014 showing ' + parent + ', it will be created on restore');
+        } else {
+          destHint('Not a folder below /mnt: ' + path, '#e3b341');
+        }
+      });
+  }).catch(function(e) { destHint('Error: ' + e, '#f85149'); });
+}
+
 function initDestPicker() {
   var input = document.getElementById('restore-dst');
   if (!input) return;
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' || e.keyCode === 13) { e.preventDefault(); destGoTo(); }
+  });
+
   if (window.jQuery && jQuery.fn && typeof jQuery.fn.fileTreeAttach === 'function') {
     jQuery(input).fileTreeAttach();
-    input.title = 'Click to browse for a folder';
+    input.title = 'Click to browse, or type a path and press Enter to jump there';
   } else {
     document.getElementById('dest-browse-btn').style.display = '';
     input.placeholder = 'empty = original location';

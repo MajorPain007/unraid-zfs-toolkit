@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.dataset.converter">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.08.08.05">
-<!ENTITY md5       "8d389ea64fa27a46601506cdbea08a0c">
+<!ENTITY version   "2026.08.08.06">
+<!ENTITY md5       "e72e44dffbf42d53e2892f42ec4c98d9">
 <!ENTITY launch    "Settings/ZFSDatasetConverter">
 <!ENTITY github    "MajorPain007/zfs-dataset-converter">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,19 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.08.08.06 — Live Log shows past runs, type-and-Enter path
+
+- The Live Log was only ever filled while a conversion was actually running.
+  Open the page at any other time and the box stayed empty forever, which
+  made it look broken. It now loads the most recent run's log on page load,
+  with a header line saying when that run was, and the status badge reflects
+  how it ended. With no run in the history at all it says so instead of
+  showing nothing.
+- Destination folder: type a path and press Enter to jump the file tree
+  there, so you can see where you are after typing. A path that does not
+  exist yet opens its parent and says it will be created on restore. Paths
+  outside /mnt or without a leading slash are rejected with a reason.
+
 ## Version 2026.08.08.05 — Selection survives filtering
 
 - Fix the Snapshot Manager losing your selection whenever the filter text was
