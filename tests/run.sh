@@ -240,6 +240,13 @@ else
 fi
 
 group "GUI references resolve"
+
+if out=$(python3 tests/js_checks.py src/ZFSDatasetConverterPage.php 2>&1); then
+    ok "JS calls, on* handlers and element ids all resolve"
+    printf '       %s\n' "$(printf '%s' "$out" | sed 's/^ *//')"
+else
+    bad "JS calls, on* handlers and element ids all resolve" "$out"
+fi
 PAGE="src/ZFSDatasetConverterPage.php"
 if [ -f "$PAGE" ]; then
     missing=""

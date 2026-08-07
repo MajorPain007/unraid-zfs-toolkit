@@ -1482,6 +1482,17 @@ function renderFileList(entries, dataset, snapshot, currentPath) {
   updateSelCount();
 }
 
+function snapSelectAll(cb) {
+  document.querySelectorAll('.snap-sel-cb').forEach(function(c) { c.checked = cb.checked; });
+  updateSelCount();
+}
+
+function updateSelCount() {
+  var n = document.querySelectorAll('.snap-sel-cb:checked').length;
+  var el = document.getElementById('sel-count');
+  if (el) el.textContent = n;
+}
+
 function restoreEntry(dataset, snapshot, srcPath) {
   startRestore(dataset, snapshot, [srcPath]);
 }
@@ -1753,7 +1764,10 @@ function runDiff() {
     }
     var c = res.counts || {};
     sumEl.style.color = '#8b949e';
-    sumEl.textContent = '+' + (c.added || 0) + '  −' + (c.removed || 0)
+    var shortFrom = String(res.from).split('@').pop();
+    var shortTo   = String(res.to).indexOf('@') === -1 ? 'live' : String(res.to).split('@').pop();
+    sumEl.textContent = shortFrom + ' \u2192 ' + shortTo + '   '
+                      + '+' + (c.added || 0) + '  \u2212' + (c.removed || 0)
                       + '  M' + (c.modified || 0) + '  R' + (c.renamed || 0)
                       + (res.truncated ? '  (showing first ' + res.entries.length + ' of ' + res.total + ')' : '');
 

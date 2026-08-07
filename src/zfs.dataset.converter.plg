@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.dataset.converter">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.08.08.02">
-<!ENTITY md5       "7694b28577271a09f698e9c74e9ecb0f">
+<!ENTITY version   "2026.08.08.03">
+<!ENTITY md5       "58ac19e2d53c141c8c6300a78d525ef2">
 <!ENTITY launch    "Settings/ZFSDatasetConverter">
 <!ENTITY github    "MajorPain007/zfs-dataset-converter">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,25 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.08.08.03 — Fix file selection and snapshot comparison
+
+- Fix "ReferenceError: updateSelCount is not defined" when browsing a
+  snapshot. The rewrite that moved restores into a background worker deleted
+  snapSelectAll() and updateSelCount() along with the old restore code - they
+  sat between the two functions being replaced. Selecting files and the
+  select-all checkbox in the snapshot browser work again.
+- Fix "Unable to obtain diffs: Not an earlier snapshot from the same fs".
+  zfs diff needs the older snapshot first; picking them the other way round
+  failed. The two snapshots are now ordered by creation time automatically, so
+  the selection order no longer matters, and the summary states the direction
+  actually compared (older -> newer).
+- Clearer error when two snapshots genuinely cannot be compared, e.g. after a
+  rollback.
+- New check `tests/js_checks.py`, wired into the suite: every function called
+  from the page, every function referenced from an on* attribute and every
+  getElementById target must exist. `php -l` and `node --check` both accept a
+  call to a missing function - that is exactly how the bug above shipped.
+
 ## Version 2026.08.08.02 — Hotfix: GUI rendered as plain text
 
 - Fix the settings page showing raw JavaScript instead of the interface, with

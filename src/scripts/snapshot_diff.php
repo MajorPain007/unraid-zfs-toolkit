@@ -12,12 +12,28 @@ if ($limit < 1 || $limit > 20000) $limit = 2000;
 
 if (!zdc_valid_dataset($dataset)) zdc_fail('Invalid dataset name');
 
+function zdc_snap_creation($snap) {
+    list($out, $rc) = zdc_run('zfs list -Hp -t snapshot -o creation ' . escapeshellarg($snap));
+    if ($rc !== 0 || !isset($out[0]) || !is_numeric(trim($out[0]))) return null;
+    return (int)trim($out[0]);
+}
+
 $snapRe = '#^[A-Za-z0-9][A-Za-z0-9_.:-]*$#';
 if (!preg_match($snapRe, $from)) zdc_fail('Invalid "from" snapshot');
 if ($to !== '' && !preg_match($snapRe, $to)) zdc_fail('Invalid "to" snapshot');
 
 $fromFull = $dataset . '@' . $from;
 $toArg    = ($to === '') ? $dataset : ($dataset . '@' . $to);
+
+$reversed = false;
+if ($to !== '') {
+    $cFrom = zdc_snap_creation($fromFull);
+    $cTo   = zdc_snap_creation($toArg);
+    if ($cFrom !== null && $cTo !== null && $cFrom > $cTo) {
+        $tmp = $fromFull; $fromFull = $toArg; $toArg = $tmp;
+        $reversed = true;
+    }
+}
 
 @set_time_limit(300);
 
@@ -27,6 +43,9 @@ if ($rc !== 0) {
     $msg = trim(implode(' ', $out));
     if (stripos($msg, 'permission') !== false || stripos($msg, 'not allowed') !== false) {
         $msg .= ' (zfs diff requires the dataset to be mounted)';
+    } elseif (stripos($msg, 'earlier snapshot') !== false) {
+        $msg .= ' (both snapshots must belong to this dataset; a snapshot taken'
+              . ' on a different dataset or after a rollback cannot be compared)';
     }
     zdc_fail($msg !== '' ? $msg : 'zfs diff failed');
 }
@@ -84,6 +103,7 @@ zdc_out(array(
     'ok'        => true,
     'from'      => $fromFull,
     'to'        => $toArg,
+    'reversed'  => $reversed,
     'entries'   => $entries,
     'counts'    => $counts,
     'total'     => count($out),
