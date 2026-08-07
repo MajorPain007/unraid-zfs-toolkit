@@ -22,7 +22,7 @@ done
 
 group "PHP syntax"
 if command -v php >/dev/null 2>&1; then
-    for f in src/scripts/*.php src/*.page; do
+    for f in src/scripts/*.php src/*.page src/ZFSDatasetConverterPage.php; do
         [ -f "$f" ] || continue
         if err=$(php -l "$f" 2>&1); then ok "$f"; else bad "$f" "$err"; fi
     done
@@ -217,8 +217,30 @@ else
     bad "$PLG exists"
 fi
 
+group "Unraid page rendering"
+
+if grep -q 'Markdown="false"' src/ZFSDatasetConverter.page; then
+    ok 'page header sets Markdown="false"'
+else
+    bad 'page header sets Markdown="false"' \
+        "Unraid runs .page bodies through Markdown otherwise: it eats */5 in a cron string and turns indented blocks into code, so the JS renders as text."
+fi
+
+page_body_lines=$(sed -n '/^---$/,$p' src/ZFSDatasetConverter.page | grep -c .)
+if [ "$page_body_lines" -le 6 ]; then
+    ok ".page body stays minimal (${page_body_lines} lines, includes the real page)"
+else
+    bad ".page body stays minimal" "${page_body_lines} lines - keep markup in ZFSDatasetConverterPage.php"
+fi
+
+if [ -f src/ZFSDatasetConverterPage.php ]; then
+    ok "ZFSDatasetConverterPage.php exists"
+else
+    bad "ZFSDatasetConverterPage.php exists"
+fi
+
 group "GUI references resolve"
-PAGE="src/ZFSDatasetConverter.page"
+PAGE="src/ZFSDatasetConverterPage.php"
 if [ -f "$PAGE" ]; then
     missing=""
     for ep in $(grep -oE "scripts/[a-z_]+\.php" "$PAGE" | sort -u | sed 's|scripts/||'); do

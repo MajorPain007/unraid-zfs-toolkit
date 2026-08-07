@@ -21,17 +21,18 @@ PDIR="${STAGE}/usr/local/emhttp/plugins/${PLUGIN}"
 mkdir -p "${PDIR}/scripts" "${PDIR}/event" "${STAGE}/install"
 
 cp "${ROOT_DIR}/src/ZFSDatasetConverter.page" "${PDIR}/"
+cp "${ROOT_DIR}/src/ZFSDatasetConverterPage.php" "${PDIR}/"
 cp "${ROOT_DIR}/src/scripts/"*.php "${PDIR}/scripts/"
 cp "${ROOT_DIR}/src/scripts/"*.sh  "${PDIR}/scripts/"
 cp "${ROOT_DIR}/src/event/"*       "${PDIR}/event/"
 chmod 755 "${PDIR}/scripts/"*.sh "${PDIR}/event/"*
-chmod 644 "${PDIR}/scripts/"*.php "${PDIR}/ZFSDatasetConverter.page"
+chmod 644 "${PDIR}/scripts/"*.php "${PDIR}/ZFSDatasetConverter.page" "${PDIR}/ZFSDatasetConverterPage.php"
 
 for s in "${PDIR}/scripts/"*.sh "${PDIR}/event/"*; do
     bash -n "$s" || { echo "SYNTAX ERROR in $s" >&2; exit 1; }
 done
 if command -v php >/dev/null 2>&1; then
-    for p in "${PDIR}/scripts/"*.php "${PDIR}/ZFSDatasetConverter.page"; do
+    for p in "${PDIR}/scripts/"*.php "${PDIR}/ZFSDatasetConverter.page" "${PDIR}/ZFSDatasetConverterPage.php"; do
         php -l "$p" >/dev/null || { echo "PHP SYNTAX ERROR in $p" >&2; exit 1; }
     done
 else

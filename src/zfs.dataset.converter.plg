@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.dataset.converter">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.08.08.01">
-<!ENTITY md5       "c299097ab5228163cb137b12430b7996">
+<!ENTITY version   "2026.08.08.02">
+<!ENTITY md5       "7694b28577271a09f698e9c74e9ecb0f">
 <!ENTITY launch    "Settings/ZFSDatasetConverter">
 <!ENTITY github    "MajorPain007/zfs-dataset-converter">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,25 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.08.08.02 — Hotfix: GUI rendered as plain text
+
+- Fix the settings page showing raw JavaScript instead of the interface, with
+  no dataset lists and no working buttons.
+  Unraid runs `.page` bodies through a Markdown pass unless the header sets
+  `Markdown="false"`. That pass eats `*` characters (a cron string like
+  `*/5 * * * *` loses them) and turns indented blocks into code blocks, which
+  stops the browser from ever entering script mode - so the whole script block
+  is parsed as markup and shown as text. Removing the comment lines in
+  2026.08.08.01 changed the blank-line and indentation structure enough to
+  trigger it.
+- Two fixes, belt and braces:
+  1. The page header now sets `Markdown="false"`, the same way Unraid's own
+     Plugins.page does.
+  2. The markup moved to `ZFSDatasetConverterPage.php`, which the `.page`
+     includes. Unraid now only ever sees a four-line page body, so nothing it
+     does to page content can reach the markup.
+- `tests/run.sh` guards both: the header directive and the page staying minimal.
+
 ## Version 2026.08.08.01 — Reliability + feature release
 
 ### New: Snapshot Manager
