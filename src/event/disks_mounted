@@ -1,0 +1,17 @@
+#!/bin/bash
+
+PLUGIN_DIR="/usr/local/emhttp/plugins/zfs.dataset.converter"
+LOG_DIR="/tmp/zfs.dataset.converter"
+
+mkdir -p "$LOG_DIR"
+
+[ -x "${PLUGIN_DIR}/scripts/setup_cron.sh" ] && \
+    "${PLUGIN_DIR}/scripts/setup_cron.sh" > "${LOG_DIR}/setup_cron.log" 2>&1
+
+[ -x "${PLUGIN_DIR}/scripts/setup_snapshots.sh" ] && \
+    "${PLUGIN_DIR}/scripts/setup_snapshots.sh" > "${LOG_DIR}/setup_snapshots.log" 2>&1
+
+[ -x "${PLUGIN_DIR}/scripts/setup_send.sh" ] && \
+    "${PLUGIN_DIR}/scripts/setup_send.sh" > "${LOG_DIR}/setup_send.log" 2>&1
+
+exit 0

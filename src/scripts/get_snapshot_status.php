@@ -1,31 +1,61 @@
 <?php
-// get_snapshot_status.php - Return snapshot cron status, counts and recent log
+
 while (ob_get_level() > 0) ob_end_clean();
 header('Content-Type: application/json');
 header('Cache-Control: no-cache, no-store');
 
-// Crontab entry
+$tmpDir    = '/tmp/zfs.dataset.converter';
+$configDir = '/boot/config/plugins/zfs.dataset.converter';
+$cronFile  = '/etc/cron.d/zfs.dataset.converter-snapshots';
+
+$snap_entry  = '';
+$cron_source = '';
+
+if (is_readable($cronFile)) {
+    foreach (file($cronFile, FILE_IGNORE_NEW_LINES) as $line) {
+        $line = trim($line);
+        if ($line === '' || $line[0] === '#') continue;
+        if (strpos($line, 'snapshot_manager.sh') !== false) {
+            $snap_entry  = $line;
+            $cron_source = 'cron.d';
+            break;
+        }
+    }
+}
+
 $lines = array();
 exec('crontab -l 2>/dev/null', $lines);
-$snap_entry = '';
+$in_live_crontab = false;
 foreach ($lines as $line) {
     if (strpos($line, 'snapshot_manager.sh') !== false) {
-        $snap_entry = trim($line);
+        $in_live_crontab = true;
+        if ($snap_entry === '') {
+            $snap_entry  = trim($line);
+            $cron_source = 'crontab';
+        }
         break;
     }
 }
 
-// Total snapshot count (@auto- only)
+$cron_healthy = ($snap_entry !== '' && $in_live_crontab);
+
 $snap_lines = array();
-exec('zfs list -H -t snapshot -o name 2>/dev/null | grep "@auto-" | wc -l', $snap_lines);
+exec('zfs list -H -t snapshot -o name 2>/dev/null | grep -c "@auto-"', $snap_lines);
 $snapshot_count = (int)(isset($snap_lines[0]) ? $snap_lines[0] : 0);
 
-// Last run timestamp
-$last_file = '/tmp/zfs.dataset.converter/snapshot_last.txt';
-$last_run  = file_exists($last_file) ? trim(file_get_contents($last_file)) : '';
+$run = array();
+$statusFile = $tmpDir . '/snapshot_status.json';
+if (file_exists($statusFile)) {
+    $decoded = json_decode(file_get_contents($statusFile), true);
+    if (is_array($decoded)) $run = $decoded;
+}
 
-// Dataset count from snap_datasets.json
-$datasets_file = '/boot/config/plugins/zfs.dataset.converter/snap_datasets.json';
+$last_file = $tmpDir . '/snapshot_last.txt';
+$last_run  = isset($run['last_run'])
+    ? $run['last_run']
+    : (file_exists($last_file) ? trim(file_get_contents($last_file)) : '');
+
+$datasets_file = $configDir . '/snap_datasets.json';
 $dataset_count = 0;
 if (file_exists($datasets_file)) {
     $json = json_decode(file_get_contents($datasets_file), true);
@@ -34,22 +64,47 @@ if (file_exists($datasets_file)) {
     }
 }
 
-// Last 30 lines of snapshots.log (most recent run output)
-$log_file   = '/tmp/zfs.dataset.converter/snapshots.log';
-$recent_log = array();
-if (file_exists($log_file)) {
-    $all = file($log_file, FILE_IGNORE_NEW_LINES);
-    if ($all) {
-        $recent_log = array_slice($all, -30);
+$pools = array();
+$poolLines = array();
+exec('zpool list -H -o name,capacity 2>/dev/null', $poolLines);
+foreach ($poolLines as $line) {
+    $parts = preg_split('/\s+/', trim($line));
+    if (count($parts) >= 2) {
+        $pools[] = array('name' => $parts[0], 'capacity' => (int)rtrim($parts[1], '%'));
     }
 }
+
+function tail_lines($path, $count) {
+    if (!file_exists($path)) return array();
+    $fh = @fopen($path, 'rb');
+    if (!$fh) return array();
+    $chunk = 8192;
+    $size  = filesize($path);
+    $pos   = $size;
+    $data  = '';
+    while ($pos > 0 && substr_count($data, "\n") <= $count) {
+        $read = ($pos >= $chunk) ? $chunk : $pos;
+        $pos -= $read;
+        fseek($fh, $pos);
+        $data = fread($fh, $read) . $data;
+    }
+    fclose($fh);
+    $all = explode("\n", rtrim($data, "\n"));
+    return array_slice($all, -$count);
+}
+
+$recent_log = tail_lines($tmpDir . '/snapshots.log', 30);
 
 echo json_encode(array(
     'active'         => $snap_entry !== '',
     'entry'          => $snap_entry,
+    'cron_source'    => $cron_source,
+    'cron_healthy'   => $cron_healthy,
     'snapshot_count' => $snapshot_count,
     'last_run'       => $last_run,
     'server_time'    => date('Y-m-d H:i:s T'),
     'dataset_count'  => $dataset_count,
+    'pools'          => $pools,
+    'run'            => $run,
     'recent_log'     => $recent_log,
 ));

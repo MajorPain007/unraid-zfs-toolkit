@@ -1,5 +1,5 @@
 <?php
-// save_snapshot_config.php - Save snapshot dataset list and trigger setup_snapshots.sh
+
 while (ob_get_level() > 0) ob_end_clean();
 header('Content-Type: application/json');
 header('Cache-Control: no-cache, no-store');
@@ -24,7 +24,6 @@ if (!empty($datasets_raw)) {
     }
 }
 
-// Re-run cron setup (picks up new settings.cfg values already saved)
 $setup = '/usr/local/emhttp/plugins/zfs.dataset.converter/scripts/setup_snapshots.sh';
 shell_exec("/bin/bash " . escapeshellarg($setup) . " >/tmp/zfs.dataset.converter/setup_snapshots.log 2>&1");
 

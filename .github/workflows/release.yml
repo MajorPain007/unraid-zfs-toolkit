@@ -1,0 +1,105 @@
+name: Release
+
+# Tag a version to publish it:
+#     git tag 2026.08.08.01 && git push origin 2026.08.08.01
+#
+# The workflow builds the package, attaches it to a GitHub Release, and only
+# then commits a manifest that points at that release. Doing it in this order
+# means src/*.plg on main never references an asset that does not exist yet.
+#
+# From the first tagged release onwards the .txz no longer has to be committed
+# to archive/ - the release asset is the distribution channel.
+
+on:
+  push:
+    tags: ['[0-9][0-9][0-9][0-9].[0-9][0-9].[0-9][0-9].*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (YYYY.MM.DD.NN)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          tools: none
+
+      - name: Resolve version
+        id: v
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Test suite
+        run: bash tests/run.sh
+
+      - name: Build package
+        id: build
+        run: |
+          ZDC_OUT_DIR=dist ./scripts/build.sh "${{ steps.v.outputs.version }}"
+          PKG=$(ls dist/*.txz)
+          echo "pkg=${PKG}" >> "$GITHUB_OUTPUT"
+          echo "name=$(basename "${PKG}")" >> "$GITHUB_OUTPUT"
+          echo "md5=$(md5sum "${PKG}" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      # Asset first: the manifest committed below points straight at it.
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.v.outputs.version }}
+          name: ${{ steps.v.outputs.version }}
+          files: ${{ steps.build.outputs.pkg }}
+          generate_release_notes: true
+
+      - name: Point the manifest at the release
+        run: |
+          VERSION="${{ steps.v.outputs.version }}"
+          MD5="${{ steps.build.outputs.md5 }}"
+          PLG="src/zfs.dataset.converter.plg"
+          REPO="${{ github.repository }}"
+
+          sed -i \
+            -e "s|<!ENTITY version   \"[^\"]*\">|<!ENTITY version   \"${VERSION}\">|" \
+            -e "s|<!ENTITY md5       \"[^\"]*\">|<!ENTITY md5       \"${MD5}\">|" \
+            -e "s|<!ENTITY pkgURL    \"[^\"]*\">|<!ENTITY pkgURL    \"https://github.com/${REPO}/releases/download/\&version;\">|" \
+            "$PLG"
+
+          python3 -c "import xml.dom.minidom; xml.dom.minidom.parse('$PLG')"
+          grep -E 'ENTITY (version|md5|pkgURL)' "$PLG"
+
+      - name: Verify the published asset matches the manifest
+        run: |
+          VERSION="${{ steps.v.outputs.version }}"
+          URL="https://github.com/${{ github.repository }}/releases/download/${VERSION}/${{ steps.build.outputs.name }}"
+          for i in 1 2 3 4 5; do
+            if curl -fsSL "$URL" -o /tmp/check.txz; then break; fi
+            echo "asset not visible yet, retrying in 5s ($i/5)"; sleep 5
+          done
+          echo "${{ steps.build.outputs.md5 }}  /tmp/check.txz" | md5sum -c -
+
+      - name: Commit the manifest
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- src/zfs.dataset.converter.plg; then
+            echo "Manifest already up to date."
+            exit 0
+          fi
+          git add src/zfs.dataset.converter.plg
+          git commit -m "release ${{ steps.v.outputs.version }}: point manifest at the GitHub Release"
+          git push origin HEAD:main

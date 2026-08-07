@@ -1,2 +1,5 @@
 # macOS
 .DS_Store
+
+# Build output (releases are published as GitHub Release assets)
+dist/

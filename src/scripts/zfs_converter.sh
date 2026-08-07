@@ -1,12 +1,5 @@
 #!/bin/bash
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# #   ZFS Dataset Converter - converts regular folders into ZFS child datasets        # #
-# #   Requires Unraid 6.12 or above with ZFS support                                 # #
-# #   Based on original script by SpaceInvaderOne                                    # #
-# #   Enhanced by MajorPain007                                                       # #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-# Template variables - replaced at runtime by start_conversion.php
 dry_run="__DRY_RUN__"
 cleanup="__CLEANUP__"
 replace_spaces="__REPLACE_SPACES__"
@@ -21,24 +14,21 @@ buffer_zone="__BUFFER_ZONE__"
 send_notifications="__SEND_NOTIFICATIONS__"
 validation_tolerance="__VALIDATION_TOLERANCE__"
 
-# Extra user-defined datasets (pool/dataset format)
 source_datasets_array=(__EXTRA_DATASETS__)
 
-# -----------------------------------------------------------------------
-# Internal state
-# -----------------------------------------------------------------------
 mount_point="/mnt"
 stopped_containers=()
 stopped_vms=()
 converted_folders=()
 failed_folders=()
+services_restarted=0
 
-# Cache for zfs list output (avoids repeated subprocess calls in loops)
+shopt -s nullglob
+
+RSYNC_OPTS=(-a -H -A -X --numeric-ids)
+
 _zfs_datasets_cache=""
 
-# -----------------------------------------------------------------------
-# Logging helpers
-# -----------------------------------------------------------------------
 log()      { echo "[$(date '+%H:%M:%S')] $*"; }
 log_ok()   { echo "[$(date '+%H:%M:%S')] OK: $*"; }
 log_warn() { echo "[$(date '+%H:%M:%S')] WARNING: $*"; }
@@ -46,32 +36,21 @@ log_err()  { echo "[$(date '+%H:%M:%S')] ERROR: $*"; }
 
 step() { echo ""; echo "=== Step $* ==="; }
 
-# -----------------------------------------------------------------------
-# Refresh the ZFS dataset list cache
-# -----------------------------------------------------------------------
 refresh_zfs_cache() {
     _zfs_datasets_cache=$(zfs list -H -o name 2>/dev/null)
 }
 
-# -----------------------------------------------------------------------
-# Check if a given ZFS dataset name exists (uses cache)
-# -----------------------------------------------------------------------
 dataset_exists() {
     local name="$1"
-    echo "$_zfs_datasets_cache" | grep -qE "^${name}$"
+    printf '%s\n' "$_zfs_datasets_cache" | grep -qxF "$name"
 }
 
-# -----------------------------------------------------------------------
-# Check if a path is a mounted ZFS dataset
-# -----------------------------------------------------------------------
 is_zfs_dataset() {
     local location="$1"
-    zfs list -H -o mounted,mountpoint 2>/dev/null | grep -q "^yes"$'\t'"${location}$"
+    zfs list -H -o mounted,mountpoint 2>/dev/null \
+        | awk -F'\t' -v loc="$location" '$1=="yes" && $2==loc {found=1} END{exit !found}'
 }
 
-# -----------------------------------------------------------------------
-# Resolve /mnt/user/<path> to its real disk location
-# -----------------------------------------------------------------------
 find_real_location() {
     local path="$1"
 
@@ -80,7 +59,6 @@ find_real_location() {
         return 1
     fi
 
-    # Already on a real disk path, not a union path
     if [[ "$path" != /mnt/user/* ]]; then
         echo "$path"
         return 0
@@ -100,12 +78,6 @@ find_real_location() {
     return 2
 }
 
-# -----------------------------------------------------------------------
-# Normalize folder name for ZFS compatibility
-#   - Replace German umlauts with ASCII equivalents
-#   - Optionally replace spaces with underscores
-#   - Remove/replace other ZFS-invalid characters
-# -----------------------------------------------------------------------
 normalize_name() {
     local name="$1"
     name=$(echo "$name" | sed \
@@ -117,19 +89,13 @@ normalize_name() {
         name="${name// /_}"
     fi
 
-    # Replace characters not allowed in ZFS dataset names
     name=$(echo "$name" | sed 's/[^a-zA-Z0-9._: -]/_/g')
 
-    # Trim leading/trailing underscores/dots
     name=$(echo "$name" | sed 's/^[._]*//; s/[._]*$//')
 
     echo "$name"
 }
 
-# -----------------------------------------------------------------------
-# Validate a ZFS dataset name component
-# Returns 0 if valid, 1 if invalid (prints reason)
-# -----------------------------------------------------------------------
 validate_dataset_name() {
     local name="$1"
 
@@ -143,18 +109,24 @@ validate_dataset_name() {
         return 1
     fi
 
-    # ZFS does not allow @ or # in component names
     if [[ "$name" =~ [@#] ]]; then
         log_err "Dataset name contains invalid characters (@ or #): $name"
+        return 1
+    fi
+
+    if [[ "$name" == *" "* ]]; then
+        log_err "Dataset name contains a space: '$name'. Enable 'Replace spaces with underscores' in the settings."
+        return 1
+    fi
+
+    if [[ ! "$name" =~ ^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$ ]]; then
+        log_err "Dataset name is not valid for ZFS: '$name'"
         return 1
     fi
 
     return 0
 }
 
-# -----------------------------------------------------------------------
-# Send an Unraid notification
-# -----------------------------------------------------------------------
 send_notification() {
     local subject="$1"
     local message="$2"
@@ -169,9 +141,6 @@ send_notification() {
     fi
 }
 
-# -----------------------------------------------------------------------
-# Stop Docker containers whose appdata is not yet a ZFS dataset
-# -----------------------------------------------------------------------
 stop_docker_containers() {
     [[ ! "$should_process_containers" =~ ^[Yy]es$ ]] && return
 
@@ -201,18 +170,15 @@ stop_docker_containers() {
         while IFS= read -r bindmount; do
             [[ -z "$bindmount" ]] && continue
 
-            # Resolve union path to real path
             if [[ "$bindmount" == /mnt/user/* ]]; then
                 bindmount=$(find_real_location "$bindmount") || continue
             fi
 
-            # Only care about mounts inside the appdata source
             [[ "$bindmount" != "/mnt/$source_path_appdata"* ]] && continue
 
             local immediate_child
             immediate_child=$(echo "$bindmount" | sed -n "s|^/mnt/$source_path_appdata/||p" | cut -d "/" -f 1)
 
-            # Bind mount is to the appdata root itself (no subdirectory) — skip
             if [[ -z "$immediate_child" ]]; then
                 log "Container ${container_name}: bind mount '${bindmount}' is to appdata root, skipping."
                 continue
@@ -245,9 +211,6 @@ stop_docker_containers() {
     fi
 }
 
-# -----------------------------------------------------------------------
-# Restart Docker containers that were stopped
-# -----------------------------------------------------------------------
 start_docker_containers() {
     [[ ! "$should_process_containers" =~ ^[Yy]es$ ]] && return
     [[ "${#stopped_containers[@]}" -eq 0 ]] && return
@@ -263,9 +226,6 @@ start_docker_containers() {
     done
 }
 
-# -----------------------------------------------------------------------
-# Get the primary vdisk path for a VM
-# -----------------------------------------------------------------------
 get_vm_disk() {
     local vm_name="$1"
     local vm_target
@@ -287,9 +247,6 @@ get_vm_disk() {
     echo "$vm_disk"
 }
 
-# -----------------------------------------------------------------------
-# Stop VMs whose vdisk folder is not yet a ZFS dataset
-# -----------------------------------------------------------------------
 stop_virtual_machines() {
     [[ ! "$should_process_vms" =~ ^[Yy]es$ ]] && return
 
@@ -306,18 +263,15 @@ stop_virtual_machines() {
         local vm_disk
         vm_disk=$(get_vm_disk "$vm") || { log "No disk found for VM $vm. Skipping."; continue; }
 
-        # Resolve union path
         if [[ "$vm_disk" == /mnt/user/* ]]; then
             vm_disk=$(find_real_location "$vm_disk") || continue
         fi
 
-        # Only process vms whose vdisk is under our source path
         [[ "$vm_disk" != "/mnt/$source_path_vms"* ]] && continue
 
         local immediate_child
         immediate_child=$(echo "$vm_disk" | sed -n "s|^/mnt/$source_path_vms/||p" | cut -d "/" -f 1)
 
-        # vdisk is at the VM root itself (no subdirectory) — skip
         if [[ -z "$immediate_child" ]]; then
             log "VM ${vm}: vdisk '${vm_disk}' is at VM root, skipping."
             continue
@@ -333,7 +287,6 @@ stop_virtual_machines() {
             else
                 virsh shutdown "$vm" 2>/dev/null
 
-                # Wait for graceful shutdown, then force if needed
                 local start_time
                 start_time=$(date +%s)
                 while virsh dominfo "$vm" 2>/dev/null | grep -q 'running'; do
@@ -357,9 +310,6 @@ stop_virtual_machines() {
     fi
 }
 
-# -----------------------------------------------------------------------
-# Restart VMs that were stopped
-# -----------------------------------------------------------------------
 start_virtual_machines() {
     [[ ! "$should_process_vms" =~ ^[Yy]es$ ]] && return
     [[ "${#stopped_vms[@]}" -eq 0 ]] && return
@@ -375,10 +325,24 @@ start_virtual_machines() {
     done
 }
 
-# -----------------------------------------------------------------------
-# Validate that there is enough free space on the parent dataset
-# Requires: available_bytes >= folder_size + buffer_zone%
-# -----------------------------------------------------------------------
+restore_services() {
+    local rc=$?
+    (( services_restarted )) && return "$rc"
+    services_restarted=1
+    start_docker_containers
+    start_virtual_machines
+    return "$rc"
+}
+
+on_interrupt() {
+    echo ""
+    log_warn "Interrupted - restarting stopped containers/VMs before exiting."
+    exit 130
+}
+
+trap restore_services EXIT
+trap on_interrupt INT TERM HUP
+
 check_space() {
     local parent_dataset="$1"
     local folder_size_bytes="$2"
@@ -389,7 +353,6 @@ check_space() {
         return 1
     }
 
-    # Required = folder size + buffer_zone%
     local required=$(( folder_size_bytes + folder_size_bytes * buffer_zone / 100 ))
 
     if (( available < required )); then
@@ -403,33 +366,28 @@ check_space() {
     return 0
 }
 
-# -----------------------------------------------------------------------
-# Validate copy completeness with a configurable tolerance
-# -----------------------------------------------------------------------
 perform_validation() {
     local src="$1"
     local dst="$2"
 
     log "Validating copy..."
     local src_count dst_count src_size dst_size
-    src_count=$(find "$src" -type f | wc -l)
-    dst_count=$(find "$dst" -type f | wc -l)
-    src_size=$(du -sb "$src" | cut -f1)
-    dst_size=$(du -sb "$dst" | cut -f1)
+    src_count=$(find "$src" -mindepth 1 2>/dev/null | wc -l)
+    dst_count=$(find "$dst" -mindepth 1 2>/dev/null | wc -l)
+    src_size=$(du -sb "$src" 2>/dev/null | cut -f1)
+    dst_size=$(du -sb "$dst" 2>/dev/null | cut -f1)
+    src_size="${src_size:-0}"; dst_size="${dst_size:-0}"
 
-    log "  Source : ${src_count} files, ${src_size} bytes"
-    log "  Dest   : ${dst_count} files, ${dst_size} bytes"
+    log "  Source : ${src_count} entries, ${src_size} bytes"
+    log "  Dest   : ${dst_count} entries, ${dst_size} bytes"
 
-    # Tolerance check (default 5%)
     local tol="${validation_tolerance:-5}"
 
-    # File count must match exactly (rsync should copy all files)
     if (( src_count != dst_count )); then
-        log_err "VALIDATION FAILED: file count mismatch (src=${src_count}, dst=${dst_count})"
+        log_err "VALIDATION FAILED: entry count mismatch (src=${src_count}, dst=${dst_count})"
         return 1
     fi
 
-    # Size may differ slightly (sparse files, xattrs); allow tolerance
     if (( src_size > 0 )); then
         local diff=$(( src_size - dst_size ))
         [[ $diff -lt 0 ]] && diff=$(( -diff ))
@@ -444,10 +402,6 @@ perform_validation() {
     return 0
 }
 
-# -----------------------------------------------------------------------
-# Core conversion function: converts folders under a source dataset
-# Supports resuming interrupted conversions (detects *_temp directories)
-# -----------------------------------------------------------------------
 create_datasets() {
     local source_path="$1"
 
@@ -458,7 +412,6 @@ create_datasets() {
         local base_entry
         base_entry=$(basename "$entry")
 
-        # ---- Resume: re-attach to a previously interrupted conversion ----
         if [[ "$base_entry" == *_temp ]]; then
             local original_name="${base_entry%_temp}"
             local normalized_name
@@ -471,11 +424,11 @@ create_datasets() {
                     continue
                 fi
 
-                rsync -a --delete \
+                rsync "${RSYNC_OPTS[@]}" --delete \
                     "${mount_point}/${source_path}/${base_entry}/" \
                     "${mount_point}/${source_path}/${normalized_name}/" \
                     && log_ok "Resume rsync finished." \
-                    || { log_err "Resume rsync failed for '${base_entry}'"; continue; }
+                    || { log_err "Resume rsync failed for '${base_entry}'"; failed_folders+=("$original_name"); continue; }
 
                 if perform_validation \
                     "${mount_point}/${source_path}/${base_entry}" \
@@ -492,7 +445,6 @@ create_datasets() {
             continue
         fi
 
-        # ---- Skip if already a dataset ----
         local normalized_name
         normalized_name=$(normalize_name "$base_entry")
 
@@ -507,12 +459,10 @@ create_datasets() {
             continue
         fi
 
-        # ---- Must be a directory ----
         if [[ ! -d "$entry" ]]; then
             continue
         fi
 
-        # ---- Space check ----
         local folder_size
         folder_size=$(du -sb "$entry" | cut -f1)
         local folder_size_hr
@@ -530,15 +480,18 @@ create_datasets() {
             continue
         fi
 
-        # ---- Rename folder → temp ----
         local temp_path="${mount_point}/${source_path}/${normalized_name}_temp"
+        if [[ -e "$temp_path" ]]; then
+            log_err "Temp path already exists: ${temp_path}. Resolve it manually before retrying '${base_entry}'."
+            failed_folders+=("$base_entry")
+            continue
+        fi
         mv "$entry" "$temp_path" || {
             log_err "Failed to rename '${base_entry}' to temp. Skipping."
             failed_folders+=("$base_entry")
             continue
         }
 
-        # ---- Create dataset ----
         if ! zfs create "${source_path}/${normalized_name}"; then
             log_err "Failed to create dataset '${source_path}/${normalized_name}'. Restoring original folder."
             mv "$temp_path" "$entry"
@@ -546,11 +499,20 @@ create_datasets() {
             continue
         fi
 
-        # ---- Copy data ----
+        local target="${mount_point}/${source_path}/${normalized_name}"
+        if ! is_zfs_dataset "$target"; then
+            log_err "Dataset '${source_path}/${normalized_name}' was created but is not mounted at ${target}. Restoring original folder."
+            zfs destroy "${source_path}/${normalized_name}" 2>/dev/null
+            rmdir "$target" 2>/dev/null
+            mv "$temp_path" "$entry"
+            failed_folders+=("$base_entry")
+            continue
+        fi
+
         log "Copying data with rsync..."
-        rsync -a \
+        rsync "${RSYNC_OPTS[@]}" \
             "${temp_path}/" \
-            "${mount_point}/${source_path}/${normalized_name}/"
+            "${target}/"
         local rsync_rc=$?
 
         if (( rsync_rc != 0 )); then
@@ -559,14 +521,12 @@ create_datasets() {
             continue
         fi
 
-        # ---- Validate ----
         if ! perform_validation "$temp_path" "${mount_point}/${source_path}/${normalized_name}"; then
             log_err "Keeping temp dir for manual inspection: ${temp_path}"
             failed_folders+=("$base_entry")
             continue
         fi
 
-        # ---- Cleanup ----
         if [[ "$cleanup" =~ ^[Yy]es$ ]]; then
             rm -rf "$temp_path"
             log_ok "Cleaned up temp dir."
@@ -577,14 +537,10 @@ create_datasets() {
         converted_folders+=("$base_entry")
         log_ok "Successfully converted '${base_entry}' → dataset '${source_path}/${normalized_name}'"
 
-        # Refresh cache after creating a new dataset
         refresh_zfs_cache
     done
 }
 
-# -----------------------------------------------------------------------
-# Pre-flight checks: verify sources exist and have unconverted folders
-# -----------------------------------------------------------------------
 can_i_go_to_work() {
     step "Pre-flight checks"
     refresh_zfs_cache
@@ -635,9 +591,6 @@ can_i_go_to_work() {
     fi
 }
 
-# -----------------------------------------------------------------------
-# Summary
-# -----------------------------------------------------------------------
 print_summary() {
     step "Summary"
 
@@ -668,18 +621,12 @@ print_summary() {
     fi
 }
 
-# -----------------------------------------------------------------------
-# Convert all sources
-# -----------------------------------------------------------------------
 convert_all() {
     for dataset in "${source_datasets_array[@]}"; do
         create_datasets "$dataset"
     done
 }
 
-# -----------------------------------------------------------------------
-# Build source_datasets_array from config
-# -----------------------------------------------------------------------
 if [[ "$should_process_containers" =~ ^[Yy]es$ ]]; then
     source_datasets_array+=("${source_pool_where_appdata_is}/${source_dataset_where_appdata_is}")
     source_path_appdata="${source_pool_where_appdata_is}/${source_dataset_where_appdata_is}"
@@ -690,9 +637,6 @@ if [[ "$should_process_vms" =~ ^[Yy]es$ ]]; then
     source_path_vms="${source_pool_where_vm_domains_are}/${source_dataset_where_vm_domains_are}"
 fi
 
-# -----------------------------------------------------------------------
-# Main
-# -----------------------------------------------------------------------
 log "ZFS Dataset Converter starting..."
 [[ "$dry_run" =~ ^[Yy]es$ ]] && log_warn "DRY RUN MODE - no changes will be made."
 
@@ -700,8 +644,7 @@ can_i_go_to_work
 stop_docker_containers
 stop_virtual_machines
 convert_all
-start_docker_containers
-start_virtual_machines
+restore_services
 print_summary
 
 log "Script execution completed successfully."

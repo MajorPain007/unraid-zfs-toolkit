@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          tools: none
+
+      # The plugin must keep working on Unraid builds that still ship PHP 7.
+      - name: Install PHP 7.4 for compatibility linting
+        run: |
+          sudo add-apt-repository -y ppa:ondrej/php
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq php7.4-cli
+
+      - name: PHP 7.4 syntax check
+        run: |
+          fail=0
+          for f in src/scripts/*.php src/*.page; do
+            if ! out=$(php7.4 -l "$f" 2>&1); then
+              echo "::error file=$f::$out"
+              fail=1
+            fi
+          done
+          exit $fail
+
+      - name: Test suite
+        run: bash tests/run.sh
+
+      - name: shellcheck (errors are fatal)
+        run: |
+          sudo apt-get install -y -qq shellcheck
+          shellcheck --severity=error --shell=bash \
+            src/scripts/*.sh src/event/* scripts/*.sh tests/*.sh
+
+      - name: shellcheck (warnings, informational)
+        continue-on-error: true
+        run: |
+          shellcheck --severity=warning --shell=bash \
+            src/scripts/*.sh src/event/* scripts/*.sh tests/*.sh
+
+      - name: Build package
+        run: |
+          ZDC_OUT_DIR=dist ./scripts/build.sh 2026.01.01.01
+          tar -tJf dist/*.txz
+
+      # A rebuild must not leave the working tree dirty in a way we did not
+      # intend - the only expected change is the version/md5 in the manifest.
+      - name: Show manifest diff from the test build
+        run: git --no-pager diff --stat || true

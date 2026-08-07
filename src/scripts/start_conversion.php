@@ -24,7 +24,6 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $statusFile = '/tmp/zfs.dataset.converter/status.json';
 $tmpDir     = '/tmp/zfs.dataset.converter';
 
-// Prevent concurrent runs
 if (file_exists($statusFile)) {
     $st = json_decode(file_get_contents($statusFile), true);
     if (isset($st['pid']) && file_exists('/proc/' . (int)$st['pid'])) {
@@ -87,6 +86,14 @@ foreach ($vars as $ph => $val) {
 $runScript = $tmpDir . '/zfs_converter_run.sh';
 file_put_contents($runScript, $script);
 chmod($runScript, 0755);
+
+foreach (['conversion_*.log', 'auto_*.log'] as $pattern) {
+    $old = glob($tmpDir . '/' . $pattern) ?: [];
+    if (count($old) > 10) {
+        usort($old, function($a, $b) { return filemtime($b) - filemtime($a); });
+        foreach (array_slice($old, 10) as $f) { @unlink($f); }
+    }
+}
 
 $logFile = $tmpDir . '/conversion_' . date('Ymd_His') . '.log';
 $cmd     = 'nohup ' . escapeshellarg($runScript) . ' >' . escapeshellarg($logFile) . ' 2>&1 & echo $!';

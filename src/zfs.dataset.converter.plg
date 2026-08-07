@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.dataset.converter">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.04.12.10">
-<!ENTITY md5       "4b68171943ba180f9cc7eeea0e5dfb45">
+<!ENTITY version   "2026.08.08.01">
+<!ENTITY md5       "c299097ab5228163cb137b12430b7996">
 <!ENTITY launch    "Settings/ZFSDatasetConverter">
 <!ENTITY github    "MajorPain007/zfs-dataset-converter">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,125 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.08.08.01 — Reliability + feature release
+
+### New: Snapshot Manager
+- Full snapshot table with used / referenced / creation per snapshot, sorted
+  biggest first, plus how much space snapshots cost per dataset
+  (`usedbysnapshots`). Answers "which snapshot is eating my pool".
+- Multi-select delete, per-snapshot hold / release, and dataset rollback.
+- Rollback is double-gated: a warning listing the newer snapshots that will be
+  destroyed, then the exact snapshot name has to be typed back. The backend
+  refuses the request unless the confirmation matches.
+
+### New: zfs diff
+- Compare any two snapshots of a dataset, or a snapshot against the live
+  filesystem, directly in the snapshot browser. Added / removed / modified /
+  renamed entries are colour coded with counts.
+
+### New: Replication (zfs send / recv)
+- Per-job replication to a second pool or another machine over SSH.
+- Incremental by default: each job keeps its own `@zdc-send-JOBID-TIMESTAMP`
+  checkpoint snapshots, so replication never breaks when the regular auto
+  snapshots are pruned. The newest snapshot present on both sides is used as
+  the incremental base.
+- Dry run, per-job connectivity test, background worker with a live log.
+- SSH is key-based only; the plugin never handles passwords.
+- `zfs recv -F` (destination rollback) is opt-in per job, off by default.
+- Job config is parsed by PHP, not by another hand-rolled shell JSON parser.
+
+### New: age-based retention and free-space pruning
+- Optional maximum age per snapshot type, on top of the existing count-based
+  retention. A snapshot goes when it is beyond the newest N *or* older than
+  the configured number of days.
+- Free-space target (e.g. 100G or 10%): if the pool drops below it, the oldest
+  auto snapshots are pruned until it is met again. Held snapshots and the
+  newest snapshot of each dataset/type are never touched.
+- Snapshots with a `zfs hold` are excluded from every pruning pass.
+
+### New: restore in the background
+- Restores run in a detached worker with a progress indicator. A large folder
+  used to hit PHP's execution limit and leave a half-restored tree behind.
+
+### New: dry run and diagnostics
+- "Dry Run" reports exactly what would be created and pruned, changing nothing.
+- "Diagnostics" downloads a support bundle: config, logs, cron state, pool and
+  snapshot inventory. Private keys are excluded.
+
+### Scheduling (this is why snapshots were sometimes missing)
+- Cron jobs are now installed the Unraid way: `/etc/cron.d/zfs.dataset.converter`
+  and `/etc/cron.d/zfs.dataset.converter-snapshots` plus `update_cron`.
+  Entries written directly with `crontab -` were silently dropped whenever
+  anything else on the system rebuilt the crontab (other plugins, User
+  Scripts, schedule changes). A verification step falls back to the old
+  method if a given Unraid build does not pick the file up.
+- Cron expressions are validated (5 fields, safe characters) before being
+  written. A malformed custom expression can no longer break the whole root
+  crontab and take Unraid's own jobs (mover, parity check) down with it.
+- Cron is re-registered on every array start via a `disks_mounted` event hook,
+  not only at plugin install time.
+- Legacy duplicate crontab entries from older versions are removed on upgrade.
+
+### Snapshot manager
+- Scheduling is now due-based instead of clock-based. A type is taken when the
+  current period has no snapshot yet, so a missed cron tick, a delayed run,
+  a server that was powered off at 02:00 or an unusual cron interval can no
+  longer skip a snapshot. Previously anything but an exact `minute == 00` hit
+  meant that hour/day was lost for good.
+- Single-instance locking (flock) — overlapping runs could race while pruning.
+- Pruning now runs every cycle, so lowering a retention value takes effect
+  immediately instead of waiting for the next snapshot of that type.
+- Prune matching is anchored on the part after `@` (hardening: substring
+  matching could in principle select a foreign snapshot for deletion).
+- Fixed the JSON parser. The old `s/\\\///g` did not unescape `\/` — it
+  deleted it, AND the substitution reset Perl's `$1`, so the key name was
+  lost and the whole dataset silently disappeared from the list. Any config
+  written with slash-escaping was therefore skipped entirely, which is the
+  real cause of "no snapshots are ever created". Now handles `\/`, `\"`,
+  `\\` and `\uXXXX` correctly.
+- Guards against running before the array is up (no more spurious
+  "dataset does not exist" errors after a reboot).
+- Pool capacity warning + Unraid notification when free space runs low.
+- Unraid notification when a run finishes with errors.
+- Machine-readable run result in `/tmp/.../snapshot_status.json`.
+- "Run Now" no longer burns the current daily/weekly/monthly/yearly period;
+  it creates whatever is actually due and says so when nothing is.
+
+### Converter
+- Stopped containers and VMs are now restarted from an EXIT trap. Pressing
+  "Stop", an OOM kill or an rsync failure used to leave everything powered off.
+- rsync now uses `-aHAX --numeric-ids`: hardlinks, ACLs and extended
+  attributes are preserved. Plain `-a` silently dropped all three.
+- Aborts if a freshly created dataset is not mounted at the expected path —
+  rsync would otherwise write into the parent dataset and the data would be
+  shadowed as soon as the child mounted.
+- Dataset names with spaces are rejected up front with a pointer to the
+  "replace spaces" option, instead of failing after the folder was renamed.
+- `dataset_exists` uses a literal match; dots in dataset names were treated
+  as regex wildcards and could produce false positives.
+- Refuses to start when a `*_temp` directory already exists.
+- Validation counts all entries (symlinks, empty dirs), not just regular files.
+
+### Housekeeping / PHP
+- `/tmp` is a RAM disk: `snapshots.log` is trimmed and old run logs are pruned.
+  Previously the snapshot log grew without limit for as long as the server ran.
+- `get_snapshot_status.php` tails the log from the end instead of loading the
+  whole file into memory, and reports cron health, pool capacity and the
+  structured result of the last run.
+- `get_logs.php`: removed `str_starts_with` (PHP 8 only, fatal on PHP 7) and
+  recovers when a log file is rotated underneath the viewer.
+- Restore no longer times out mid-copy on large folders, refuses to write into
+  a read-only `.zfs` path and preserves ACLs/xattrs/hardlinks.
+- `run_auto.sh` validates every value before templating and aborts if any
+  placeholder is left unsubstituted.
+- New setting: minimum pool free space (%) before warning.
+- Build script syntax-checks every file and keeps version/md5 in the manifest
+  in sync automatically.
+- Test suite (`tests/run.sh`) and GitHub Actions CI: syntax, PHP 7
+  compatibility, Unraid pitfalls, and behavioural regression tests for the
+  cron validator and the JSON parser.
+- Releases are published as GitHub Release assets from a tag.
+
 ## Version 2026.04.12.10
 - Auto-save: all settings are saved automatically 800 ms after the last
   change — no Save buttons needed. Small "✓ Saved" indicator appears in
@@ -135,7 +254,6 @@
 - Unraid notification support
 </CHANGES>
 
-<!-- Create required directories -->
 <FILE Run="/bin/bash">
 <INLINE>
 mkdir -p &configDir;
@@ -143,20 +261,17 @@ mkdir -p &tmpDir;
 </INLINE>
 </FILE>
 
-<!-- Install plugin package -->
 <FILE Name="&configDir;/&name;-&version;-x86_64-1.txz" Run="upgradepkg --install-new">
 <URL>&pkgURL;/&name;-&version;-x86_64-1.txz</URL>
 <MD5>&md5;</MD5>
 </FILE>
 
-<!-- Remove old package versions (standard Unraid plugin pattern) -->
 <FILE Run="/bin/bash">
 <INLINE>
 rm -f $(ls &configDir;/&name;-*.txz 2>/dev/null | grep -v '&version;')
 </INLINE>
 </FILE>
 
-<!-- rc.d script: recreate all cron jobs on every boot -->
 <FILE Name="/etc/rc.d/rc.&name;" Mode="755">
 <INLINE>
 #!/bin/bash
@@ -166,7 +281,6 @@ mkdir -p /tmp/zfs.dataset.converter
 </INLINE>
 </FILE>
 
-<!-- Write default config if not present, then apply cron -->
 <FILE Run="/bin/bash">
 <INLINE>
 if [ ! -f &configDir;/settings.cfg ]; then
@@ -200,10 +314,31 @@ snap_weekly=4
 snap_monthly=3
 snap_yearly=0
 snap_daily_hour=2
+snap_min_free_pct=5
+snap_free_target=
+snap_age_frequent=0
+snap_age_hourly=0
+snap_age_daily=0
+snap_age_weekly=0
+snap_age_monthly=0
+snap_age_yearly=0
 snap_schedule_preset=15min
 snap_schedule_custom=*/15 * * * *
+send_enabled=no
+send_schedule_preset=daily
+send_schedule_hour=4
+send_schedule_custom=0 4 * * *
 SETTINGS_EOF
 fi
+
+# Migration: older versions wrote cron entries straight into the root crontab.
+# Those are now managed through /etc/cron.d, so drop the leftovers to avoid
+# every job running twice.
+( crontab -l 2>/dev/null \
+  | grep -v '^# zfs-dataset-converter' \
+  | grep -v 'run_auto\.sh' \
+  | grep -v 'snapshot_manager\.sh' \
+) | crontab - 2&gt;/dev/null
 
 # Apply cron jobs from saved settings
 /usr/local/emhttp/plugins/zfs.dataset.converter/scripts/setup_cron.sh &gt;/tmp/zfs.dataset.converter/setup_cron.log 2&gt;&amp;1
@@ -211,17 +346,17 @@ fi
 </INLINE>
 </FILE>
 
-<!-- Uninstall -->
 <FILE Run="/bin/bash" Method="remove">
 <INLINE>
-# Remove cron entries
+# Remove cron entries (managed files first, then any legacy crontab lines)
+rm -f /etc/cron.d/&name; /etc/cron.d/&name;-snapshots
 ( crontab -l 2>/dev/null \
   | grep -v "# zfs-dataset-converter" \
   | grep -v "run_auto\.sh" \
   | grep -v "snapshot_manager\.sh" \
 ) | crontab - 2>/dev/null
-rm -f /etc/cron.d/&name;
 rm -f /etc/rc.d/rc.&name;
+command -v update_cron &gt;/dev/null 2&gt;&amp;1 &amp;&amp; update_cron &gt;/dev/null 2&gt;&amp;1
 [ -f /var/run/crond.pid ] &amp;&amp; kill -HUP "$(cat /var/run/crond.pid)" 2&gt;/dev/null
 removepkg &name; 2&gt;/dev/null || rm -rf &pluginDir;
 rm -rf &tmpDir;

@@ -1,38 +1,31 @@
 #!/bin/bash
-# setup_cron.sh - Install or remove the auto-conversion cron job
-# Uses crontab directly (works with Unraid's busybox crond)
 
-CONFIG="/boot/config/plugins/zfs.dataset.converter/settings.cfg"
-RUNNER="/usr/local/emhttp/plugins/zfs.dataset.converter/scripts/run_auto.sh"
-MARKER="# zfs-dataset-converter-auto"
+PLUGIN_DIR="${ZDC_PLUGIN_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+. "${PLUGIN_DIR}/scripts/zdc_common.sh"
 
-mkdir -p "/tmp/zfs.dataset.converter"
+RUNNER="${PLUGIN_DIR}/scripts/run_auto.sh"
+CRON_FILE_BASE="zfs.dataset.converter"
+PATTERN="run_auto\.sh"
 
-# Read config
-declare -A cfg
-if [ -f "$CONFIG" ]; then
-    while IFS='=' read -r key val; do
-        [[ -z "$key" || "$key" =~ ^# ]] && continue
-        cfg["${key}"]="${val}"
-    done < "$CONFIG"
-fi
+zdc_load_cfg "$ZDC_SETTINGS"
 
-ENABLED="${cfg[cron_enabled]:-no}"
-
-# Always remove existing entries first (comment line + schedule line)
-( crontab -l 2>/dev/null | grep -v "$MARKER" | grep -v "run_auto\.sh" ) | crontab - 2>/dev/null
+ENABLED=$(zdc_cfg cron_enabled no)
 
 if [[ ! "$ENABLED" =~ ^[Yy]es$ ]]; then
-    echo "Cron job removed."
+    zdc_remove_cron "$CRON_FILE_BASE" "$PATTERN"
+    echo "Conversion cron job removed."
     exit 0
 fi
 
-# Build cron expression
-PRESET="${cfg[cron_preset]:-daily}"
-HOUR="${cfg[cron_hour]:-2}"
-MINUTE="${cfg[cron_minute]:-0}"
-WEEKDAY="${cfg[cron_weekday]:-0}"
-CUSTOM="${cfg[cron_custom]:-0 2 * * *}"
+PRESET=$(zdc_cfg cron_preset daily)
+HOUR=$(zdc_cfg cron_hour 2)
+MINUTE=$(zdc_cfg cron_minute 0)
+WEEKDAY=$(zdc_cfg cron_weekday 0)
+CUSTOM=$(zdc_cfg cron_custom "0 2 * * *")
+
+zdc_valid_int "$HOUR"    && (( HOUR    >= 0 && HOUR    <= 23 )) || HOUR=2
+zdc_valid_int "$MINUTE"  && (( MINUTE  >= 0 && MINUTE  <= 59 )) || MINUTE=0
+zdc_valid_int "$WEEKDAY" && (( WEEKDAY >= 0 && WEEKDAY <= 7  )) || WEEKDAY=0
 
 case "$PRESET" in
     hourly)   EXPR="${MINUTE} * * * *" ;;
@@ -43,13 +36,16 @@ case "$PRESET" in
     *)        EXPR="0 2 * * *" ;;
 esac
 
-# Add to root crontab
-(
-    crontab -l 2>/dev/null
-    echo "${MARKER}"
-    echo "${EXPR} ${RUNNER}"
-) | crontab -
+if ! zdc_valid_cron "$EXPR"; then
+    echo "ERROR: invalid cron expression '${EXPR}' (preset=${PRESET})." >&2
+    echo "Cron job NOT installed - the previous schedule was left untouched." >&2
+    exit 1
+fi
 
-echo "Cron job installed: ${EXPR}"
+if ! zdc_install_cron "$CRON_FILE_BASE" "$EXPR" \
+        "/bin/bash ${RUNNER} >> ${ZDC_TMP_DIR}/cron_auto.log 2>&1" "$PATTERN"; then
+    exit 1
+fi
+
 echo "Runner: ${RUNNER}"
 echo "System time: $(date)"

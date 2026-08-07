@@ -1,54 +1,44 @@
 #!/bin/bash
-# setup_snapshots.sh - Install or remove the snapshot cron job
-# Called: after saving snapshot settings, and on every boot via rc.d
 
-CONFIG="/boot/config/plugins/zfs.dataset.converter/settings.cfg"
-RUNNER="/usr/local/emhttp/plugins/zfs.dataset.converter/scripts/snapshot_manager.sh"
-MARKER="# zfs-dataset-converter-snapshots"
+PLUGIN_DIR="${ZDC_PLUGIN_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+. "${PLUGIN_DIR}/scripts/zdc_common.sh"
 
-mkdir -p "/tmp/zfs.dataset.converter"
+RUNNER="${PLUGIN_DIR}/scripts/snapshot_manager.sh"
+CRON_FILE_BASE="zfs.dataset.converter-snapshots"
+PATTERN="snapshot_manager\.sh"
 
-# Read config
-declare -A cfg
-if [ -f "$CONFIG" ]; then
-    while IFS='=' read -r key val; do
-        [[ -z "$key" || "$key" =~ ^# ]] && continue
-        cfg["${key}"]="${val}"
-    done < "$CONFIG"
-fi
+zdc_load_cfg "$ZDC_SETTINGS"
 
-ENABLED="${cfg[snapshots_enabled]:-no}"
-
-# Always remove existing entries first (comment + runner line)
-( crontab -l 2>/dev/null \
-    | grep -v "$MARKER" \
-    | grep -v "snapshot_manager\.sh" \
-) | crontab - 2>/dev/null
+ENABLED=$(zdc_cfg snapshots_enabled no)
 
 if [[ ! "$ENABLED" =~ ^[Yy]es$ ]]; then
+    zdc_remove_cron "$CRON_FILE_BASE" "$PATTERN"
     echo "Snapshot cron job removed."
     exit 0
 fi
 
-# Build cron expression
-PRESET="${cfg[snap_schedule_preset]:-15min}"
-CUSTOM="${cfg[snap_schedule_custom]:-*/15 * * * *}"
+PRESET=$(zdc_cfg snap_schedule_preset 15min)
+CUSTOM=$(zdc_cfg snap_schedule_custom "*/15 * * * *")
 
 case "$PRESET" in
+    5min)   EXPR="*/5 * * * *"  ;;
     15min)  EXPR="*/15 * * * *" ;;
     30min)  EXPR="*/30 * * * *" ;;
     hourly) EXPR="0 * * * *"    ;;
-    custom) EXPR="${CUSTOM}"     ;;
+    custom) EXPR="${CUSTOM}"    ;;
     *)      EXPR="*/15 * * * *" ;;
 esac
 
-# Add to crontab
-(
-    crontab -l 2>/dev/null
-    echo "${MARKER}"
-    echo "${EXPR} /bin/bash ${RUNNER} >> /tmp/zfs.dataset.converter/snapshots.log 2>&1"
-) | crontab -
+if ! zdc_valid_cron "$EXPR"; then
+    echo "ERROR: invalid cron expression '${EXPR}' (preset=${PRESET})." >&2
+    echo "Snapshot cron NOT installed - the previous schedule was left untouched." >&2
+    exit 1
+fi
 
-echo "Snapshot cron installed: ${EXPR}"
+if ! zdc_install_cron "$CRON_FILE_BASE" "$EXPR" \
+        "/bin/bash ${RUNNER} >> ${ZDC_TMP_DIR}/snapshots.log 2>&1" "$PATTERN"; then
+    exit 1
+fi
+
 echo "Runner: ${RUNNER}"
 echo "System time: $(date)"
