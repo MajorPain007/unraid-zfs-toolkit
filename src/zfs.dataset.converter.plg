@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.dataset.converter">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.08.08.20">
-<!ENTITY md5       "b0f2dd8622430a33e3942f1b8e1214d4">
+<!ENTITY version   "2026.08.08.21">
+<!ENTITY md5       "4f172b01cd1c6731228095e40ebdb02a">
 <!ENTITY launch    "Settings/ZFSDatasetConverter">
 <!ENTITY github    "MajorPain007/zfs-dataset-converter">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,17 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.08.08.21 — Say what the schedule actually does
+
+- "Run every" renamed to "Check every", with a note that it controls how often
+  the plugin looks for work, not how often it takes a snapshot. Checking every
+  15 minutes with hourly retention still yields one snapshot per hour; only
+  Frequent takes one on every run.
+- Clearer wording on the daily hour: it is the earliest time for daily /
+  weekly / monthly / yearly, still one per period, 0 means right after
+  midnight, and a period missed while the server was off is caught up on the
+  next run.
+
 ## Version 2026.08.08.20 — Honest error when a snapshot will not open
 
 - "Cannot read directory (permission denied)" was a guess: scandir() returns

@@ -558,7 +558,7 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
   </div>
   <div id="snap-details" class="snap-gated"<?= cfgBool('snapshots_enabled')?'':' style="display:none"' ?>>
     <div class="zdc-row">
-      <label class="row-label">Run every</label>
+      <label class="row-label">Check every</label>
       <select name="snap_schedule_preset" id="snap_schedule_preset" onchange="updateSnapPreview()" class="snap-sel">
         <option value="5min"   <?= cfg('snap_schedule_preset','15min')==='5min'  ?'selected':'' ?>>Every 5 minutes</option>
         <option value="15min"  <?= cfg('snap_schedule_preset','15min')==='15min' ?'selected':'' ?>>Every 15 minutes</option>
@@ -575,6 +575,11 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
       <label class="row-label">Cron expression</label>
       <span id="snap-cron-preview" style="font-size:13px;color:var(--zdc-accent);font-family:monospace;"></span>
     </div>
+    <p class="zdc-note" style="margin:2px 0 0;">
+      How often the plugin looks for work, not how often it snapshots. Each run creates only
+      what the current period is still missing, so checking every 15 minutes with hourly
+      retention still yields one snapshot per hour. Only <b>Frequent</b> takes one on every run.
+    </p>
 
     
 <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:16px;font-size:12px;color:var(--zdc-dim);">
@@ -630,7 +635,7 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
     <div class="zdc-row">
       <label class="row-label">Daily snapshot time (hour)</label>
       <input type="number" name="snap_daily_hour" value="<?= cfg('snap_daily_hour','2') ?>" min="0" max="23" class="w80" style="width:60px">
-      <span class="zdc-note">Earliest hour for daily / weekly / monthly / yearly. If the server was off, the snapshot is taken on the next run.</span>
+      <span class="zdc-note">Earliest hour for daily / weekly / monthly / yearly &mdash; still only one per period. 0 = right after midnight. A period missed because the server was off is caught up on the next run.</span>
     </div>
     <div class="zdc-row">
       <label class="row-label">Warn below free space</label>
