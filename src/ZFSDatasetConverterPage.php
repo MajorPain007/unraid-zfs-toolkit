@@ -800,8 +800,8 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
           <th style="text-align:left">Name</th>
           <th style="text-align:left">Source dataset</th>
           <th style="text-align:left">Destination &mdash; where the copy goes</th>
-          <th>Rec</th>
-          <th title="zfs recv -F: allows the destination to be rolled back if it diverged">-F</th>
+          <th title="zfs send -R: also replicate every child dataset of the source">Children</th>
+          <th title="zfs recv -F: let the destination be rolled back if it diverged">Force</th>
           <th></th>
         </tr></thead>
         <tbody id="send-tbody"></tbody>
@@ -812,11 +812,32 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
         <button type="button" class="btn-primary"   style="padding:4px 12px;font-size:12px;" onclick="sendRun('run_now')">Replicate now</button>
         <span id="send-result" style="font-size:12px;"></span>
       </div>
-      <p class="zdc-note" style="margin-top:8px;">
-        SSH uses key-based authentication only — this plugin never handles passwords. Create a key
-        and copy it to the destination, then enter its path above:<br>
-        <code style="font-size:11px;">ssh-keygen -t ed25519 -f /boot/config/plugins/zfs.dataset.converter/id_send -N ""</code>
-      </p>
+      <div class="zdc-note" style="margin-top:10px;line-height:1.6;">
+        <b style="color:var(--zdc-text);">Children</b> &mdash; <code>zfs send -R</code>. Off: only the
+        source dataset itself is copied. On: every dataset below it comes along too, so
+        <code>cache/appdata</code> also carries <code>cache/appdata/plex</code> and the rest.
+        Turn it on when the source is a parent that holds other datasets.<br>
+
+        <b style="color:var(--zdc-text);">Force</b> &mdash; <code>zfs recv -F</code>. Off (recommended):
+        the transfer aborts if the destination has changed since the last run. On: the destination is
+        rolled back to the last common snapshot first, <b style="color:var(--zdc-warn);">discarding
+        anything written there in the meantime</b>. Only switch it on if the destination is a pure
+        copy that nothing else writes to.<br>
+
+        <b style="color:var(--zdc-text);">Destination</b> &mdash; the dataset the copy is written to.
+        With <i>over SSH</i> it lives on the remote host, written the way ZFS does it:
+        <code>root@10.0.0.5 : tank/backup/appdata</code>. It is created on first run; the pool has to
+        exist already.<br>
+
+        <b style="color:var(--zdc-text);">SSH</b> &mdash; key-based authentication only, this plugin
+        never handles passwords. Create a key, copy it to the destination, then enter its path above:<br>
+        <code style="font-size:11px;">ssh-keygen -t ed25519 -f /boot/config/plugins/zfs.dataset.converter/id_send -N ""</code><br>
+        <code style="font-size:11px;">ssh-copy-id -i /boot/config/plugins/zfs.dataset.converter/id_send.pub root@10.0.0.5</code><br>
+
+        Use <b style="color:var(--zdc-text);">Test</b> to check the destination is reachable and
+        <b style="color:var(--zdc-text);">Dry run</b> to see what would be sent &mdash; neither
+        transfers any data.
+      </div>
     </div>
 
     <div style="margin-top:10px;margin-left:20px;display:flex;flex-wrap:wrap;gap:16px;font-size:12px;color:var(--zdc-dim);">

@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.dataset.converter">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.08.08.08">
-<!ENTITY md5       "728520a762545379dc9628b579828421">
+<!ENTITY version   "2026.08.08.09">
+<!ENTITY md5       "3409f5d5aa55669349837bb1d0786ec5">
 <!ENTITY launch    "Settings/ZFSDatasetConverter">
 <!ENTITY github    "MajorPain007/zfs-dataset-converter">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,18 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.08.08.09 — Explain the replication options
+
+- "Rec" and "-F" were unreadable abbreviations. They are now "Children" and
+  "Force", with a legend under the job list explaining what each one does to
+  your data:
+  - Children (`zfs send -R`) also replicates every dataset below the source.
+  - Force (`zfs recv -F`) rolls the destination back to the last common
+    snapshot first, discarding anything written there since. Off by default.
+  - Destination with SSH is written the way ZFS does it, host : dataset.
+  - How to create and install the SSH key, and that Test and Dry run move no
+    data.
+
 ## Version 2026.08.08.08 — Top-level ZFS menu, clearer replication, status fix
 
 - New "ZFS" entry in the top menu bar next to Main, Docker and VMs, so the
