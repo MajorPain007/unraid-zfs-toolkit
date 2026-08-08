@@ -22,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $allowed = [
-    'dry_run', 'cleanup', 'replace_spaces', 'send_notifications',
+    'dry_run', 'cleanup', 'replace_spaces', 'send_notifications', 'show_in_menu',
     'should_process_containers', 'appdata_pool', 'appdata_dataset',
     'should_process_vms', 'vm_pool', 'vm_dataset', 'vm_forceshutdown_wait',
     'buffer_zone', 'validation_tolerance', 'extra_datasets',

@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.dataset.converter">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.08.08.12">
-<!ENTITY md5       "997a5bd4dcf5954454137c67c4474779">
+<!ENTITY version   "2026.08.08.13">
+<!ENTITY md5       "153510c40f72538f5ff9c8e76a9803f1">
 <!ENTITY launch    "Settings/ZFSDatasetConverter">
 <!ENTITY github    "MajorPain007/zfs-dataset-converter">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,17 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.08.08.13 — The top menu entry is a switch now
+
+- "Show in the top menu" under General Settings. On by default; turn it off and
+  the ZFS entry next to Docker and VMs disappears. Reload the page after
+  changing it, the menu is built server-side.
+- Uses the page header's Cond= expression, the same mechanism Unraid uses to
+  hide Docker and VMs when those services are off, so a hidden entry costs
+  nothing at runtime.
+- Upgrades from an older version get the setting added with the entry on, so
+  nothing silently vanishes.
+
 ## Version 2026.08.08.12 — Pick the replication source from a list
 
 - Source dataset in a replication job is a dropdown of the datasets on this
@@ -508,11 +519,18 @@ snap_age_monthly=0
 snap_age_yearly=0
 snap_schedule_preset=15min
 snap_schedule_custom=*/15 * * * *
+show_in_menu=yes
 send_enabled=no
 send_schedule_preset=daily
 send_schedule_hour=4
 send_schedule_custom=0 4 * * *
 SETTINGS_EOF
+fi
+
+# The top-level ZFS menu entry is gated on this key. Add it to configs written
+# before it existed, so an upgrade shows the entry rather than hiding it.
+if ! grep -q '^show_in_menu=' &configDir;/settings.cfg 2>/dev/null; then
+  echo 'show_in_menu=yes' &gt;&gt; &configDir;/settings.cfg
 fi
 
 # Migration: older versions wrote cron entries straight into the root crontab.

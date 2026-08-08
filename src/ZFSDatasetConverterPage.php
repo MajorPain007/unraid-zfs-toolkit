@@ -369,6 +369,11 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
     <label class="zdc-toggle"><input type="checkbox" name="replace_spaces" id="replace_spaces" <?= cfgBool('replace_spaces')?'checked':'' ?>><span class="zdc-slider"></span></label>
   </div>
   <div class="zdc-row">
+    <label class="row-label">Show in the top menu</label>
+    <label class="zdc-toggle"><input type="checkbox" id="show_in_menu" name="show_in_menu" <?= cfgBool('show_in_menu','yes')?'checked':'' ?>><span class="zdc-slider"></span></label>
+    <span class="zdc-note">Adds a ZFS entry next to Docker and VMs &mdash; reload the page after changing</span>
+  </div>
+  <div class="zdc-row">
     <label class="row-label">Send Unraid notifications</label>
     <label class="zdc-toggle"><input type="checkbox" name="send_notifications" id="send_notifications" <?= cfgBool('send_notifications','yes')?'checked':'' ?>><span class="zdc-slider"></span></label>
   </div>
@@ -887,7 +892,7 @@ function toggle(id, show) { document.getElementById(id).style.display = show ? '
 
 function formData() {
   var f = document.getElementById('settings-form');
-  var bools = ['dry_run','cleanup','replace_spaces','send_notifications',
+  var bools = ['dry_run','cleanup','replace_spaces','send_notifications','show_in_menu',
                'should_process_containers','should_process_vms',
                'cron_enabled'];
   var d = {};
