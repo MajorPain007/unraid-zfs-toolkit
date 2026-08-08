@@ -71,31 +71,31 @@ function cfgBool($key, $default = 'no') {
 
 /* One rule instead of a fixed 54/46 split: one column on a phone, two on a
    laptop, three on a wide monitor, without breakpoints to keep in sync. */
-/* Settings cards flow into balanced columns rather than sitting in a grid.
-   A grid row is as tall as its tallest card, so a one-toggle card next to a
-   six-row card left a few hundred pixels of nothing underneath it. Here each
-   card keeps its own height and the next one starts directly below. */
+/* Grid, so cards sit predictably side by side, with row spans computed in JS
+   so a short card does not leave a hole under it until the next row.
+   CSS multi-column was tried instead and made the cards overlap and stack
+   two-in-one-column when only two were present. */
 .zdc-cols {
-  column-count: 1;
-  column-gap: 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+  gap: 0 16px;
+  align-items: start;
+  grid-auto-flow: row dense;
+  /* Fine rows keep the span rounding error small. */
+  grid-auto-rows: 4px;
 }
-@media (min-width: 700px)  { .zdc-cols { column-count: 2; } }
-@media (min-width: 1120px) { .zdc-cols { column-count: 3; } }
-/* Not four: the Conversion tab has six settings cards, and the balancer
-   fills them 2+2+2 and leaves the fourth column empty. */
-
+/* Three at most. Five columns of two-toggle cards read as scattered, and six
+   settings cards divide evenly by three. */
+@media (min-width: 1120px) {
+  .zdc-cols { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
 .zdc-cols .zdc-card {
-  break-inside: avoid;
-  -webkit-column-break-inside: avoid;
-  page-break-inside: avoid;
-  display: inline-block;
-  width: 100%;
   margin: 0 0 16px;
-  vertical-align: top;
+  /* Until the script has measured, one card per row beats overlapping ones. */
+  grid-row: span 40;
 }
+.zdc-cols.zdc-measured .zdc-card { grid-row: auto; }
 
-/* Tables and log viewers need the whole width, so they sit outside the
-   column flow. */
 .zdc-wide-stack > .zdc-card { margin-bottom: 16px; }
 .zdc-col { min-width: 0; }
 
@@ -279,7 +279,11 @@ function cfgBool($key, $default = 'no') {
 .snap-browser-path { display:flex; align-items:center; gap:4px; flex-wrap:wrap; margin-bottom:8px; font-size:12px; }
 .snap-crumb { color:#58a6ff; cursor:pointer; text-decoration:underline; }
 .snap-crumb-sep { color:#555; }
-.snap-file-table { width:100%; border-collapse:collapse; font-size:12px; }
+.snap-file-table { width:100%; border-collapse:collapse; font-size:12px; table-layout:fixed; }
+.snap-file-table td:nth-child(2) { word-break:break-all; }
+.snap-file-table th:nth-child(3), .snap-file-table td:nth-child(3) { width:110px; }
+.snap-file-table th:nth-child(4), .snap-file-table td:nth-child(4) { width:150px; }
+.snap-file-table th:nth-child(5), .snap-file-table td:nth-child(5) { width:90px; }
 .snap-file-table th { text-align:left; padding:5px 8px; background:#161b22; color:var(--zdc-dim); font-weight:600; border-bottom:1px solid var(--zdc-border-2); }
 .snap-file-table td { padding:4px 8px; border-bottom:1px solid #21262d; }
 .snap-file-table tr:last-child td { border-bottom:none; }
@@ -726,16 +730,16 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
   <h3>Snapshot Browser</h3>
   <p style="font-size:12px;color:var(--zdc-dim);margin:0 0 10px;">Browse any ZFS snapshot and restore individual files or folders to the live dataset.</p>
 
-  <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px;">
-    <div>
+  <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:10px;">
+    <div style="flex:1 1 220px;min-width:0;max-width:360px;">
       <label style="font-size:12px;color:#9ba5b5;display:block;margin-bottom:3px;">Dataset</label>
-      <select id="browser-dataset" class="snap-sel" style="width:min(260px,100%)" onchange="loadBrowserSnapshots()">
+      <select id="browser-dataset" class="snap-sel" style="width:100%" onchange="loadBrowserSnapshots()">
         <option value="">— select dataset —</option>
       </select>
     </div>
-    <div>
+    <div style="flex:1 1 220px;min-width:0;max-width:360px;">
       <label style="font-size:12px;color:#9ba5b5;display:block;margin-bottom:3px;">Snapshot</label>
-      <select id="browser-snapshot" class="snap-sel" style="width:min(260px,100%)" onchange="browserBrowse('/')">
+      <select id="browser-snapshot" class="snap-sel" style="width:100%" onchange="browserBrowse('/')">
         <option value="">— select snapshot —</option>
       </select>
     </div>
@@ -746,9 +750,9 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
   </div>
 
   <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-bottom:10px;padding-top:8px;border-top:1px solid var(--border,#3a4049);">
-    <div>
+    <div style="flex:1 1 220px;min-width:0;max-width:360px;">
       <label style="font-size:12px;color:#9ba5b5;display:block;margin-bottom:3px;">Compare with</label>
-      <select id="diff-target" class="snap-sel" style="width:min(240px,100%)">
+      <select id="diff-target" class="snap-sel" style="width:100%">
         <option value="">— live filesystem —</option>
       </select>
     </div>
@@ -768,7 +772,7 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
       <input type="text" id="restore-dst" class="textPath"
              data-pickroot="/mnt/" data-picktop="/mnt/" data-pickfolders="true"
              data-pickfilter="HIDE_FILES_FILTER"
-             style="flex:1;min-width:160px;max-width:320px;font-size:12px;"
+             style="flex:1 1 260px;min-width:0;max-width:560px;font-size:12px;"
              placeholder="click to pick, or type a path + Enter — empty = original location">
       <button type="button" id="dest-browse-btn" class="btn-secondary" style="padding:4px 12px;font-size:12px;display:none;" onclick="toggleDestPicker()">Browse…</button>
       <span id="dest-hint" style="font-size:11px;color:var(--zdc-dim);"></span>
@@ -1271,6 +1275,7 @@ function zdcTab(name) {
   // user to find a Refresh button.
   if (name === 'snapshots' && !_mgrLast) loadSnapManager();
   if (name === 'replicate') loadSendStatus();
+  zdcLayout();
 }
 
 function zdcRestoreTab() {
@@ -1339,6 +1344,35 @@ function onMenuToggle() {
   window._menuHintTimer = setTimeout(function() { el.textContent = ''; }, 8000);
 }
 
+/* Masonry: each card spans as many 8px rows as its own height needs, so the
+   next card in that column starts right below it. Re-run whenever a card
+   changes size (a toggle opening a section) or the window resizes. */
+var _zdcRO = null;
+
+function zdcLayout() {
+  document.querySelectorAll('.zdc-cols').forEach(function(grid) {
+    if (!grid.offsetParent && grid.closest('.zdc-panel[hidden]')) return;
+    var cs   = getComputedStyle(grid);
+    var row  = parseFloat(cs.gridAutoRows) || 4;
+    var gapY = parseFloat(cs.rowGap) || 0;
+    grid.classList.add('zdc-measured');
+    grid.querySelectorAll(':scope > .zdc-card').forEach(function(card) {
+      var mb = parseFloat(getComputedStyle(card).marginBottom) || 0;
+      var h  = card.getBoundingClientRect().height + mb;
+      card.style.gridRowEnd = 'span ' + Math.max(1, Math.ceil((h + gapY) / (row + gapY)));
+    });
+  });
+}
+
+function zdcWatchLayout() {
+  zdcLayout();
+  if (window.ResizeObserver && !_zdcRO) {
+    _zdcRO = new ResizeObserver(function() { zdcLayout(); });
+    document.querySelectorAll('.zdc-cols > .zdc-card').forEach(function(c) { _zdcRO.observe(c); });
+  }
+  window.addEventListener('resize', zdcLayout);
+}
+
 function toggleSnapDetails() {
   var en = document.getElementById('snapshots_enabled').checked;
   document.querySelectorAll('.snap-gated').forEach(function(el) {
@@ -1346,6 +1380,7 @@ function toggleSnapDetails() {
   });
   document.getElementById('snap-run-btn').disabled = !en;
   if (en) { updateSnapPreview(); loadSnapshotStatus(); }
+  zdcLayout();
 }
 
 function updateSnapPreview() {
@@ -2566,6 +2601,7 @@ initDestPicker();
 updateSendPreview();
 loadSendJobs();
 zdcRestoreTab();
+zdcWatchLayout();
 zdcRefreshStatus();
 setInterval(zdcRefreshStatus, 30000);
 if (document.getElementById('send_enabled').checked) loadSendStatus();

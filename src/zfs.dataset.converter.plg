@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.dataset.converter">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.08.08.14">
-<!ENTITY md5       "2ab0491cdac1baef2e1f9e7040e4ae6d">
+<!ENTITY version   "2026.08.08.15">
+<!ENTITY md5       "155b19db6cfb37133a0e980dd795dbf9">
 <!ENTITY launch    "Settings/ZFSDatasetConverter">
 <!ENTITY github    "MajorPain007/zfs-dataset-converter">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,20 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.08.08.15 — Fix overlapping cards, stretch the browser
+
+- Fix cards overlapping each other and running together without a visible
+  separation on the Conversion tab, and two cards stacking in one column on
+  the Snapshots tab even though there was room beside them. Both came from the
+  CSS multi-column layout introduced in .11. Back to a grid, where placement
+  is predictable, with the row spans computed in JS so a short card still does
+  not leave a hole under it. No overlaps at any width, largest vertical gap
+  19px instead of ~250px.
+- Browse and Restore: the controls sat squeezed on the left of a full-width
+  card. They now grow with the card, capped so a dataset dropdown does not end
+  up 900px wide, and the file list spreads its Name column over the space that
+  is left instead of hugging the left edge.
+
 ## Version 2026.08.08.14 — Menu switch moved into the plugin header
 
 - "Show in top menu" now sits in the plugin's own header, top right, next to

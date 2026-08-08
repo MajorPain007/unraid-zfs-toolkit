@@ -26,6 +26,8 @@ BUILTINS = {
     'isFinite', 'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval',
     'encodeURIComponent', 'decodeURIComponent', 'encodeURI', 'decodeURI',
     'requestAnimationFrame', 'structuredClone', 'queueMicrotask',
+    'getComputedStyle', 'ResizeObserver', 'MutationObserver', 'IntersectionObserver',
+    'KeyboardEvent', 'CustomEvent', 'Response', 'Headers', 'Request',
     # control flow keywords that the naive regex would otherwise pick up
     'if', 'for', 'while', 'switch', 'catch', 'return', 'typeof', 'function',
     'new', 'do', 'else', 'delete', 'void', 'in', 'of', 'instanceof', 'await',
