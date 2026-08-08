@@ -24,18 +24,38 @@ function cfgBool($key, $default = 'no') {
 <style>
 .zdc-wrap {
   width: 100%;
-  --zdc-card:     #1e2329;
-  --zdc-sunken:   #0d1117;
-  --zdc-border:   #3a4049;
-  --zdc-border-2: #30363d;
-  --zdc-text:     #c9d1d9;
-  --zdc-dim:      #8b949e;
-  --zdc-muted:    #6e7681;
-  --zdc-accent:   #79c0ff;
+  /* Follow Unraid's theme where it has an equivalent. The hex is the fallback
+     for an Unraid old enough not to expose these variables. */
+  --zdc-card:     var(--mild-background-color, #1e2329);
+  --zdc-sunken:   var(--table-background-color, #0d1117);
+  --zdc-border:   var(--border-color, #3a4049);
+  --zdc-border-2: var(--table-border-color, #30363d);
+  --zdc-text:     var(--text-color, #c9d1d9);
+  --zdc-dim:      var(--alt-text-color, #8b949e);
+  --zdc-muted:    var(--disabled-text-color, #6e7681);
+  --zdc-accent:   var(--link-text-color, #79c0ff);
+
+  /* Status colours stay ours - green, amber and red have to mean the same on
+     every theme - but they need darker shades on a light background. */
   --zdc-ok:       #56d364;
   --zdc-warn:     #e3b341;
   --zdc-err:      #f85149;
   --zdc-blue:     #1f6feb;
+}
+
+/* Unraid's --alt-text-color drops to about 3:1 on the white theme. Fine for a
+   hint, too weak for a form label, so labels take the normal text colour
+   there. The dark theme keeps the softer look. */
+.zdc-wrap.zdc-light .zdc-row label.row-label,
+.zdc-wrap.zdc-light .zdc-sub { color: var(--zdc-text); }
+
+.zdc-wrap.zdc-light {
+  --zdc-ok:       #1a7f37;
+  --zdc-warn:     #9a6700;
+  --zdc-err:      #cf222e;
+  --zdc-blue:     #0969da;
+  --zdc-accent:   #0550ae;
+  --zdc-sunken:   #f6f8fa;
 }
 
 .zdc-tabs {
@@ -131,8 +151,8 @@ function cfgBool($key, $default = 'no') {
 .zdc-meter { background: rgba(255,255,255,.12); border-radius: 3px; height: 5px; overflow: hidden; width: 54px; }
 .zdc-meter i { display: block; height: 100%; }
 .zdc-card {
-  background: var(--bg-primary, #1e2329);
-  border: 1px solid var(--border, #3a4049);
+  background: var(--zdc-card);
+  border: 1px solid var(--zdc-border);
   border-radius: 6px;
   padding: 16px 18px;
   margin-bottom: 16px;
@@ -143,7 +163,7 @@ function cfgBool($key, $default = 'no') {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: .05em;
-  border-bottom: 1px solid var(--border, #3a4049);
+  border-bottom: 1px solid var(--zdc-border);
   padding-bottom: 7px;
   overflow: hidden;
 }
@@ -159,7 +179,7 @@ function cfgBool($key, $default = 'no') {
   min-width: 180px;
   width: 180px;
   font-size: 13px;
-  color: var(--text-secondary, #9ba5b5);
+  color: var(--zdc-dim);
   flex-shrink: 0;
 }
 .snap-table-scroll { overflow-x: auto; }
@@ -206,7 +226,7 @@ function cfgBool($key, $default = 'no') {
 
 .zdc-note {
   font-size: 11px;
-  color: var(--text-muted, #666);
+  color: var(--zdc-muted);
 }
 
 .zdc-toggle {
@@ -266,11 +286,11 @@ function cfgBool($key, $default = 'no') {
 }
 .badge-idle    { background:var(--zdc-border-2); color:var(--zdc-dim); }
 .badge-running { background:rgba(31,111,235,0.267); color:#58a6ff; }
-.badge-done    { background:#1a4a2744; color:var(--zdc-ok); }
-.badge-error   { background:#5a1a1a44; color:var(--zdc-err); }
+.badge-done    { background:rgba(26,74,39,.27); color:var(--zdc-ok); }
+.badge-error   { background:rgba(90,26,26,.27); color:var(--zdc-err); }
 
-.snap-table th { text-align:center; padding:5px 8px; background:var(--bg-secondary,#161b22); color:var(--zdc-dim); font-weight:600; border-bottom:1px solid var(--zdc-border-2); }
-.snap-table td { padding:4px 6px; border-bottom:1px solid #21262d; text-align:center; vertical-align:middle; }
+.snap-table th { text-align:center; padding:5px 8px; background:var(--zdc-sunken); color:var(--zdc-dim); font-weight:600; border-bottom:1px solid var(--zdc-border-2); }
+.snap-table td { padding:4px 6px; border-bottom:1px solid var(--zdc-border-2); text-align:center; vertical-align:middle; }
 .snap-table td:first-child { text-align:left; font-family:monospace; font-size:12px; }
 .snap-table tr:last-child td { border-bottom:none; }
 .snap-table input[type=number] { width:52px; padding:2px 5px; font-size:12px; }
@@ -284,10 +304,10 @@ function cfgBool($key, $default = 'no') {
 .snap-file-table th:nth-child(3), .snap-file-table td:nth-child(3) { width:110px; }
 .snap-file-table th:nth-child(4), .snap-file-table td:nth-child(4) { width:150px; }
 .snap-file-table th:nth-child(5), .snap-file-table td:nth-child(5) { width:90px; }
-.snap-file-table th { text-align:left; padding:5px 8px; background:#161b22; color:var(--zdc-dim); font-weight:600; border-bottom:1px solid var(--zdc-border-2); }
-.snap-file-table td { padding:4px 8px; border-bottom:1px solid #21262d; }
+.snap-file-table th { text-align:left; padding:5px 8px; background:var(--zdc-sunken); color:var(--zdc-dim); font-weight:600; border-bottom:1px solid var(--zdc-border-2); }
+.snap-file-table td { padding:4px 8px; border-bottom:1px solid var(--zdc-border-2); }
 .snap-file-table tr:last-child td { border-bottom:none; }
-.snap-file-table tr:hover td { background:#21262d; }
+.snap-file-table tr:hover td { background:var(--zdc-border-2); }
 .snap-dir  { color:var(--zdc-warn); cursor:pointer; }
 .snap-dir:hover { text-decoration:underline; }
 .snap-file { color:var(--zdc-text); }
@@ -295,13 +315,13 @@ function cfgBool($key, $default = 'no') {
 .snap-restore-btn:hover { background:#388bfd; }
 
 select.snap-sel {
-  background:#161b22; border:1px solid var(--zdc-border-2); color:var(--zdc-text);
+  background:var(--zdc-sunken); border:1px solid var(--zdc-border-2); color:var(--zdc-text);
   border-radius:4px; padding:4px 8px; font-size:13px;
 }
 
 .zdc-table { width:100%; border-collapse:collapse; font-size:13px; margin-top:4px; }
-.zdc-table th { text-align:left; padding:6px 10px; background:var(--bg-secondary,#161b22); color:var(--zdc-dim); font-weight:600; border-bottom:1px solid var(--zdc-border-2); }
-.zdc-table td { padding:5px 10px; border-bottom:1px solid #21262d; }
+.zdc-table th { text-align:left; padding:6px 10px; background:var(--zdc-sunken); color:var(--zdc-dim); font-weight:600; border-bottom:1px solid var(--zdc-border-2); }
+.zdc-table td { padding:5px 10px; border-bottom:1px solid var(--zdc-border-2); }
 .zdc-table tr:last-child td { border-bottom:none; }
 .tag-folder  { color:var(--zdc-warn); font-size:12px; }
 .tag-dataset { color:var(--zdc-ok); font-size:12px; }
@@ -309,13 +329,13 @@ select.snap-sel {
 .btn-primary   { background:#238636; color:#fff; border:none; padding:7px 18px; border-radius:5px; font-size:13px; font-weight:600; cursor:pointer; }
 .btn-primary:hover { background:#2ea043; }
 .btn-primary:disabled { background:#3d4449; color:#888; cursor:default; }
-.btn-secondary { background:#21262d; color:var(--zdc-text); border:1px solid #444d56; padding:6px 14px; border-radius:5px; font-size:13px; cursor:pointer; }
+.btn-secondary { background:var(--zdc-border-2); color:var(--zdc-text); border:1px solid #444d56; padding:6px 14px; border-radius:5px; font-size:13px; cursor:pointer; }
 .btn-secondary:hover { background:var(--zdc-border-2); }
 .btn-danger    { background:#b91c1c; color:#fff; border:none; padding:7px 14px; border-radius:5px; font-size:13px; font-weight:600; cursor:pointer; }
 .btn-danger:hover { background:var(--zdc-err); }
 
 input[type=text], input[type=number] {
-  background:#161b22; border:1px solid var(--zdc-border-2); color:var(--zdc-text);
+  background:var(--zdc-sunken); border:1px solid var(--zdc-border-2); color:var(--zdc-text);
   border-radius:4px; padding:4px 8px; font-size:13px;
 }
 input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#58a6ff; }
@@ -406,7 +426,7 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
   <div id="cron-details" <?= cfgBool('cron_enabled')?'':'style="display:none"' ?>>
     <div class="zdc-row" style="margin-left:20px">
       <label class="row-label">Schedule</label>
-      <select name="cron_preset" id="cron_preset" onchange="updateCronPreview()" style="width:160px;background:#161b22;border:1px solid var(--zdc-border-2);color:var(--zdc-text);border-radius:4px;padding:4px 8px;font-size:13px;">
+      <select name="cron_preset" id="cron_preset" onchange="updateCronPreview()" style="width:160px;background:var(--zdc-sunken);border:1px solid var(--zdc-border-2);color:var(--zdc-text);border-radius:4px;padding:4px 8px;font-size:13px;">
         <option value="hourly"  <?= cfg('cron_preset','daily')==='hourly' ?'selected':'' ?>>Every hour</option>
         <option value="6hourly" <?= cfg('cron_preset','daily')==='6hourly'?'selected':'' ?>>Every 6 hours</option>
         <option value="daily"   <?= cfg('cron_preset','daily')==='daily'  ?'selected':'' ?>>Daily</option>
@@ -421,7 +441,7 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
     </div>
     <div id="cron-weekday-row" class="zdc-row" style="margin-left:20px;display:none">
       <label class="row-label">Day of week</label>
-      <select name="cron_weekday" id="cron_weekday" onchange="updateCronPreview()" style="width:130px;background:#161b22;border:1px solid var(--zdc-border-2);color:var(--zdc-text);border-radius:4px;padding:4px 8px;font-size:13px;">
+      <select name="cron_weekday" id="cron_weekday" onchange="updateCronPreview()" style="width:130px;background:var(--zdc-sunken);border:1px solid var(--zdc-border-2);color:var(--zdc-text);border-radius:4px;padding:4px 8px;font-size:13px;">
         <option value="0" <?= cfg('cron_weekday','0')==='0'?'selected':'' ?>>Sunday</option>
         <option value="1" <?= cfg('cron_weekday','0')==='1'?'selected':'' ?>>Monday</option>
         <option value="2" <?= cfg('cron_weekday','0')==='2'?'selected':'' ?>>Tuesday</option>
@@ -600,7 +620,7 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
           ['snap_frequent','Frequent', '0'],
         ];
         foreach ($snap_fields as [$k,$lbl,$def]) {
-          echo '<label style="font-size:12px;color:#9ba5b5;display:flex;flex-direction:column;align-items:center;gap:3px;">'
+          echo '<label style="font-size:12px;color:var(--zdc-dim);display:flex;flex-direction:column;align-items:center;gap:3px;">'
             . $lbl
             . '<input type="number" name="'.$k.'" value="'.cfg($k,$def).'" min="0" max="999" style="width:60px;text-align:center;">'
             . '</label>';
@@ -625,7 +645,7 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
       <?php
         foreach ([['snap_age_hourly','Hourly'],['snap_age_daily','Daily'],['snap_age_weekly','Weekly'],
                   ['snap_age_monthly','Monthly'],['snap_age_yearly','Yearly'],['snap_age_frequent','Frequent']] as [$k,$lbl]) {
-          echo '<label style="font-size:12px;color:#9ba5b5;display:flex;flex-direction:column;align-items:center;gap:3px;">'
+          echo '<label style="font-size:12px;color:var(--zdc-dim);display:flex;flex-direction:column;align-items:center;gap:3px;">'
             . $lbl
             . '<input type="number" name="'.$k.'" value="'.cfg($k,'0').'" min="0" max="3650" style="width:60px;text-align:center;">'
             . '</label>';
@@ -676,16 +696,16 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
 
   <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:10px;">
     <div>
-      <label style="font-size:12px;color:#9ba5b5;display:block;margin-bottom:3px;">Dataset</label>
+      <label style="font-size:12px;color:var(--zdc-dim);display:block;margin-bottom:3px;">Dataset</label>
       <select id="mgr-dataset" class="snap-sel" style="width:min(260px,100%)" onchange="loadSnapManager()">
         <option value="">— all datasets —</option>
       </select>
     </div>
-    <label style="font-size:12px;color:#9ba5b5;display:flex;align-items:center;gap:5px;height:30px;">
+    <label style="font-size:12px;color:var(--zdc-dim);display:flex;align-items:center;gap:5px;height:30px;">
       <input type="checkbox" id="mgr-only-auto" checked onchange="loadSnapManager()"> only plugin snapshots
     </label>
     <div>
-      <label style="font-size:12px;color:#9ba5b5;display:block;margin-bottom:3px;">Filter</label>
+      <label style="font-size:12px;color:var(--zdc-dim);display:block;margin-bottom:3px;">Filter</label>
       <input type="text" id="mgr-filter" style="width:min(230px,100%);font-size:12px;"
              placeholder="e.g. hourly  or  auto-daily-2026-07*"
              oninput="renderSnapManager()" title="Substring match, or use * and ? as wildcards. Select-all only takes the rows shown.">
@@ -732,13 +752,13 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
 
   <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:10px;">
     <div style="flex:1 1 220px;min-width:0;max-width:360px;">
-      <label style="font-size:12px;color:#9ba5b5;display:block;margin-bottom:3px;">Dataset</label>
+      <label style="font-size:12px;color:var(--zdc-dim);display:block;margin-bottom:3px;">Dataset</label>
       <select id="browser-dataset" class="snap-sel" style="width:100%" onchange="loadBrowserSnapshots()">
         <option value="">— select dataset —</option>
       </select>
     </div>
     <div style="flex:1 1 220px;min-width:0;max-width:360px;">
-      <label style="font-size:12px;color:#9ba5b5;display:block;margin-bottom:3px;">Snapshot</label>
+      <label style="font-size:12px;color:var(--zdc-dim);display:block;margin-bottom:3px;">Snapshot</label>
       <select id="browser-snapshot" class="snap-sel" style="width:100%" onchange="browserBrowse('/')">
         <option value="">— select snapshot —</option>
       </select>
@@ -749,9 +769,9 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
     </div>
   </div>
 
-  <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-bottom:10px;padding-top:8px;border-top:1px solid var(--border,#3a4049);">
+  <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-bottom:10px;padding-top:8px;border-top:1px solid var(--zdc-border);">
     <div style="flex:1 1 220px;min-width:0;max-width:360px;">
-      <label style="font-size:12px;color:#9ba5b5;display:block;margin-bottom:3px;">Compare with</label>
+      <label style="font-size:12px;color:var(--zdc-dim);display:block;margin-bottom:3px;">Compare with</label>
       <select id="diff-target" class="snap-sel" style="width:100%">
         <option value="">— live filesystem —</option>
       </select>
@@ -768,7 +788,7 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
       <p style="color:var(--zdc-dim);font-size:13px;">Select a dataset and snapshot above, then click Browse.</p>
     </div>
     <div id="restore-controls" style="position:relative;margin-top:10px;display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:12px;">
-      <span style="color:#9ba5b5;white-space:nowrap;">Destination folder:</span>
+      <span style="color:var(--zdc-dim);white-space:nowrap;">Destination folder:</span>
       <input type="text" id="restore-dst" class="textPath"
              data-pickroot="/mnt/" data-picktop="/mnt/" data-pickfolders="true"
              data-pickfilter="HIDE_FILES_FILTER"
@@ -780,11 +800,11 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
       <span id="restore-result" style="font-size:12px;"></span>
     </div>
 
-    <div id="dest-picker" style="display:none;margin-top:8px;border:1px solid var(--border,#3a4049);border-radius:4px;padding:8px;background:var(--zdc-sunken);">
+    <div id="dest-picker" style="display:none;margin-top:8px;border:1px solid var(--zdc-border);border-radius:4px;padding:8px;background:var(--zdc-sunken);">
       <div class="snap-browser-path" id="dest-crumbs" style="margin-bottom:6px;"></div>
       <div id="dest-list" style="max-height:180px;overflow-y:auto;font-size:12px;"></div>
       <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px;">
-        <span style="font-size:12px;color:#9ba5b5;">Selected:</span>
+        <span style="font-size:12px;color:var(--zdc-dim);">Selected:</span>
         <code id="dest-current" style="font-size:12px;color:var(--zdc-accent);">/mnt</code>
         <input type="text" id="dest-newfolder" placeholder="optional: new subfolder" style="font-size:12px;width:170px;">
         <button type="button" class="btn-primary" style="padding:3px 10px;font-size:12px;" onclick="destUse()">Use this folder</button>
@@ -821,7 +841,7 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
         <option value="weekly"  <?= cfg('send_schedule_preset','daily')==='weekly' ?'selected':'' ?>>Weekly (Sunday)</option>
         <option value="custom"  <?= cfg('send_schedule_preset','daily')==='custom' ?'selected':'' ?>>Custom cron</option>
       </select>
-      <label style="font-size:12px;color:#9ba5b5;" id="send-hour-wrap">at hour
+      <label style="font-size:12px;color:var(--zdc-dim);" id="send-hour-wrap">at hour
         <input type="number" name="send_schedule_hour" id="send_schedule_hour" value="<?= cfg('send_schedule_hour','4') ?>" min="0" max="23" style="width:56px" oninput="updateSendPreview()">
       </label>
       <input type="text" name="send_schedule_custom" id="send_schedule_custom" value="<?= cfg('send_schedule_custom','0 4 * * *') ?>" style="width:150px;display:none" oninput="updateSendPreview()">
@@ -1283,6 +1303,23 @@ function zdcTab(name) {
   zdcLayout();
 }
 
+/* Unraid's theme is a server setting, not an OS preference, so
+   prefers-color-scheme is the wrong signal. Read the background Unraid
+   actually renders and decide from its luminance - that also covers the
+   azure and gray themes. */
+function zdcApplyTheme() {
+  var wrap = document.querySelector('.zdc-wrap');
+  if (!wrap) return;
+  var el = document.body, bg = '';
+  while (el && (!bg || bg === 'rgba(0, 0, 0, 0)' || bg === 'transparent')) {
+    bg = getComputedStyle(el).backgroundColor;
+    el = el.parentElement;
+  }
+  var m = /(\d+)\D+(\d+)\D+(\d+)/.exec(bg || '');
+  var lum = m ? (0.2126 * +m[1] + 0.7152 * +m[2] + 0.0722 * +m[3]) / 255 : 0;
+  wrap.classList.toggle('zdc-light', lum > 0.5);
+}
+
 function zdcRestoreTab() {
   var saved = null;
   try { saved = localStorage.getItem('zdc-tab'); } catch (e) {}
@@ -1495,7 +1532,7 @@ function renderSnapTable() {
     ['hourly','daily','weekly','monthly','yearly'].forEach(function(f) {
       var val = tpl ? getGlobalRetention(f) : (ds[f] !== undefined && ds[f] !== '' ? ds[f] : '');
       var attrs = tpl
-        ? 'disabled title="Using global template value" style="opacity:.55;width:52px;text-align:center;padding:2px 4px;font-size:12px;background:#1e2b1e;"'
+        ? 'disabled title="Using global template value" style="opacity:.55;width:52px;text-align:center;padding:2px 4px;font-size:12px;background:var(--zdc-sunken);"'
         : 'oninput="snapDsField('+i+',\''+f+'\',this.value)" style="width:52px;text-align:center;padding:2px 4px;font-size:12px;"';
       html += '<td><input type="number" min="0" max="999" ' + attrs + ' value="' + esc(String(val)) + '"></td>';
     });
@@ -2632,6 +2669,7 @@ if (_sendPanelEl) {
 initDestPicker();
 updateSendPreview();
 loadSendJobs();
+zdcApplyTheme();
 zdcRestoreTab();
 zdcWatchLayout();
 zdcRefreshStatus();

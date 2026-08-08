@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.dataset.converter">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.08.08.18">
-<!ENTITY md5       "61dfcf9ad1c94e27272e666390f7d2d0">
+<!ENTITY version   "2026.08.08.19">
+<!ENTITY md5       "64057d197add3f4e2462f07b5af93296">
 <!ENTITY launch    "Settings/ZFSDatasetConverter">
 <!ENTITY github    "MajorPain007/zfs-dataset-converter">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,23 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.08.08.19 — Follows the Unraid theme
+
+- Colours now come from Unraid's own theme variables, so the plugin looks
+  right on the white and azure themes instead of staying dark inside a light
+  WebGUI. The dark themes look as before.
+- Nine references pointed at variable names Unraid does not define
+  (--bg-primary, --border, --text-secondary), so the hardcoded dark fallback
+  always won. Those are gone.
+- Status colours stay green/amber/red on every theme but switch to darker
+  shades on a light background, where the bright ones were barely readable.
+- Which theme is active is decided from the background Unraid actually renders,
+  not from prefers-color-scheme - the theme is a server setting, and this way
+  azure and gray are covered too.
+- Form labels take the normal text colour on light themes. Unraid's
+  --alt-text-color lands at about 3:1 there, which is fine for a hint and too
+  weak for a label.
+
 ## Version 2026.08.08.18 — Deleting a replication job sticks
 
 - Deleting a job appeared to work and came back on reload. The save routine
