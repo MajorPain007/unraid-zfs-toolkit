@@ -1,0 +1,9 @@
+Menu="Tasks:75"
+Type="xmenu"
+Title="ZFS"
+Icon="database"
+Markdown="false"
+---
+<?php
+include '/usr/local/emhttp/plugins/zfs.dataset.converter/ZFSDatasetConverterPage.php';
+?>

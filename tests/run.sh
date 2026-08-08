@@ -219,11 +219,15 @@ fi
 
 group "Unraid page rendering"
 
-if grep -q 'Markdown="false"' src/ZFSDatasetConverter.page; then
-    ok 'page header sets Markdown="false"'
+zdc_md_missing=""
+for pg in src/*.page; do
+    grep -q 'Markdown="false"' "$pg" || zdc_md_missing="$zdc_md_missing $pg"
+done
+if [ -z "$zdc_md_missing" ]; then
+    ok 'every .page sets Markdown="false"'
 else
-    bad 'page header sets Markdown="false"' \
-        "Unraid runs .page bodies through Markdown otherwise: it eats */5 in a cron string and turns indented blocks into code, so the JS renders as text."
+    bad 'every .page sets Markdown="false"' \
+        "missing in:$zdc_md_missing - Unraid runs .page bodies through Markdown otherwise, which eats */5 in a cron string and turns indented blocks into code, so the JS renders as text."
 fi
 
 page_body_lines=$(sed -n '/^---$/,$p' src/ZFSDatasetConverter.page | grep -c .)

@@ -53,10 +53,15 @@ jobs:
 
       - name: Build package
         run: |
-          ZDC_OUT_DIR=dist ./scripts/build.sh 2026.01.01.01
+          ZDC_OUT_DIR=dist ZDC_SKIP_PLG=1 ./scripts/build.sh 2026.01.01.01
           tar -tJf dist/*.txz
+          test -s dist/zfs.dataset.converter-2026.01.01.01-x86_64-1.txz
 
-      # A rebuild must not leave the working tree dirty in a way we did not
-      # intend - the only expected change is the version/md5 in the manifest.
-      - name: Show manifest diff from the test build
-        run: git --no-pager diff --stat || true
+      - name: Working tree must be clean after a test build
+        run: |
+          if ! git diff --quiet; then
+            echo "::error::build.sh modified tracked files during a test build"
+            git --no-pager diff --stat
+            exit 1
+          fi
+

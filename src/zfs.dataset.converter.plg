@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.dataset.converter">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.08.08.07">
-<!ENTITY md5       "c4eeff4e3024d8e399d4c6ecf72f6f24">
+<!ENTITY version   "2026.08.08.08">
+<!ENTITY md5       "728520a762545379dc9628b579828421">
 <!ENTITY launch    "Settings/ZFSDatasetConverter">
 <!ENTITY github    "MajorPain007/zfs-dataset-converter">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,30 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.08.08.08 — Top-level ZFS menu, clearer replication, status fix
+
+- New "ZFS" entry in the top menu bar next to Main, Docker and VMs, so the
+  plugin is no longer only reachable through Settings. The Settings entry
+  stays as well.
+- Fix the status badge showing "Error" forever. A conversion that finds
+  nothing to convert exits before printing its completion line, and
+  get_status.php treated a missing completion line as a failure - then wrote
+  that verdict into status.json, so it never cleared. The converter now marks
+  every normal exit as complete, and the status is re-derived from the log on
+  every request instead of trusting a stored verdict. An existing wrong
+  "Error" clears itself on the next page load.
+- A killed run is now reported as "Stopped" rather than "Error".
+- Replication: destination is one cell again. With SSH you used to fill in a
+  destination dataset in one column and an SSH host in another, which read
+  like two destinations. It now reads the way zfs send/recv writes it:
+  [this server | over SSH] [host] : [dataset], with the key on the line below.
+- Fix the CI build failing on every push: the workflow builds into a relative
+  directory, but the tar runs inside the staging directory, so the output path
+  resolved to the wrong place. Relative output directories are now resolved
+  against the repo root, a failing tar aborts the build instead of being
+  swallowed, and CI asserts the working tree stays clean.
+- archive/ now keeps only the current package.
+
 ## Version 2026.08.08.07 — Tabbed, evenly balanced layout
 
 - The page is now four tabs: Conversion, Snapshots, Browse and Restore,

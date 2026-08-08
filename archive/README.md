@@ -1,17 +1,16 @@
 # archive/
 
-Historic plugin packages. **Frozen** — do not add new `.txz` files here.
+Holds only the package the current `.plg` points at. Older builds were removed;
+they were only reachable by a `.plg` nobody runs any more, and deleting them
+from the working tree does not shrink a clone anyway - the blobs stay in the
+git history either way.
 
-Releases are published as GitHub Release assets (see
-`.github/workflows/release.yml`). Tag a version and the workflow builds the
-package, attaches it to the release, and rewrites `pkgURL` in
-`src/zfs.dataset.converter.plg` to point at it:
+Do not add new `.txz` files by hand. Tag a version and the release workflow
+builds the package, attaches it to a GitHub Release and rewrites `pkgURL` in
+`src/zfs.dataset.converter.plg` to point there:
 
 ```bash
-git tag 2026.08.08.02 && git push origin 2026.08.08.02
+git tag 2026.08.08.08 && git push origin 2026.08.08.08
 ```
 
-The files here are kept so that older `.plg` manifests already installed on
-someone's server can still resolve their package URL. Deleting them from the
-working tree would not shrink a clone anyway — the blobs stay in the git
-history either way.
+From that first tagged release on, this directory stops growing.

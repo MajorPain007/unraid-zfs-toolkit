@@ -798,11 +798,9 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
         <thead><tr>
           <th style="width:26px;">On</th>
           <th style="text-align:left">Name</th>
-          <th style="text-align:left">Source</th>
-          <th style="text-align:left">Destination</th>
+          <th style="text-align:left">Source dataset</th>
+          <th style="text-align:left">Destination &mdash; where the copy goes</th>
           <th>Rec</th>
-          <th>Transport</th>
-          <th style="text-align:left">SSH host / key</th>
           <th title="zfs recv -F: allows the destination to be rolled back if it diverged">-F</th>
           <th></th>
         </tr></thead>
@@ -1112,8 +1110,9 @@ fetch(_base + '/get_status.php').then(function(r){ return r.json(); })
     appendLog('--- log of the last run'
       + (res.log_time ? ', ' + res.log_time : '') + ' ---\n', 'log-step');
     fetchLogs();
-    if (res.status === 'completed')   setStatus('done', 'Done');
-    else if (res.status === 'error')  setStatus('error', 'Error');
+    if (res.status === 'completed')     setStatus('done', 'Done');
+    else if (res.status === 'error')    setStatus('error', 'Error');
+    else if (res.status === 'stopped')  setStatus('error', 'Stopped');
   } else if (!res.log_file && res.status !== 'running') {
     appendLog('No conversion has run yet. Output appears here while one is running.\n', 'log-warn');
   }
@@ -2307,7 +2306,7 @@ function sendCheck(i, field, checked) {
 function renderSendTable() {
   var tbody = document.getElementById('send-tbody');
   if (!_sendJobs.length) {
-    tbody.innerHTML = '<tr><td colspan="9" style="color:var(--zdc-dim);padding:8px;">No replication jobs yet — click "Add job".</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" style="color:var(--zdc-dim);padding:8px;">No replication jobs yet — click "Add job".</td></tr>';
     return;
   }
   var html = '';
@@ -2317,17 +2316,25 @@ function renderSendTable() {
       + '<td>' + sendCheck(i, 'enabled', j.enabled !== false) + '</td>'
       + '<td style="text-align:left;">' + sendField(i, 'name', j.name, '120px', 'name') + '</td>'
       + '<td style="text-align:left;">' + sendField(i, 'source', j.source, '150px', 'cache/appdata') + '</td>'
-      + '<td style="text-align:left;">' + sendField(i, 'dest', j.dest, '150px', 'backup/appdata') + '</td>'
-      + '<td>' + sendCheck(i, 'recursive', !!j.recursive) + '</td>'
-      + '<td><select style="font-size:11px;" onchange="_sendJobs[' + i + '].transport=this.value; saveSendJobs(); renderSendTable();">'
-        + '<option value="local"' + (isSsh ? '' : ' selected') + '>local</option>'
-        + '<option value="ssh"'   + (isSsh ? ' selected' : '') + '>ssh</option></select></td>'
       + '<td style="text-align:left;">'
+        + '<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">'
+        + '<select style="font-size:11px;" title="Where the destination pool lives"'
+          + ' onchange="_sendJobs[' + i + '].transport=this.value; saveSendJobs(); renderSendTable();">'
+          + '<option value="local"' + (isSsh ? '' : ' selected') + '>this server</option>'
+          + '<option value="ssh"'   + (isSsh ? ' selected' : '') + '>over SSH</option></select>'
         + (isSsh
-            ? sendField(i, 'ssh_host', j.ssh_host, '130px', 'root@10.0.0.5')
-              + ' ' + sendField(i, 'ssh_key', j.ssh_key, '150px', '/boot/config/…/id_send')
-            : '<span style="color:#555;">—</span>')
+            ? sendField(i, 'ssh_host', j.ssh_host, '125px', 'root@10.0.0.5')
+              + '<span style="color:var(--zdc-dim);">:</span>'
+            : '')
+        + sendField(i, 'dest', j.dest, '145px', 'backup/appdata')
+        + '</div>'
+        + (isSsh
+            ? '<div style="margin-top:3px;">'
+              + sendField(i, 'ssh_key', j.ssh_key, '278px', 'SSH key path, e.g. /boot/config/plugins/…/id_send')
+              + '</div>'
+            : '')
       + '</td>'
+      + '<td>' + sendCheck(i, 'recursive', !!j.recursive) + '</td>'
       + '<td>' + sendCheck(i, 'allow_rollback', !!j.allow_rollback) + '</td>'
       + '<td style="white-space:nowrap;">'
         + '<button type="button" class="btn-secondary" style="padding:1px 7px;font-size:11px;" onclick="sendTest(' + i + ')" title="Check the destination is reachable">Test</button> '

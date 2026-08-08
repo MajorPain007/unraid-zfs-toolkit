@@ -6,6 +6,19 @@ header('Cache-Control: no-cache, no-store');
 $statusFile = '/tmp/zfs.dataset.converter/status.json';
 $tmpDir     = '/tmp/zfs.dataset.converter';
 
+function zdc_classify_log($logFile) {
+    if ($logFile === '' || !file_exists($logFile)) return 'idle';
+    $tail = array();
+    exec('tail -80 ' . escapeshellarg($logFile) . ' 2>/dev/null', $tail);
+    $c = implode("\n", $tail);
+    // Anchor on the log's own "ERROR:" prefix - a bare "ERROR" also matches
+    // folder names and rsync chatter.
+    if (preg_match('/VALIDATION FAILED|\] ERROR:/m', $c)) return 'error';
+    if (strpos($c, 'Script execution completed successfully') !== false) return 'completed';
+    if (strpos($c, 'Nothing to convert') !== false) return 'completed';
+    return 'stopped';
+}
+
 function zdc_newest_log($dir) {
     $files = array_merge(glob($dir . '/conversion_*.log') ?: array(),
                          glob($dir . '/auto_*.log') ?: array());
@@ -53,18 +66,12 @@ $logFile = $st['log_file'] ?? '';
 $status  = $st['status'] ?? 'idle';
 
 if ($status === 'running' && $pid > 0 && !file_exists('/proc/' . $pid)) {
-    $status = 'completed';
-    if (!empty($logFile) && file_exists($logFile)) {
-        $tail = [];
-        exec('tail -50 ' . escapeshellarg($logFile) . ' 2>/dev/null', $tail);
-        $combined = implode("\n", $tail);
-        if (preg_match('/VALIDATION FAILED|ERROR/m', $combined) ||
-            strpos($combined, 'Script execution completed successfully') === false) {
-            $status = 'error';
-        }
-    }
+    $status = zdc_classify_log($logFile);
     $st['status'] = $status;
     file_put_contents($statusFile, json_encode($st));
+} elseif ($status !== 'running' && !empty($logFile) && file_exists($logFile)) {
+    // Re-derive rather than trusting a verdict written by an older version.
+    $status = zdc_classify_log($logFile);
 }
 
 $currentFolder = '';

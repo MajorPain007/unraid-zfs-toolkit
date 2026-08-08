@@ -586,7 +586,8 @@ can_i_go_to_work() {
     done
 
     if (( total_folders == 0 )); then
-        log_ok "Nothing to convert. All folders are already datasets. Exiting."
+        log_ok "Nothing to convert. All folders are already datasets."
+        log "Script execution completed successfully."
         exit 0
     fi
 }
