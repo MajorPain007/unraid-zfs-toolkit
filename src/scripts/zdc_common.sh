@@ -4,7 +4,8 @@ ZDC_NAME="zfs.toolkit"
 ZDC_CONFIG_DIR="${ZDC_CONFIG_DIR:-/boot/config/plugins/${ZDC_NAME}}"
 ZDC_SETTINGS="${ZDC_SETTINGS:-${ZDC_CONFIG_DIR}/settings.cfg}"
 ZDC_TMP_DIR="${ZDC_TMP_DIR:-/tmp/${ZDC_NAME}}"
-ZDC_CRON_DIR="${ZDC_CRON_DIR:-/etc/cron.d}"
+ZDC_CRON_DIR="${ZDC_CRON_DIR:-$ZDC_CONFIG_DIR}"
+ZDC_CRON_LEGACY_DIR="${ZDC_CRON_LEGACY_DIR:-/etc/cron.d}"
 
 mkdir -p "$ZDC_TMP_DIR" 2>/dev/null
 
@@ -59,8 +60,8 @@ zdc_valid_int() {
 }
 
 zdc_remove_cron() {
-    local cronfile="${ZDC_CRON_DIR}/$1" pattern="$2"
-    rm -f "$cronfile"
+    local cronfile="${ZDC_CRON_DIR}/$1.cron" pattern="$2"
+    rm -f "$cronfile" "${ZDC_CRON_LEGACY_DIR}/$1"
     if crontab -l 2>/dev/null | grep -q -- "$pattern"; then
         crontab -l 2>/dev/null | grep -v -- "$pattern" | grep -v '^# zfs-toolkit' | crontab - 2>/dev/null
     fi
@@ -80,26 +81,31 @@ zdc_refresh_cron() {
 
 zdc_install_cron() {
     local base="$1" expr="$2" cmd="$3" pattern="$4"
-    local cronfile="${ZDC_CRON_DIR}/${base}"
+    local cronfile="${ZDC_CRON_DIR}/${base}.cron"
 
     if ! zdc_valid_cron "$expr"; then
         echo "ERROR: refusing to install invalid cron expression: '${expr}'" >&2
         return 1
     fi
 
+    rm -f "${ZDC_CRON_LEGACY_DIR}/${base}"
+
     if crontab -l 2>/dev/null | grep -q -- "$pattern"; then
         crontab -l 2>/dev/null | grep -v -- "$pattern" | grep -v '^# zfs-toolkit' | crontab - 2>/dev/null
     fi
 
     mkdir -p "$ZDC_CRON_DIR"
-    local tmp
-    tmp=$(mktemp "${ZDC_CRON_DIR}/.${base}.XXXXXX") || { echo "ERROR: mktemp failed" >&2; return 1; }
-    {
-        echo "# Managed by ${ZDC_NAME} - edit via Settings > ZFS Toolkit"
-        echo "${expr} ${cmd}"
-    } > "$tmp"
-    chmod 0644 "$tmp"
-    mv -f "$tmp" "$cronfile"
+    local content
+    content="# Managed by ${ZDC_NAME} - edit via Settings > ZFS Toolkit
+${expr} ${cmd}"
+
+    if [ "$(cat "$cronfile" 2>/dev/null)" != "$content" ]; then
+        local tmp
+        tmp=$(mktemp "${ZDC_CRON_DIR}/.${base}.XXXXXX") || { echo "ERROR: mktemp failed" >&2; return 1; }
+        printf '%s\n' "$content" > "$tmp"
+        chmod 0644 "$tmp"
+        mv -f "$tmp" "$cronfile"
+    fi
 
     zdc_refresh_cron
 
@@ -108,9 +114,15 @@ zdc_install_cron() {
         return 0
     fi
 
+    if [ ! -e "/var/log/plugins/${ZDC_NAME}.plg" ]; then
+        echo "WARNING: /var/log/plugins/${ZDC_NAME}.plg is missing, so update_cron does not read ${ZDC_CRON_DIR}" >&2
+    fi
+
     ( crontab -l 2>/dev/null; echo "# zfs-toolkit"; echo "${expr} ${cmd}" ) | crontab - 2>/dev/null
     if crontab -l 2>/dev/null | grep -q -- "$pattern"; then
-        echo "Cron installed via crontab fallback: ${expr} (${cronfile} was not picked up)"
+        echo "WARNING: ${cronfile} was not picked up by update_cron; installed directly into the root crontab instead." >&2
+        echo "         That entry is transient - the next update_cron by any plugin will drop it." >&2
+        echo "Cron installed via crontab fallback: ${expr}"
         return 0
     fi
 

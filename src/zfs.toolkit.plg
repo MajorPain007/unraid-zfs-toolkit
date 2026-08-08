@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.toolkit">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.08.08.24">
-<!ENTITY md5       "da09aef8954539f01104344613c79831">
+<!ENTITY version   "2026.08.08.25">
+<!ENTITY md5       "f6facb9917b422d4699c512a534ae41e">
 <!ENTITY launch    "Settings/ZFSToolkit">
 <!ENTITY github    "MajorPain007/unraid-zfs-toolkit">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,34 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.08.08.25 — Cron entries finally survive
+
+The schedules were being written to /etc/cron.d, which on Unraid is not a
+drop-in directory but the crontab spool directory - update_cron installs the
+root crontab there with `crontab -c /etc/cron.d -`. A file dropped in it is read
+as the crontab of a user by that name, and since no such user exists it was
+ignored. Every schedule therefore came up through the emergency fallback that
+writes the root crontab directly, and update_cron replaces that wholesale, so
+any other plugin touching its schedule silently deleted ours. That is the
+sporadic disappearance this was supposed to have fixed a while ago.
+
+Schedules now go to /boot/config/plugins/zfs.toolkit/*.cron, which is what
+update_cron actually reads. Those live on the flash drive, so they survive
+reboots on their own rather than depending on the array-start hook, and no other
+plugin can drop them.
+
+- The fallback remains as a last resort but now says out loud that the entry is
+  transient, and points at the likely cause: a missing
+  /var/log/plugins/zfs.toolkit.plg, without which update_cron skips the plugin.
+- Files are only rewritten when their content changed, to spare the flash.
+- Uninstall removes the .cron files, and the inert ones an older version left in
+  the spool directory.
+- Two tests: one fails if the cron mechanism regresses to /etc/cron.d, one if
+  uninstall stops removing what install creates.
+
+After updating, open the plugin once and save - that rewrites the schedules in
+the new place. Check with: ls /boot/config/plugins/zfs.toolkit/*.cron
+
 ## Version 2026.08.08.24 — Unreadable status pills
 
 - The status pills used bare "warn" and "err" class names. Unraid's own theme
@@ -692,7 +720,9 @@ fi
 
 <FILE Run="/bin/bash" Method="remove">
 <INLINE>
-# Remove cron entries (managed files first, then any legacy crontab lines)
+# Remove cron entries: the .cron files update_cron reads, the inert files an
+# older version dropped into the crontab spool dir, then any direct entries.
+rm -f &configDir;/*.cron
 rm -f /etc/cron.d/&name; /etc/cron.d/&name;-snapshots /etc/cron.d/&name;-send
 ( crontab -l 2>/dev/null \
   | grep -v "# zfs-toolkit" \

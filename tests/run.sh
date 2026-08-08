@@ -245,11 +245,12 @@ fi
 
 group "Uninstall removes what install creates"
 
+remove_block=$(sed -n '/Method="remove"/,/<\/FILE>/p' src/zfs.toolkit.plg)
 zdc_missing_cron=""
 for f in src/scripts/setup_*.sh; do
     base=$(grep -oE 'CRON_FILE_BASE="[^"]+"' "$f" | cut -d'"' -f2)
     [ -n "$base" ] || continue
-    grep -q "/etc/cron.d/.*${base#zfs.toolkit}" src/zfs.toolkit.plg \
+    printf '%s' "$remove_block" | grep -qE "configDir;/\*\.cron|configDir;/${base}\.cron" \
         || zdc_missing_cron="$zdc_missing_cron $base"
 done
 if [ -z "$zdc_missing_cron" ]; then
@@ -257,6 +258,18 @@ if [ -z "$zdc_missing_cron" ]; then
 else
     bad "every cron file the setup scripts create is removed on uninstall" \
         "not cleaned up:$zdc_missing_cron - cron would keep calling a deleted script"
+fi
+
+# Unraid's update_cron concatenates /boot/config/plugins/<plugin>/*.cron and
+# writes the result with `crontab -c /etc/cron.d -`. So /etc/cron.d is the
+# crontab spool directory, not a drop-in dir: a file placed there is read as the
+# crontab of a user by that name and silently ignored.
+if grep -q 'ZDC_CRON_DIR="${ZDC_CRON_DIR:-$ZDC_CONFIG_DIR}"' src/scripts/zdc_common.sh \
+   && grep -q '\${ZDC_CRON_DIR}/\${base}\.cron' src/scripts/zdc_common.sh; then
+    ok "cron entries go to the plugin's .cron files, which update_cron actually reads"
+else
+    bad "cron entries go to the plugin's .cron files" \
+        "zdc_install_cron must write \$ZDC_CONFIG_DIR/<base>.cron - files dropped in /etc/cron.d are ignored, leaving only the transient crontab fallback"
 fi
 
 zdc_missing_kill=""
