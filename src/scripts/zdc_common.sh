@@ -59,6 +59,18 @@ zdc_valid_int() {
     [[ "$1" =~ ^[0-9]+$ ]]
 }
 
+# update_cron installs the crontab with `crontab -c /etc/cron.d -`, while a bare
+# `crontab -l` reads whatever spool directory the binary defaults to. On a system
+# where those differ, checking only the default one reports failure for an entry
+# that is in fact live, and the caller then adds a pointless duplicate. Look in
+# both. /etc/cron.d is where Unraid's own jobs land, so an entry there runs.
+zdc_crontab_has() {
+    local pattern="$1"
+    crontab -c "$ZDC_CRON_LEGACY_DIR" -l 2>/dev/null | grep -q -- "$pattern" && return 0
+    crontab -l 2>/dev/null | grep -q -- "$pattern" && return 0
+    return 1
+}
+
 zdc_remove_cron() {
     local cronfile="${ZDC_CRON_DIR}/$1.cron" pattern="$2"
     rm -f "$cronfile" "${ZDC_CRON_LEGACY_DIR}/$1"
@@ -109,7 +121,7 @@ ${expr} ${cmd}"
 
     zdc_refresh_cron
 
-    if crontab -l 2>/dev/null | grep -q -- "$pattern"; then
+    if zdc_crontab_has "$pattern"; then
         echo "Cron installed via ${cronfile}: ${expr}"
         return 0
     fi

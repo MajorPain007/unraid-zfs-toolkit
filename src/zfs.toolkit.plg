@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.toolkit">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.08.08.25">
-<!ENTITY md5       "f6facb9917b422d4699c512a534ae41e">
+<!ENTITY version   "2026.08.08.26">
+<!ENTITY md5       "bde690e21a80c4def93cf7498733e86c">
 <!ENTITY launch    "Settings/ZFSToolkit">
 <!ENTITY github    "MajorPain007/unraid-zfs-toolkit">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,23 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.08.08.26 — Stop reporting a working schedule as failed
+
+Follow-up to .25, from looking at a real system: /etc/cron.d and
+/var/spool/cron/crontabs are two separate directories on Unraid 7, not one
+behind a symlink, and /etc/default/crond does not exist there.
+
+update_cron installs the crontab with `crontab -c /etc/cron.d -`, but a bare
+`crontab -l` reads whatever directory the binary defaults to. So the check that
+confirms an entry was installed was looking in the wrong file: it reported
+failure for a schedule that was already live, and the fallback then wrote a
+pointless duplicate into the other spool file.
+
+The check now looks in both, /etc/cron.d first. That one is authoritative -
+Unraid's own mover and parity jobs are installed the same way and do run.
+
+Stale duplicates from earlier versions are cleaned up on the next save.
+
 ## Version 2026.08.08.25 — Cron entries finally survive
 
 The schedules were being written to /etc/cron.d, which on Unraid is not a
