@@ -24,12 +24,6 @@ function cfgBool($key, $default = 'no') {
 <style>
 .zdc-wrap {
   width: 100%;
-  /* Three columns of settings cards plus gaps. Past this the cards only get
-     wider, not fuller, so the remainder becomes an even margin on both sides
-     rather than a gap on the right. */
-  max-width: 1700px;
-  margin-left: auto;
-  margin-right: auto;
   --zdc-card:     #1e2329;
   --zdc-sunken:   #0d1117;
   --zdc-border:   #3a4049;
@@ -77,23 +71,32 @@ function cfgBool($key, $default = 'no') {
 
 /* One rule instead of a fixed 54/46 split: one column on a phone, two on a
    laptop, three on a wide monitor, without breakpoints to keep in sync. */
-.zdc-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 16px;
-  align-items: start;
+/* Settings cards flow into balanced columns rather than sitting in a grid.
+   A grid row is as tall as its tallest card, so a one-toggle card next to a
+   six-row card left a few hundred pixels of nothing underneath it. Here each
+   card keeps its own height and the next one starts directly below. */
+.zdc-cols {
+  column-count: 1;
+  column-gap: 16px;
 }
-/* Pinned to three above this width. auto-fit alone would keep adding columns
-   on a wide monitor, and six cards across five tracks leave a mostly empty
-   second row. Three always divides the settings cards evenly. */
-@media (min-width: 1120px) {
-  .zdc-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (min-width: 700px)  { .zdc-cols { column-count: 2; } }
+@media (min-width: 1120px) { .zdc-cols { column-count: 3; } }
+/* Not four: the Conversion tab has six settings cards, and the balancer
+   fills them 2+2+2 and leaves the fourth column empty. */
+
+.zdc-cols .zdc-card {
+  break-inside: avoid;
+  -webkit-column-break-inside: avoid;
+  page-break-inside: avoid;
+  display: inline-block;
+  width: 100%;
+  margin: 0 0 16px;
+  vertical-align: top;
 }
-.zdc-card.wide  { grid-column: 1 / -1; }
-.zdc-card.span2 { grid-column: span 2; }
-@media (max-width: 1119px) {
-  .zdc-card.span2 { grid-column: 1 / -1; }
-}
+
+/* Tables and log viewers need the whole width, so they sit outside the
+   column flow. */
+.zdc-wide-stack > .zdc-card { margin-bottom: 16px; }
 .zdc-col { min-width: 0; }
 
 .zdc-sub {
@@ -347,7 +350,7 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
 
 <div class="zdc-panel" id="tab-convert" role="tabpanel" hidden>
 <form id="settings-form" onsubmit="return false;">
-<div class="zdc-grid">
+<div class="zdc-cols">
 <div class="zdc-card">
   <h3>General Settings</h3>
 
@@ -378,52 +381,6 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
     <label class="row-label">Validation tolerance (%)</label>
     <input type="number" name="validation_tolerance" value="<?= cfg('validation_tolerance','5') ?>" min="0" max="20" class="w80">
     <span class="zdc-note">Allowed size difference after copy</span>
-  </div>
-</div>
-<div class="zdc-card">
-  <h3>Docker Containers</h3>
-  <div class="zdc-row">
-    <label class="row-label">Process appdata</label>
-    <label class="zdc-toggle"><input type="checkbox" name="should_process_containers" id="should_process_containers" <?= cfgBool('should_process_containers','yes')?'checked':'' ?> onchange="toggle('container-details',this.checked)"><span class="zdc-slider"></span></label>
-  </div>
-  <div id="container-details" <?= cfgBool('should_process_containers','yes')?'':'style="display:none"' ?>>
-    <div class="zdc-row" style="margin-left:20px">
-      <label class="row-label">Appdata pool</label>
-      <input type="text" name="appdata_pool" value="<?= cfg('appdata_pool','cache') ?>" class="w180">
-    </div>
-    <div class="zdc-row" style="margin-left:20px">
-      <label class="row-label">Appdata dataset</label>
-      <input type="text" name="appdata_dataset" value="<?= cfg('appdata_dataset','appdata') ?>" class="w180">
-    </div>
-  </div>
-</div>
-<div class="zdc-card">
-  <h3>Virtual Machines</h3>
-  <div class="zdc-row">
-    <label class="row-label">Process VM domains</label>
-    <label class="zdc-toggle"><input type="checkbox" name="should_process_vms" id="should_process_vms" <?= cfgBool('should_process_vms')?'checked':'' ?> onchange="toggle('vm-details',this.checked)"><span class="zdc-slider"></span></label>
-  </div>
-  <div id="vm-details" <?= cfgBool('should_process_vms')?'':'style="display:none"' ?>>
-    <div class="zdc-row" style="margin-left:20px">
-      <label class="row-label">VM pool</label>
-      <input type="text" name="vm_pool" value="<?= cfg('vm_pool','cache') ?>" class="w180">
-    </div>
-    <div class="zdc-row" style="margin-left:20px">
-      <label class="row-label">VM dataset</label>
-      <input type="text" name="vm_dataset" value="<?= cfg('vm_dataset','domains') ?>" class="w180">
-    </div>
-    <div class="zdc-row" style="margin-left:20px">
-      <label class="row-label">Graceful shutdown timeout (s)</label>
-      <input type="number" name="vm_forceshutdown_wait" value="<?= cfg('vm_forceshutdown_wait','90') ?>" min="10" max="600" class="w80">
-    </div>
-  </div>
-</div>
-<div class="zdc-card">
-  <h3>Additional Source Datasets</h3>
-  <div class="zdc-row">
-    <label class="row-label">Extra datasets</label>
-    <input type="text" name="extra_datasets" value="<?= cfg('extra_datasets') ?>" style="width:300px" placeholder="pool/dataset,pool/other">
-    <span class="zdc-note">Comma-separated</span>
   </div>
 </div>
 <div class="zdc-card">
@@ -485,6 +442,52 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
   </div>
 </div>
 <div class="zdc-card">
+  <h3>Docker Containers</h3>
+  <div class="zdc-row">
+    <label class="row-label">Process appdata</label>
+    <label class="zdc-toggle"><input type="checkbox" name="should_process_containers" id="should_process_containers" <?= cfgBool('should_process_containers','yes')?'checked':'' ?> onchange="toggle('container-details',this.checked)"><span class="zdc-slider"></span></label>
+  </div>
+  <div id="container-details" <?= cfgBool('should_process_containers','yes')?'':'style="display:none"' ?>>
+    <div class="zdc-row" style="margin-left:20px">
+      <label class="row-label">Appdata pool</label>
+      <input type="text" name="appdata_pool" value="<?= cfg('appdata_pool','cache') ?>" class="w180">
+    </div>
+    <div class="zdc-row" style="margin-left:20px">
+      <label class="row-label">Appdata dataset</label>
+      <input type="text" name="appdata_dataset" value="<?= cfg('appdata_dataset','appdata') ?>" class="w180">
+    </div>
+  </div>
+</div>
+<div class="zdc-card">
+  <h3>Virtual Machines</h3>
+  <div class="zdc-row">
+    <label class="row-label">Process VM domains</label>
+    <label class="zdc-toggle"><input type="checkbox" name="should_process_vms" id="should_process_vms" <?= cfgBool('should_process_vms')?'checked':'' ?> onchange="toggle('vm-details',this.checked)"><span class="zdc-slider"></span></label>
+  </div>
+  <div id="vm-details" <?= cfgBool('should_process_vms')?'':'style="display:none"' ?>>
+    <div class="zdc-row" style="margin-left:20px">
+      <label class="row-label">VM pool</label>
+      <input type="text" name="vm_pool" value="<?= cfg('vm_pool','cache') ?>" class="w180">
+    </div>
+    <div class="zdc-row" style="margin-left:20px">
+      <label class="row-label">VM dataset</label>
+      <input type="text" name="vm_dataset" value="<?= cfg('vm_dataset','domains') ?>" class="w180">
+    </div>
+    <div class="zdc-row" style="margin-left:20px">
+      <label class="row-label">Graceful shutdown timeout (s)</label>
+      <input type="number" name="vm_forceshutdown_wait" value="<?= cfg('vm_forceshutdown_wait','90') ?>" min="10" max="600" class="w80">
+    </div>
+  </div>
+</div>
+<div class="zdc-card">
+  <h3>Additional Source Datasets</h3>
+  <div class="zdc-row">
+    <label class="row-label">Extra datasets</label>
+    <input type="text" name="extra_datasets" value="<?= cfg('extra_datasets') ?>" style="width:300px" placeholder="pool/dataset,pool/other">
+    <span class="zdc-note">Comma-separated</span>
+  </div>
+</div>
+<div class="zdc-card">
   <h3>Scan &amp; Convert
     <span style="float:right;display:flex;gap:8px;align-items:center;">
       <span id="scan-spinner" style="display:none;font-size:12px;color:var(--zdc-dim);">Scanning…</span>
@@ -499,6 +502,8 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
     <span id="progress-text" style="font-size:13px;color:var(--zdc-dim);"></span>
   </div>
 </div>
+</div>
+<div class="zdc-wide-stack">
 <div class="zdc-card wide">
   <h3>Live Log
     <button type="button" class="btn-secondary" style="float:right;padding:3px 11px;font-size:12px;" onclick="clearLog()">Clear</button>
@@ -510,7 +515,7 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
 </div>
 
 <div class="zdc-panel" id="tab-snapshots" role="tabpanel">
-<div class="zdc-grid">
+<div class="zdc-cols">
 <div class="zdc-card">
   <h3>Snapshot Schedule</h3>
 <div class="zdc-row">
@@ -568,7 +573,7 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
     <div id="snap-log-viewer" style="background:var(--zdc-sunken);color:var(--zdc-text);font-family:'Consolas','Monaco',monospace;font-size:12px;line-height:1.6;padding:10px;height:220px;overflow-y:auto;border-radius:4px;border:1px solid var(--zdc-border-2);white-space:pre-wrap;word-break:break-all;"></div>
   </div>
 </div>
-<div class="zdc-card span2 snap-gated"<?= cfgBool('snapshots_enabled')?'':' style="display:none"' ?>>
+<div class="zdc-card snap-gated"<?= cfgBool('snapshots_enabled')?'':' style="display:none"' ?>>
   <h3>Retention</h3>
 <p class="zdc-sub">Global Retention (per dataset unless overridden)</p>
     <div style="display:flex;flex-wrap:wrap;gap:8px 20px;margin-bottom:10px;">
@@ -622,6 +627,8 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
 
     
 </div>
+</div>
+<div class="zdc-wide-stack">
 <div class="zdc-card wide snap-gated"<?= cfgBool('snapshots_enabled')?'':' style="display:none"' ?>>
   <h3>Datasets to snapshot</h3>
     <div>
@@ -705,7 +712,7 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
 </div>
 
 <div class="zdc-panel" id="tab-browse" role="tabpanel">
-<div class="zdc-grid">
+<div class="zdc-wide-stack">
 <div class="zdc-card wide">
   <h3>Snapshot Browser</h3>
   <p style="font-size:12px;color:var(--zdc-dim);margin:0 0 10px;">Browse any ZFS snapshot and restore individual files or folders to the live dataset.</p>
@@ -778,7 +785,7 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
 </div>
 
 <div class="zdc-panel" id="tab-replicate" role="tabpanel">
-<div class="zdc-grid">
+<div class="zdc-wide-stack">
 <div class="zdc-card wide">
   <h3>Replication (ZFS Send)</h3>
   <p style="font-size:12px;color:var(--zdc-dim);margin:0 0 10px;">

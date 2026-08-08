@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.dataset.converter">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.08.08.10">
-<!ENTITY md5       "24d7c637814099972a89e8ce19245273">
+<!ENTITY version   "2026.08.08.11">
+<!ENTITY md5       "0137b181f3ccae7e512474b239b7813e">
 <!ENTITY launch    "Settings/ZFSDatasetConverter">
 <!ENTITY github    "MajorPain007/zfs-dataset-converter">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,21 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.08.08.11 — Cards flow instead of sitting in a grid
+
+- The gaps inside a row are gone. A grid row is as tall as its tallest card,
+  so a one-toggle card next to a six-row card left a few hundred pixels of
+  nothing underneath it until the next row began. Cards now flow into balanced
+  columns: each keeps its own height and the next starts directly below it.
+  The largest vertical gap anywhere is the 16px gutter, down from ~250px.
+- Reordered the Conversion cards. The columns are filled in document order, and
+  having the two tallest back to back left one column far longer than the
+  others. Difference between the longest and shortest column: 256px before,
+  118px now.
+- Reverted the width cap added in the previous version - the margins it left
+  on a wide screen were worse than the cards being wide.
+- Wide cards (tables, log viewers) sit outside the column flow, unchanged.
+
 ## Version 2026.08.08.10 — Even card layout, narrower transport picker
 
 - Cards no longer leave half-empty rows on a wide screen. The grid kept adding
