@@ -107,6 +107,10 @@ def main():
         ctx = outside[max(0, m.start() - 40):m.end() + 10].replace('\n', ' ')
         problems.append(f'literal escape {m.group(0)} in HTML text (renders verbatim): ...{ctx.strip()}')
 
+    for m in re.finditer(r'var\(--[A-Za-z0-9-]+\)[0-9a-fA-F]{2}\b', text):
+        problems.append(f'mangled colour {m.group(0)!r}: an 8-digit hex lost its '
+                        f'alpha pair when the variable was substituted; use rgba()')
+
     ids_in_markup = element_ids(text)
     used_ids = set(re.findall(r"getElementById\(\s*'([A-Za-z0-9_-]+)'\s*\)", js))
     used_ids |= set(re.findall(r'getElementById\(\s*"([A-Za-z0-9_-]+)"\s*\)', js))

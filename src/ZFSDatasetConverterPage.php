@@ -22,17 +22,95 @@ function cfgBool($key, $default = 'no') {
 <script src="<?= function_exists('autov') ? autov('/webGui/javascript/jquery.filetree.js') : '/webGui/javascript/jquery.filetree.js' ?>" charset="utf-8"></script>
 
 <style>
-.zdc-wrap { width: 100%; }
-.zdc-main-grid {
+.zdc-wrap {
+  width: 100%;
+  --zdc-card:     #1e2329;
+  --zdc-sunken:   #0d1117;
+  --zdc-border:   #3a4049;
+  --zdc-border-2: #30363d;
+  --zdc-text:     #c9d1d9;
+  --zdc-dim:      #8b949e;
+  --zdc-muted:    #6e7681;
+  --zdc-accent:   #79c0ff;
+  --zdc-ok:       #56d364;
+  --zdc-warn:     #e3b341;
+  --zdc-err:      #f85149;
+  --zdc-blue:     #1f6feb;
+}
+
+.zdc-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin: 12px 0 16px;
+  border-bottom: 1px solid var(--zdc-border);
+}
+.zdc-tab {
+  appearance: none;
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 5px 5px 0 0;
+  color: var(--zdc-dim);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: .03em;
+  margin-bottom: -1px;
+  padding: 8px 16px;
+  text-transform: uppercase;
+}
+.zdc-tab:hover { color: var(--zdc-text); background: rgba(255,255,255,.04); }
+.zdc-tab.active {
+  color: var(--zdc-text);
+  background: var(--zdc-card);
+  border-color: var(--zdc-border);
+  border-bottom: 1px solid var(--zdc-card);
+}
+.zdc-panel[hidden] { display: none; }
+
+/* One rule instead of a fixed 54/46 split: one column on a phone, two on a
+   laptop, three on a wide monitor, without breakpoints to keep in sync. */
+.zdc-grid {
   display: grid;
-  grid-template-columns: minmax(0, 54fr) minmax(0, 46fr);
-  gap: 0 16px;
+  grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+  gap: 16px;
   align-items: start;
 }
-@media (max-width: 1050px) {
-  .zdc-main-grid { grid-template-columns: 1fr; }
-}
+.zdc-card.wide { grid-column: 1 / -1; }
 .zdc-col { min-width: 0; }
+
+.zdc-sub {
+  color: var(--zdc-dim);
+  font-size: 12px;
+  font-weight: 600;
+  margin: 14px 0 6px;
+}
+.zdc-sub:first-child { margin-top: 0; }
+
+.zdc-status { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
+.zdc-pill {
+  align-items: center;
+  background: var(--zdc-card);
+  border: 1px solid var(--zdc-border);
+  border-radius: 20px;
+  color: var(--zdc-dim);
+  display: flex;
+  font-size: 12px;
+  gap: 7px;
+  padding: 5px 13px;
+  white-space: nowrap;
+}
+.zdc-pill b { color: var(--zdc-text); font-weight: 600; }
+.zdc-pill.ok   { border-color: rgba(86,211,100,.4); }
+.zdc-pill.warn { border-color: rgba(227,179,65,.5); }
+.zdc-pill.err  { border-color: rgba(248,81,73,.5); }
+.zdc-pill .dot { background: var(--zdc-muted); border-radius: 50%; flex: none; height: 7px; width: 7px; }
+.zdc-pill.ok   .dot { background: var(--zdc-ok); }
+.zdc-pill.warn .dot { background: var(--zdc-warn); }
+.zdc-pill.err  .dot { background: var(--zdc-err); }
+.zdc-meter { background: rgba(255,255,255,.12); border-radius: 3px; height: 5px; overflow: hidden; width: 54px; }
+.zdc-meter i { display: block; height: 100%; }
 .zdc-card {
   background: var(--bg-primary, #1e2329);
   border: 1px solid var(--border, #3a4049);
@@ -78,9 +156,9 @@ function cfgBool($key, $default = 'no') {
   overflow: auto;
   margin-top: 4px;
   padding: 8px 10px;
-  background: #0d1117;
-  color: #c9d1d9;
-  border: 1px solid #30363d;
+  background: var(--zdc-sunken);
+  color: var(--zdc-text);
+  border: 1px solid var(--zdc-border-2);
   border-radius: 4px;
   font-family: 'Consolas','Monaco',monospace;
   font-size: 12px;
@@ -96,15 +174,15 @@ function cfgBool($key, $default = 'no') {
 .zdc-wrap .fileTree UL.jqueryFileTree LI.file,
 .zdc-wrap .fileTree UL.jqueryFileTree LI.wait { background-position: left 2px; }
 .zdc-wrap .fileTree UL.jqueryFileTree A {
-  color: #c9d1d9;
+  color: var(--zdc-text);
   padding: 1px 5px;
   border-radius: 3px;
 }
 .zdc-wrap .fileTree UL.jqueryFileTree A:hover {
-  background: #1f6feb;
+  background: var(--zdc-blue);
   color: #fff;
 }
-.zdc-wrap .fileTree UL.jqueryFileTree LI.expanded > A { color: #79c0ff; }
+.zdc-wrap .fileTree UL.jqueryFileTree LI.expanded > A { color: var(--zdc-accent); }
 .zdc-wrap input.textPath { font-family: inherit; }
 
 .zdc-note {
@@ -140,8 +218,8 @@ function cfgBool($key, $default = 'no') {
 .zdc-toggle input:checked + .zdc-slider::before { transform: translateX(20px); }
 
 #log-viewer {
-  background: #0d1117;
-  color: #c9d1d9;
+  background: var(--zdc-sunken);
+  color: var(--zdc-text);
   font-family: 'Consolas','Monaco',monospace;
   font-size: 12px;
   line-height: 1.6;
@@ -149,14 +227,14 @@ function cfgBool($key, $default = 'no') {
   height: 320px;
   overflow-y: auto;
   border-radius: 4px;
-  border: 1px solid #30363d;
+  border: 1px solid var(--zdc-border-2);
   white-space: pre-wrap;
   word-break: break-all;
 }
-#log-viewer .log-error { color: #f85149; }
-#log-viewer .log-warn  { color: #e3b341; }
-#log-viewer .log-ok    { color: #56d364; }
-#log-viewer .log-step  { color: #79c0ff; font-weight: bold; }
+#log-viewer .log-error { color: var(--zdc-err); }
+#log-viewer .log-warn  { color: var(--zdc-warn); }
+#log-viewer .log-ok    { color: var(--zdc-ok); }
+#log-viewer .log-step  { color: var(--zdc-accent); font-weight: bold; }
 
 #status-badge {
   display: inline-block;
@@ -167,12 +245,12 @@ function cfgBool($key, $default = 'no') {
   text-transform: uppercase;
   letter-spacing: .04em;
 }
-.badge-idle    { background:#30363d; color:#8b949e; }
-.badge-running { background:#1f6feb44; color:#58a6ff; }
-.badge-done    { background:#1a4a2744; color:#56d364; }
-.badge-error   { background:#5a1a1a44; color:#f85149; }
+.badge-idle    { background:var(--zdc-border-2); color:var(--zdc-dim); }
+.badge-running { background:rgba(31,111,235,0.267); color:#58a6ff; }
+.badge-done    { background:#1a4a2744; color:var(--zdc-ok); }
+.badge-error   { background:#5a1a1a44; color:var(--zdc-err); }
 
-.snap-table th { text-align:center; padding:5px 8px; background:var(--bg-secondary,#161b22); color:#8b949e; font-weight:600; border-bottom:1px solid #30363d; }
+.snap-table th { text-align:center; padding:5px 8px; background:var(--bg-secondary,#161b22); color:var(--zdc-dim); font-weight:600; border-bottom:1px solid var(--zdc-border-2); }
 .snap-table td { padding:4px 6px; border-bottom:1px solid #21262d; text-align:center; vertical-align:middle; }
 .snap-table td:first-child { text-align:left; font-family:monospace; font-size:12px; }
 .snap-table tr:last-child td { border-bottom:none; }
@@ -183,38 +261,38 @@ function cfgBool($key, $default = 'no') {
 .snap-crumb { color:#58a6ff; cursor:pointer; text-decoration:underline; }
 .snap-crumb-sep { color:#555; }
 .snap-file-table { width:100%; border-collapse:collapse; font-size:12px; }
-.snap-file-table th { text-align:left; padding:5px 8px; background:#161b22; color:#8b949e; font-weight:600; border-bottom:1px solid #30363d; }
+.snap-file-table th { text-align:left; padding:5px 8px; background:#161b22; color:var(--zdc-dim); font-weight:600; border-bottom:1px solid var(--zdc-border-2); }
 .snap-file-table td { padding:4px 8px; border-bottom:1px solid #21262d; }
 .snap-file-table tr:last-child td { border-bottom:none; }
 .snap-file-table tr:hover td { background:#21262d; }
-.snap-dir  { color:#e3b341; cursor:pointer; }
+.snap-dir  { color:var(--zdc-warn); cursor:pointer; }
 .snap-dir:hover { text-decoration:underline; }
-.snap-file { color:#c9d1d9; }
-.snap-restore-btn { background:#1f6feb; color:#fff; border:none; padding:2px 9px; border-radius:4px; font-size:11px; cursor:pointer; }
+.snap-file { color:var(--zdc-text); }
+.snap-restore-btn { background:var(--zdc-blue); color:#fff; border:none; padding:2px 9px; border-radius:4px; font-size:11px; cursor:pointer; }
 .snap-restore-btn:hover { background:#388bfd; }
 
 select.snap-sel {
-  background:#161b22; border:1px solid #30363d; color:#c9d1d9;
+  background:#161b22; border:1px solid var(--zdc-border-2); color:var(--zdc-text);
   border-radius:4px; padding:4px 8px; font-size:13px;
 }
 
 .zdc-table { width:100%; border-collapse:collapse; font-size:13px; margin-top:4px; }
-.zdc-table th { text-align:left; padding:6px 10px; background:var(--bg-secondary,#161b22); color:#8b949e; font-weight:600; border-bottom:1px solid #30363d; }
+.zdc-table th { text-align:left; padding:6px 10px; background:var(--bg-secondary,#161b22); color:var(--zdc-dim); font-weight:600; border-bottom:1px solid var(--zdc-border-2); }
 .zdc-table td { padding:5px 10px; border-bottom:1px solid #21262d; }
 .zdc-table tr:last-child td { border-bottom:none; }
-.tag-folder  { color:#e3b341; font-size:12px; }
-.tag-dataset { color:#56d364; font-size:12px; }
+.tag-folder  { color:var(--zdc-warn); font-size:12px; }
+.tag-dataset { color:var(--zdc-ok); font-size:12px; }
 
 .btn-primary   { background:#238636; color:#fff; border:none; padding:7px 18px; border-radius:5px; font-size:13px; font-weight:600; cursor:pointer; }
 .btn-primary:hover { background:#2ea043; }
 .btn-primary:disabled { background:#3d4449; color:#888; cursor:default; }
-.btn-secondary { background:#21262d; color:#c9d1d9; border:1px solid #444d56; padding:6px 14px; border-radius:5px; font-size:13px; cursor:pointer; }
-.btn-secondary:hover { background:#30363d; }
+.btn-secondary { background:#21262d; color:var(--zdc-text); border:1px solid #444d56; padding:6px 14px; border-radius:5px; font-size:13px; cursor:pointer; }
+.btn-secondary:hover { background:var(--zdc-border-2); }
 .btn-danger    { background:#b91c1c; color:#fff; border:none; padding:7px 14px; border-radius:5px; font-size:13px; font-weight:600; cursor:pointer; }
-.btn-danger:hover { background:#f85149; }
+.btn-danger:hover { background:var(--zdc-err); }
 
 input[type=text], input[type=number] {
-  background:#161b22; border:1px solid #30363d; color:#c9d1d9;
+  background:#161b22; border:1px solid var(--zdc-border-2); color:var(--zdc-text);
   border-radius:4px; padding:4px 8px; font-size:13px;
 }
 input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#58a6ff; }
@@ -222,8 +300,8 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
 .w180 { width:180px; }
 
 .dry-run-banner {
-  background:#e3b34118; border:1px solid #e3b34188;
-  border-radius:5px; padding:7px 13px; color:#e3b341;
+  background:rgba(227,179,65,0.094); border:1px solid rgba(227,179,65,0.533);
+  border-radius:5px; padding:7px 13px; color:var(--zdc-warn);
   font-size:13px; margin-bottom:12px; display:none;
 }
 </style>
@@ -233,19 +311,27 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
   <div>
     <h2 style="margin:0;font-size:18px;">ZFS Dataset Converter</h2>
-    <p style="margin:3px 0 0;color:#8b949e;font-size:12px;">Convert plain folders to ZFS child datasets — with Docker &amp; VM awareness.</p>
+    <p style="margin:3px 0 0;color:var(--zdc-dim);font-size:12px;">Convert plain folders to ZFS child datasets — with Docker &amp; VM awareness.</p>
   </div>
   <div style="display:flex;align-items:center;gap:12px;">
-    <span id="autosave-status" style="font-size:11px;color:#56d364;opacity:0;transition:opacity .4s;"></span>
+    <span id="autosave-status" style="font-size:11px;color:var(--zdc-ok);opacity:0;transition:opacity .4s;"></span>
     <span id="status-badge" class="badge-idle">Idle</span>
   </div>
 </div>
 
-<div class="zdc-main-grid">
 
-<div class="zdc-col">
-<form id="settings-form">
+<div class="zdc-status" id="zdc-status"></div>
 
+<div class="zdc-tabs" role="tablist">
+  <button type="button" class="zdc-tab active" id="tabbtn-convert" role="tab" onclick="zdcTab('convert')">Conversion</button>
+  <button type="button" class="zdc-tab" id="tabbtn-snapshots" role="tab" onclick="zdcTab('snapshots')">Snapshots</button>
+  <button type="button" class="zdc-tab" id="tabbtn-browse" role="tab" onclick="zdcTab('browse')">Browse &amp; Restore</button>
+  <button type="button" class="zdc-tab" id="tabbtn-replicate" role="tab" onclick="zdcTab('replicate')">Replication</button>
+</div>
+
+<div class="zdc-panel" id="tab-convert" role="tabpanel" hidden>
+<form id="settings-form" onsubmit="return false;">
+<div class="zdc-grid">
 <div class="zdc-card">
   <h3>General Settings</h3>
 
@@ -278,7 +364,6 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
     <span class="zdc-note">Allowed size difference after copy</span>
   </div>
 </div>
-
 <div class="zdc-card">
   <h3>Docker Containers</h3>
   <div class="zdc-row">
@@ -296,7 +381,6 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
     </div>
   </div>
 </div>
-
 <div class="zdc-card">
   <h3>Virtual Machines</h3>
   <div class="zdc-row">
@@ -318,7 +402,6 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
     </div>
   </div>
 </div>
-
 <div class="zdc-card">
   <h3>Additional Source Datasets</h3>
   <div class="zdc-row">
@@ -327,7 +410,6 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
     <span class="zdc-note">Comma-separated</span>
   </div>
 </div>
-
 <div class="zdc-card">
   <h3>Automatic Schedule</h3>
   <div class="zdc-row">
@@ -338,7 +420,7 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
   <div id="cron-details" <?= cfgBool('cron_enabled')?'':'style="display:none"' ?>>
     <div class="zdc-row" style="margin-left:20px">
       <label class="row-label">Schedule</label>
-      <select name="cron_preset" id="cron_preset" onchange="updateCronPreview()" style="width:160px;background:#161b22;border:1px solid #30363d;color:#c9d1d9;border-radius:4px;padding:4px 8px;font-size:13px;">
+      <select name="cron_preset" id="cron_preset" onchange="updateCronPreview()" style="width:160px;background:#161b22;border:1px solid var(--zdc-border-2);color:var(--zdc-text);border-radius:4px;padding:4px 8px;font-size:13px;">
         <option value="hourly"  <?= cfg('cron_preset','daily')==='hourly' ?'selected':'' ?>>Every hour</option>
         <option value="6hourly" <?= cfg('cron_preset','daily')==='6hourly'?'selected':'' ?>>Every 6 hours</option>
         <option value="daily"   <?= cfg('cron_preset','daily')==='daily'  ?'selected':'' ?>>Daily</option>
@@ -353,7 +435,7 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
     </div>
     <div id="cron-weekday-row" class="zdc-row" style="margin-left:20px;display:none">
       <label class="row-label">Day of week</label>
-      <select name="cron_weekday" id="cron_weekday" onchange="updateCronPreview()" style="width:130px;background:#161b22;border:1px solid #30363d;color:#c9d1d9;border-radius:4px;padding:4px 8px;font-size:13px;">
+      <select name="cron_weekday" id="cron_weekday" onchange="updateCronPreview()" style="width:130px;background:#161b22;border:1px solid var(--zdc-border-2);color:var(--zdc-text);border-radius:4px;padding:4px 8px;font-size:13px;">
         <option value="0" <?= cfg('cron_weekday','0')==='0'?'selected':'' ?>>Sunday</option>
         <option value="1" <?= cfg('cron_weekday','0')==='1'?'selected':'' ?>>Monday</option>
         <option value="2" <?= cfg('cron_weekday','0')==='2'?'selected':'' ?>>Tuesday</option>
@@ -369,15 +451,15 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
     </div>
     <div class="zdc-row" style="margin-left:20px">
       <label class="row-label">Cron expression</label>
-      <span id="cron-preview" style="font-size:13px;color:#79c0ff;font-family:monospace;"></span>
+      <span id="cron-preview" style="font-size:13px;color:var(--zdc-accent);font-family:monospace;"></span>
     </div>
     <div class="zdc-row" style="margin-left:20px">
       <label class="row-label">Active cron entry</label>
-      <span id="cron-active" style="font-size:12px;color:#8b949e;font-family:monospace;">—</span>
+      <span id="cron-active" style="font-size:12px;color:var(--zdc-dim);font-family:monospace;">—</span>
     </div>
     <div class="zdc-row" style="margin-left:20px">
       <label class="row-label">Server time</label>
-      <span id="server-time" style="font-size:12px;color:#8b949e;font-family:monospace;">
+      <span id="server-time" style="font-size:12px;color:var(--zdc-dim);font-family:monospace;">
         <?php
           $tz = trim(shell_exec('cat /etc/timezone 2>/dev/null || timedatectl 2>/dev/null | grep "Time zone" | awk \'{print $3}\'') ?? '');
           echo htmlspecialchars(date('H:i:s') . ' ' . date('T') . ($tz ? " ($tz)" : ''));
@@ -386,56 +468,94 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
     </div>
   </div>
 </div>
-
-<div style="margin-bottom:16px;">
-  <span id="save-result" style="font-size:13px;"></span>
-</div>
-</form>
-
 <div class="zdc-card">
-  <h3>Folder Scanner
+  <h3>Scan &amp; Convert
     <span style="float:right;display:flex;gap:8px;align-items:center;">
-      <span id="scan-spinner" style="display:none;font-size:12px;color:#8b949e;">Scanning…</span>
+      <span id="scan-spinner" style="display:none;font-size:12px;color:var(--zdc-dim);">Scanning…</span>
       <button type="button" class="btn-secondary" style="padding:3px 11px;font-size:12px;" onclick="scanFolders()">Refresh</button>
     </span>
   </h3>
-  <div id="folder-list"><p style="color:#8b949e;font-size:13px;margin:0;">Click Refresh to scan for folders.</p></div>
-</div>
-
-<div class="zdc-card">
-  <h3>Conversion</h3>
+  <div id="folder-list"><p style="color:var(--zdc-dim);font-size:13px;margin:0;">Click Refresh to scan for folders.</p></div>
   <div id="dry-run-banner" class="dry-run-banner">⚠ Dry run mode active — no actual changes will be made.</div>
   <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
     <button type="button" class="btn-primary" id="btn-start" onclick="startConversion()">Start Conversion</button>
     <button type="button" class="btn-danger" id="btn-stop" onclick="stopConversion()" style="display:none;">Stop</button>
-    <span id="progress-text" style="font-size:13px;color:#8b949e;"></span>
+    <span id="progress-text" style="font-size:13px;color:var(--zdc-dim);"></span>
   </div>
 </div>
-
-<div class="zdc-card">
+<div class="zdc-card wide">
   <h3>Live Log
     <button type="button" class="btn-secondary" style="float:right;padding:3px 11px;font-size:12px;" onclick="clearLog()">Clear</button>
   </h3>
   <div id="log-viewer"></div>
 </div>
+</div>
+</form>
+</div>
 
-</div><!-- /left col -->
-
-<div class="zdc-col">
-
+<div class="zdc-panel" id="tab-snapshots" role="tabpanel">
+<div class="zdc-grid">
 <div class="zdc-card">
-  <h3>ZFS Snapshots</h3>
-
-  <div class="zdc-row">
+  <h3>Snapshot Schedule</h3>
+<div class="zdc-row">
     <label class="row-label">Enable automatic snapshots</label>
     <label class="zdc-toggle"><input type="checkbox" id="snapshots_enabled" name="snapshots_enabled" <?= cfgBool('snapshots_enabled')?'checked':'' ?> onchange="toggleSnapDetails()"><span class="zdc-slider"></span></label>
     <span class="zdc-note">Uses native <code>zfs snapshot</code> — no extra tools needed</span>
   </div>
+  <div id="snap-details" class="snap-gated"<?= cfgBool('snapshots_enabled')?'':' style="display:none"' ?>>
+    <div class="zdc-row">
+      <label class="row-label">Run every</label>
+      <select name="snap_schedule_preset" id="snap_schedule_preset" onchange="updateSnapPreview()" class="snap-sel">
+        <option value="5min"   <?= cfg('snap_schedule_preset','15min')==='5min'  ?'selected':'' ?>>Every 5 minutes</option>
+        <option value="15min"  <?= cfg('snap_schedule_preset','15min')==='15min' ?'selected':'' ?>>Every 15 minutes</option>
+        <option value="30min"  <?= cfg('snap_schedule_preset','15min')==='30min' ?'selected':'' ?>>Every 30 minutes</option>
+        <option value="hourly" <?= cfg('snap_schedule_preset','15min')==='hourly'?'selected':'' ?>>Every hour</option>
+        <option value="custom" <?= cfg('snap_schedule_preset','15min')==='custom'?'selected':'' ?>>Custom cron</option>
+      </select>
+    </div>
+    <div id="snap-custom-row" class="zdc-row" style="<?= cfg('snap_schedule_preset','15min')==='custom'?'':'display:none' ?>">
+      <label class="row-label">Custom expression</label>
+      <input type="text" name="snap_schedule_custom" id="snap_schedule_custom" value="<?= cfg('snap_schedule_custom','*/15 * * * *') ?>" style="width:180px" oninput="updateSnapPreview()">
+    </div>
+    <div class="zdc-row">
+      <label class="row-label">Cron expression</label>
+      <span id="snap-cron-preview" style="font-size:13px;color:var(--zdc-accent);font-family:monospace;"></span>
+    </div>
 
-  <div id="snap-details" <?= cfgBool('snapshots_enabled')?'':'style="display:none"' ?>>
-
-    <p style="font-size:12px;color:#8b949e;margin:10px 0 6px 20px;font-weight:600;">Global Retention (per dataset unless overridden)</p>
-    <div style="display:flex;flex-wrap:wrap;gap:8px 20px;margin-left:20px;margin-bottom:10px;">
+    
+<div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:16px;font-size:12px;color:var(--zdc-dim);">
+      <span>Cron: <span id="snap-cron-badge" style="font-family:monospace;color:var(--zdc-warn);">—</span></span>
+      <span>Datasets: <span id="snap-dataset-count">—</span></span>
+      <span>Snapshots: <span id="snap-total-count">—</span></span>
+      <span>Last run: <span id="snap-last-run">—</span></span>
+      <span>Result: <span id="snap-last-result">—</span></span>
+    </div>
+    <div id="snap-health" style="font-size:12px;margin:6px 0 0;display:none;"></div>
+    <div id="snap-no-datasets-warn" style="color:var(--zdc-warn);font-size:12px;margin:6px 0 0;display:none;">
+      ⚠ No datasets configured — add at least one dataset above (settings save automatically).
+    </div>
+  
+  </div>
+<div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+    <button type="button" class="btn-primary" id="snap-run-btn" onclick="runSnapshotNow(false)" <?= cfgBool('snapshots_enabled')?'':'disabled' ?>>Run Now</button>
+    <button type="button" class="btn-secondary" id="snap-dry-btn" onclick="runSnapshotNow(true)" title="Show what would be created and pruned, change nothing">Dry Run</button>
+    <button type="button" class="btn-secondary" id="snap-log-toggle-btn" onclick="toggleSnapLog()">View Log</button>
+    <a class="btn-secondary" href="/plugins/zfs.dataset.converter/scripts/diagnostics.php?download=1"
+       style="text-decoration:none;padding:6px 14px;" title="Download a support bundle (config, logs, zfs state). Private keys are excluded.">Diagnostics</a>
+    <span id="snap-save-result" style="font-size:13px;"></span>
+  </div>
+<div id="snap-log-section" style="margin-top:10px;display:none;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
+      <span style="font-size:12px;font-weight:600;color:var(--zdc-dim);">Snapshot Log <span id="snap-log-hint" style="font-weight:400;color:#555;">(last 30 lines of /tmp/zfs.dataset.converter/snapshots.log)</span></span>
+      <button type="button" class="btn-secondary" style="padding:2px 10px;font-size:11px;" onclick="clearSnapLog()">Clear view</button>
+    </div>
+    <div id="snap-log-viewer" style="background:var(--zdc-sunken);color:var(--zdc-text);font-family:'Consolas','Monaco',monospace;font-size:12px;line-height:1.6;padding:10px;height:220px;overflow-y:auto;border-radius:4px;border:1px solid var(--zdc-border-2);white-space:pre-wrap;word-break:break-all;"></div>
+  </div>
+</div>
+<div class="zdc-card snap-gated"<?= cfgBool('snapshots_enabled')?'':' style="display:none"' ?>>
+  <h3>Retention</h3>
+<p class="zdc-sub">Global Retention (per dataset unless overridden)</p>
+    <div style="display:flex;flex-wrap:wrap;gap:8px 20px;margin-bottom:10px;">
       <?php
         $snap_fields = [
           ['snap_hourly',  'Hourly',   '24'],
@@ -453,21 +573,21 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
         }
       ?>
     </div>
-    <div class="zdc-row" style="margin-left:20px;">
+    <div class="zdc-row">
       <label class="row-label">Daily snapshot time (hour)</label>
       <input type="number" name="snap_daily_hour" value="<?= cfg('snap_daily_hour','2') ?>" min="0" max="23" class="w80" style="width:60px">
       <span class="zdc-note">Earliest hour for daily / weekly / monthly / yearly. If the server was off, the snapshot is taken on the next run.</span>
     </div>
-    <div class="zdc-row" style="margin-left:20px;">
+    <div class="zdc-row">
       <label class="row-label">Warn below free space</label>
       <input type="number" name="snap_min_free_pct" value="<?= cfg('snap_min_free_pct','5') ?>" min="0" max="90" class="w80" style="width:60px">
       <span class="zdc-note">% — notify when a snapshotted pool fills up (0 = off)</span>
     </div>
 
-    <p style="font-size:12px;color:#8b949e;margin:10px 0 6px 20px;font-weight:600;">
+    <p class="zdc-sub">
       Maximum age (days, 0 = keep by count only)
     </p>
-    <div style="display:flex;flex-wrap:wrap;gap:8px 20px;margin-left:20px;margin-bottom:6px;">
+    <div style="display:flex;flex-wrap:wrap;gap:8px 20px;margin-bottom:6px;">
       <?php
         foreach ([['snap_age_hourly','Hourly'],['snap_age_daily','Daily'],['snap_age_weekly','Weekly'],
                   ['snap_age_monthly','Monthly'],['snap_age_yearly','Yearly'],['snap_age_frequent','Frequent']] as [$k,$lbl]) {
@@ -478,34 +598,17 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
         }
       ?>
     </div>
-    <div class="zdc-row" style="margin-left:20px;">
+    <div class="zdc-row">
       <label class="row-label">Free-space target</label>
       <input type="text" name="snap_free_target" value="<?= cfg('snap_free_target','') ?>" placeholder="e.g. 100G or 10%" style="width:120px">
       <span class="zdc-note">Prune the oldest snapshots until the pool has this much free (empty = off)</span>
     </div>
 
-    <p style="font-size:12px;color:#8b949e;margin:10px 0 6px 20px;font-weight:600;">Cron Schedule</p>
-    <div class="zdc-row" style="margin-left:20px">
-      <label class="row-label">Run every</label>
-      <select name="snap_schedule_preset" id="snap_schedule_preset" onchange="updateSnapPreview()" class="snap-sel">
-        <option value="5min"   <?= cfg('snap_schedule_preset','15min')==='5min'  ?'selected':'' ?>>Every 5 minutes</option>
-        <option value="15min"  <?= cfg('snap_schedule_preset','15min')==='15min' ?'selected':'' ?>>Every 15 minutes</option>
-        <option value="30min"  <?= cfg('snap_schedule_preset','15min')==='30min' ?'selected':'' ?>>Every 30 minutes</option>
-        <option value="hourly" <?= cfg('snap_schedule_preset','15min')==='hourly'?'selected':'' ?>>Every hour</option>
-        <option value="custom" <?= cfg('snap_schedule_preset','15min')==='custom'?'selected':'' ?>>Custom cron</option>
-      </select>
-    </div>
-    <div id="snap-custom-row" class="zdc-row" style="margin-left:20px;<?= cfg('snap_schedule_preset','15min')==='custom'?'':'display:none' ?>">
-      <label class="row-label">Custom expression</label>
-      <input type="text" name="snap_schedule_custom" id="snap_schedule_custom" value="<?= cfg('snap_schedule_custom','*/15 * * * *') ?>" style="width:180px" oninput="updateSnapPreview()">
-    </div>
-    <div class="zdc-row" style="margin-left:20px">
-      <label class="row-label">Cron expression</label>
-      <span id="snap-cron-preview" style="font-size:13px;color:#79c0ff;font-family:monospace;"></span>
-    </div>
-
-    <p style="font-size:12px;color:#8b949e;margin:10px 0 6px 20px;font-weight:600;">Datasets to snapshot</p>
-    <div style="margin-left:20px;">
+    
+</div>
+<div class="zdc-card wide snap-gated"<?= cfgBool('snapshots_enabled')?'':' style="display:none"' ?>>
+  <h3>Datasets to snapshot</h3>
+    <div>
       <div class="snap-table-scroll">
       <table class="snap-table" id="snap-ds-table">
         <thead><tr>
@@ -526,40 +629,70 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
       </div>
     </div>
 
-    <div style="margin-top:12px;margin-left:20px;display:flex;flex-wrap:wrap;gap:16px;font-size:12px;color:#8b949e;">
-      <span>Cron: <span id="snap-cron-badge" style="font-family:monospace;color:#e3b341;">—</span></span>
-      <span>Datasets: <span id="snap-dataset-count">—</span></span>
-      <span>Snapshots: <span id="snap-total-count">—</span></span>
-      <span>Last run: <span id="snap-last-run">—</span></span>
-      <span>Result: <span id="snap-last-result">—</span></span>
+    
+</div>
+<div class="zdc-card wide">
+  <h3>Snapshot Manager
+    <span style="float:right;font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:var(--zdc-dim);">
+      Which snapshot is eating my space?
+    </span>
+  </h3>
+
+  <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:10px;">
+    <div>
+      <label style="font-size:12px;color:#9ba5b5;display:block;margin-bottom:3px;">Dataset</label>
+      <select id="mgr-dataset" class="snap-sel" style="width:min(260px,100%)" onchange="loadSnapManager()">
+        <option value="">— all datasets —</option>
+      </select>
     </div>
-    <div id="snap-health" style="font-size:12px;margin:6px 0 0 20px;display:none;"></div>
-    <div id="snap-no-datasets-warn" style="color:#e3b341;font-size:12px;margin:6px 0 0 20px;display:none;">
-      ⚠ No datasets configured — add at least one dataset above (settings save automatically).
+    <label style="font-size:12px;color:#9ba5b5;display:flex;align-items:center;gap:5px;height:30px;">
+      <input type="checkbox" id="mgr-only-auto" checked onchange="loadSnapManager()"> only plugin snapshots
+    </label>
+    <div>
+      <label style="font-size:12px;color:#9ba5b5;display:block;margin-bottom:3px;">Filter</label>
+      <input type="text" id="mgr-filter" style="width:min(230px,100%);font-size:12px;"
+             placeholder="e.g. hourly  or  auto-daily-2026-07*"
+             oninput="renderSnapManager()" title="Substring match, or use * and ? as wildcards. Select-all only takes the rows shown.">
     </div>
+    <button type="button" class="btn-secondary" style="padding:5px 14px;font-size:12px;" onclick="loadSnapManager()">Refresh</button>
+    <span style="flex:1"></span>
+    <button type="button" class="btn-secondary" style="padding:5px 12px;font-size:12px;" onclick="mgrHoldSelected(true)" title="Protect the selected snapshots from automatic pruning">Hold</button>
+    <button type="button" class="btn-secondary" style="padding:5px 12px;font-size:12px;" onclick="mgrHoldSelected(false)" title="Remove the plugin hold again">Release</button>
+    <button type="button" class="btn-danger" style="padding:5px 14px;font-size:12px;" onclick="mgrDeleteSelected()">Delete selected (<span id="mgr-sel-count">0</span>)</button>
   </div>
 
-  <div style="margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-    <button type="button" class="btn-primary" id="snap-run-btn" onclick="runSnapshotNow(false)" <?= cfgBool('snapshots_enabled')?'':'disabled' ?>>Run Now</button>
-    <button type="button" class="btn-secondary" id="snap-dry-btn" onclick="runSnapshotNow(true)" title="Show what would be created and pruned, change nothing">Dry Run</button>
-    <button type="button" class="btn-secondary" id="snap-log-toggle-btn" onclick="toggleSnapLog()">View Log</button>
-    <a class="btn-secondary" href="/plugins/zfs.dataset.converter/scripts/diagnostics.php?download=1"
-       style="text-decoration:none;padding:6px 14px;" title="Download a support bundle (config, logs, zfs state). Private keys are excluded.">Diagnostics</a>
-    <span id="snap-save-result" style="font-size:13px;"></span>
-  </div>
+  <div id="mgr-summary" style="font-size:12px;color:var(--zdc-dim);margin-bottom:8px;"></div>
 
-  <div id="snap-log-section" style="margin-top:10px;display:none;">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
-      <span style="font-size:12px;font-weight:600;color:#8b949e;">Snapshot Log <span id="snap-log-hint" style="font-weight:400;color:#555;">(last 30 lines of /tmp/zfs.dataset.converter/snapshots.log)</span></span>
-      <button type="button" class="btn-secondary" style="padding:2px 10px;font-size:11px;" onclick="clearSnapLog()">Clear view</button>
-    </div>
-    <div id="snap-log-viewer" style="background:#0d1117;color:#c9d1d9;font-family:'Consolas','Monaco',monospace;font-size:12px;line-height:1.6;padding:10px;height:220px;overflow-y:auto;border-radius:4px;border:1px solid #30363d;white-space:pre-wrap;word-break:break-all;"></div>
+  <div style="overflow-x:auto;max-height:420px;overflow-y:auto;">
+    <table class="snap-table" id="mgr-table" style="min-width:820px;">
+      <thead><tr>
+        <th style="width:26px;"><input type="checkbox" id="mgr-all" onchange="mgrSelectAll(this)"></th>
+        <th style="text-align:left">Snapshot</th>
+        <th>Type</th>
+        <th style="text-align:right">Used</th>
+        <th style="text-align:right">Refer</th>
+        <th>Created</th>
+        <th>Hold</th>
+        <th></th>
+      </tr></thead>
+      <tbody id="mgr-tbody">
+        <tr><td colspan="8" style="color:var(--zdc-dim);padding:10px;">Click Refresh to load snapshots.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:8px;">
+    <span id="mgr-result" style="font-size:12px;"></span>
+    <span id="mgr-sel-note" style="font-size:12px;"></span>
   </div>
 </div>
+</div>
+</div>
 
-<div class="zdc-card">
+<div class="zdc-panel" id="tab-browse" role="tabpanel">
+<div class="zdc-grid">
+<div class="zdc-card wide">
   <h3>Snapshot Browser</h3>
-  <p style="font-size:12px;color:#8b949e;margin:0 0 10px;">Browse any ZFS snapshot and restore individual files or folders to the live dataset.</p>
+  <p style="font-size:12px;color:var(--zdc-dim);margin:0 0 10px;">Browse any ZFS snapshot and restore individual files or folders to the live dataset.</p>
 
   <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px;">
     <div>
@@ -589,14 +722,14 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
     </div>
     <button type="button" class="btn-secondary" style="padding:5px 14px;font-size:12px;" onclick="runDiff()"
             title="zfs diff between the selected snapshot and this target">Show changes</button>
-    <span id="diff-summary" style="font-size:12px;color:#8b949e;"></span>
+    <span id="diff-summary" style="font-size:12px;color:var(--zdc-dim);"></span>
   </div>
-  <div id="diff-result" style="display:none;max-height:240px;overflow:auto;background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:8px;font-family:'Consolas','Monaco',monospace;font-size:12px;line-height:1.5;margin-bottom:10px;"></div>
+  <div id="diff-result" style="display:none;max-height:240px;overflow:auto;background:var(--zdc-sunken);border:1px solid var(--zdc-border-2);border-radius:4px;padding:8px;font-family:'Consolas','Monaco',monospace;font-size:12px;line-height:1.5;margin-bottom:10px;"></div>
 
   <div id="snap-browser-area">
     <div class="snap-browser-path" id="snap-breadcrumb"></div>
     <div id="snap-file-list">
-      <p style="color:#8b949e;font-size:13px;">Select a dataset and snapshot above, then click Browse.</p>
+      <p style="color:var(--zdc-dim);font-size:13px;">Select a dataset and snapshot above, then click Browse.</p>
     </div>
     <div id="restore-controls" style="position:relative;margin-top:10px;display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:12px;">
       <span style="color:#9ba5b5;white-space:nowrap;">Destination folder:</span>
@@ -606,86 +739,33 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
              style="flex:1;min-width:160px;max-width:320px;font-size:12px;"
              placeholder="click to pick, or type a path + Enter — empty = original location">
       <button type="button" id="dest-browse-btn" class="btn-secondary" style="padding:4px 12px;font-size:12px;display:none;" onclick="toggleDestPicker()">Browse…</button>
-      <span id="dest-hint" style="font-size:11px;color:#8b949e;"></span>
+      <span id="dest-hint" style="font-size:11px;color:var(--zdc-dim);"></span>
       <button type="button" class="btn-primary" style="padding:4px 12px;font-size:12px;" onclick="restoreSelected()">Restore Selected (<span id="sel-count">0</span>)</button>
       <span id="restore-result" style="font-size:12px;"></span>
     </div>
 
-    <div id="dest-picker" style="display:none;margin-top:8px;border:1px solid var(--border,#3a4049);border-radius:4px;padding:8px;background:#0d1117;">
+    <div id="dest-picker" style="display:none;margin-top:8px;border:1px solid var(--border,#3a4049);border-radius:4px;padding:8px;background:var(--zdc-sunken);">
       <div class="snap-browser-path" id="dest-crumbs" style="margin-bottom:6px;"></div>
       <div id="dest-list" style="max-height:180px;overflow-y:auto;font-size:12px;"></div>
       <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px;">
         <span style="font-size:12px;color:#9ba5b5;">Selected:</span>
-        <code id="dest-current" style="font-size:12px;color:#79c0ff;">/mnt</code>
+        <code id="dest-current" style="font-size:12px;color:var(--zdc-accent);">/mnt</code>
         <input type="text" id="dest-newfolder" placeholder="optional: new subfolder" style="font-size:12px;width:170px;">
         <button type="button" class="btn-primary" style="padding:3px 10px;font-size:12px;" onclick="destUse()">Use this folder</button>
         <button type="button" class="btn-secondary" style="padding:3px 10px;font-size:12px;" onclick="toggleDestPicker()">Cancel</button>
-        <span id="dest-note" style="font-size:11px;color:#8b949e;"></span>
+        <span id="dest-note" style="font-size:11px;color:var(--zdc-dim);"></span>
       </div>
     </div>
   </div>
 </div>
-</div><!-- /right col -->
-</div><!-- /main grid -->
-
-<div class="zdc-card">
-  <h3>Snapshot Manager
-    <span style="float:right;font-weight:400;text-transform:none;letter-spacing:0;font-size:11px;color:#8b949e;">
-      Which snapshot is eating my space?
-    </span>
-  </h3>
-
-  <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:10px;">
-    <div>
-      <label style="font-size:12px;color:#9ba5b5;display:block;margin-bottom:3px;">Dataset</label>
-      <select id="mgr-dataset" class="snap-sel" style="width:min(260px,100%)" onchange="loadSnapManager()">
-        <option value="">— all datasets —</option>
-      </select>
-    </div>
-    <label style="font-size:12px;color:#9ba5b5;display:flex;align-items:center;gap:5px;height:30px;">
-      <input type="checkbox" id="mgr-only-auto" checked onchange="loadSnapManager()"> only plugin snapshots
-    </label>
-    <div>
-      <label style="font-size:12px;color:#9ba5b5;display:block;margin-bottom:3px;">Filter</label>
-      <input type="text" id="mgr-filter" style="width:min(230px,100%);font-size:12px;"
-             placeholder="e.g. hourly  or  auto-daily-2026-07*"
-             oninput="renderSnapManager()" title="Substring match, or use * and ? as wildcards. Select-all only takes the rows shown.">
-    </div>
-    <button type="button" class="btn-secondary" style="padding:5px 14px;font-size:12px;" onclick="loadSnapManager()">Refresh</button>
-    <span style="flex:1"></span>
-    <button type="button" class="btn-secondary" style="padding:5px 12px;font-size:12px;" onclick="mgrHoldSelected(true)" title="Protect the selected snapshots from automatic pruning">Hold</button>
-    <button type="button" class="btn-secondary" style="padding:5px 12px;font-size:12px;" onclick="mgrHoldSelected(false)" title="Remove the plugin hold again">Release</button>
-    <button type="button" class="btn-danger" style="padding:5px 14px;font-size:12px;" onclick="mgrDeleteSelected()">Delete selected (<span id="mgr-sel-count">0</span>)</button>
-  </div>
-
-  <div id="mgr-summary" style="font-size:12px;color:#8b949e;margin-bottom:8px;"></div>
-
-  <div style="overflow-x:auto;max-height:420px;overflow-y:auto;">
-    <table class="snap-table" id="mgr-table" style="min-width:820px;">
-      <thead><tr>
-        <th style="width:26px;"><input type="checkbox" id="mgr-all" onchange="mgrSelectAll(this)"></th>
-        <th style="text-align:left">Snapshot</th>
-        <th>Type</th>
-        <th style="text-align:right">Used</th>
-        <th style="text-align:right">Refer</th>
-        <th>Created</th>
-        <th>Hold</th>
-        <th></th>
-      </tr></thead>
-      <tbody id="mgr-tbody">
-        <tr><td colspan="8" style="color:#8b949e;padding:10px;">Click Refresh to load snapshots.</td></tr>
-      </tbody>
-    </table>
-  </div>
-  <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:8px;">
-    <span id="mgr-result" style="font-size:12px;"></span>
-    <span id="mgr-sel-note" style="font-size:12px;"></span>
-  </div>
+</div>
 </div>
 
-<div class="zdc-card">
+<div class="zdc-panel" id="tab-replicate" role="tabpanel">
+<div class="zdc-grid">
+<div class="zdc-card wide">
   <h3>Replication (ZFS Send)</h3>
-  <p style="font-size:12px;color:#8b949e;margin:0 0 10px;">
+  <p style="font-size:12px;color:var(--zdc-dim);margin:0 0 10px;">
     Snapshots on the same pool do not survive losing that pool. Replication copies them to a
     second pool or another machine using native <code>zfs send</code> / <code>zfs recv</code>.
   </p>
@@ -709,10 +789,10 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
         <input type="number" name="send_schedule_hour" id="send_schedule_hour" value="<?= cfg('send_schedule_hour','4') ?>" min="0" max="23" style="width:56px" oninput="updateSendPreview()">
       </label>
       <input type="text" name="send_schedule_custom" id="send_schedule_custom" value="<?= cfg('send_schedule_custom','0 4 * * *') ?>" style="width:150px;display:none" oninput="updateSendPreview()">
-      <span id="send-cron-preview" style="font-size:13px;color:#79c0ff;font-family:monospace;"></span>
+      <span id="send-cron-preview" style="font-size:13px;color:var(--zdc-accent);font-family:monospace;"></span>
     </div>
 
-    <p style="font-size:12px;color:#8b949e;margin:10px 0 6px 20px;font-weight:600;">Jobs</p>
+    <p class="zdc-sub">Jobs</p>
     <div style="margin-left:20px;overflow-x:auto;">
       <table class="snap-table" id="send-table" style="min-width:900px;">
         <thead><tr>
@@ -741,17 +821,18 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
       </p>
     </div>
 
-    <div style="margin-top:10px;margin-left:20px;display:flex;flex-wrap:wrap;gap:16px;font-size:12px;color:#8b949e;">
-      <span>Cron: <span id="send-cron-badge" style="font-family:monospace;color:#e3b341;">—</span></span>
+    <div style="margin-top:10px;margin-left:20px;display:flex;flex-wrap:wrap;gap:16px;font-size:12px;color:var(--zdc-dim);">
+      <span>Cron: <span id="send-cron-badge" style="font-family:monospace;color:var(--zdc-warn);">—</span></span>
       <span>Last run: <span id="send-last-run">—</span></span>
       <span>Result: <span id="send-last-result">—</span></span>
     </div>
-    <div id="send-log-viewer" style="margin-top:8px;background:#0d1117;color:#c9d1d9;font-family:'Consolas','Monaco',monospace;font-size:12px;line-height:1.5;padding:10px;height:180px;overflow-y:auto;border-radius:4px;border:1px solid #30363d;white-space:pre-wrap;word-break:break-all;"></div>
+    <div id="send-log-viewer" style="margin-top:8px;background:var(--zdc-sunken);color:var(--zdc-text);font-family:'Consolas','Monaco',monospace;font-size:12px;line-height:1.5;padding:10px;height:180px;overflow-y:auto;border-radius:4px;border:1px solid var(--zdc-border-2);white-space:pre-wrap;word-break:break-all;"></div>
   </div>
 </div>
+</div>
+</div>
 
-</div><!-- /zdc-wrap -->
-
+</div>
 <script>
 var _poll = null, _logFile = null, _logOffset = 0;
 var _base = '/plugins/zfs.dataset.converter/scripts';
@@ -795,20 +876,6 @@ function postForm(url, data) {
   });
 }
 
-function saveSettings() {
-  postForm(_base + '/save_settings.php', formData())
-  .then(function(res) {
-    var el = document.getElementById('save-result');
-    if (res.success) {
-      el.style.color = '#56d364'; el.textContent = 'Saved.';
-      updateDryBanner();
-      setTimeout(loadCronStatus, 800); // reload after cron is applied
-    } else {
-      el.style.color = '#f85149'; el.textContent = 'Error: ' + (res.error||'?');
-    }
-    setTimeout(function(){ el.textContent=''; }, 3000);
-  }).catch(function(e){ alert('Save failed: ' + e); });
-}
 
 function updateDryBanner() {
   var cb = document.getElementById('dry_run');
@@ -823,21 +890,21 @@ function scanFolders() {
     renderFolderTable(res);
   }).catch(function() {
     document.getElementById('scan-spinner').style.display = 'none';
-    document.getElementById('folder-list').innerHTML = '<p style="color:#f85149;">Error scanning folders.</p>';
+    document.getElementById('folder-list').innerHTML = '<p style="color:var(--zdc-err);">Error scanning folders.</p>';
   });
 }
 
 function renderFolderTable(res) {
   var el = document.getElementById('folder-list');
   if (!res || !res.sources || !res.sources.length) {
-    el.innerHTML = '<p style="color:#8b949e;font-size:13px;">No sources configured.</p>';
+    el.innerHTML = '<p style="color:var(--zdc-dim);font-size:13px;">No sources configured.</p>';
     return;
   }
   var html = '';
   res.sources.forEach(function(src) {
-    html += '<p style="font-weight:600;color:#79c0ff;margin:10px 0 5px">' + esc(src.path) + '</p>';
-    if (src.error) { html += '<p style="color:#f85149;font-size:12px;margin:0 0 8px 8px;">' + esc(src.error) + '</p>'; return; }
-    if (!src.entries || !src.entries.length) { html += '<p style="color:#8b949e;font-size:13px;margin:0 0 8px 8px;">No entries.</p>'; return; }
+    html += '<p style="font-weight:600;color:var(--zdc-accent);margin:10px 0 5px">' + esc(src.path) + '</p>';
+    if (src.error) { html += '<p style="color:var(--zdc-err);font-size:12px;margin:0 0 8px 8px;">' + esc(src.error) + '</p>'; return; }
+    if (!src.entries || !src.entries.length) { html += '<p style="color:var(--zdc-dim);font-size:13px;margin:0 0 8px 8px;">No entries.</p>'; return; }
     html += '<table class="zdc-table"><thead><tr><th>Name</th><th>Type</th><th>Size</th></tr></thead><tbody>';
     src.entries.forEach(function(e) {
       var cls = e.type === 'dataset' ? 'tag-dataset' : 'tag-folder';
@@ -1000,7 +1067,7 @@ function updateCronPreview() {
   var el = document.getElementById('cron-preview');
   el.textContent = (expr || '(empty)') + (label !== expr ? '  (' + label + ')' : '');
   var bad = (preset === 'custom' && !validCronExpr(expr));
-  el.style.color = bad ? '#f85149' : '';
+  el.style.color = bad ? 'var(--zdc-err)' : '';
   el.title = bad ? 'Not a valid 5-field cron expression — this schedule will not be installed.' : '';
 }
 
@@ -1010,10 +1077,10 @@ function loadCronStatus() {
   .then(function(res) {
     var el = document.getElementById('cron-active');
     if (res.active) {
-      el.style.color = '#56d364';
+      el.style.color = 'var(--zdc-ok)';
       el.textContent = res.entry;
     } else {
-      el.style.color = '#e3b341';
+      el.style.color = 'var(--zdc-warn)';
       el.textContent = 'Not installed in crontab';
     }
   }).catch(function() {
@@ -1030,10 +1097,10 @@ document.getElementById('settings-form').addEventListener('change', _triggerAuto
 document.getElementById('settings-form').addEventListener('input',  _triggerAutoSave);
 
 document.getElementById('snapshots_enabled').addEventListener('change', _triggerAutoSave);
-var _snapDetailsEl = document.getElementById('snap-details');
-if (_snapDetailsEl) {
-  _snapDetailsEl.addEventListener('change', _triggerAutoSave);
-  _snapDetailsEl.addEventListener('input',  _triggerAutoSave);
+var _snapPanelEl = document.getElementById('tab-snapshots');
+if (_snapPanelEl) {
+  _snapPanelEl.addEventListener('change', _triggerAutoSave);
+  _snapPanelEl.addEventListener('input',  _triggerAutoSave);
 }
 fetch(_base + '/get_status.php').then(function(r){ return r.json(); })
 .then(function(res) {
@@ -1070,7 +1137,7 @@ function _showAutoStatus(msg, color, fadeMs) {
   var el = document.getElementById('autosave-status');
   if (!el) return;
   el.textContent = msg;
-  el.style.color = color || '#8b949e';
+  el.style.color = color || 'var(--zdc-dim)';
   el.style.opacity = '1';
   if (fadeMs) setTimeout(function() { el.style.opacity = '0'; }, fadeMs);
 }
@@ -1081,7 +1148,7 @@ function _triggerAutoSave() {
 }
 
 function _doAutoSave() {
-  _showAutoStatus('Saving\u2026', '#8b949e', 0);
+  _showAutoStatus('Saving\u2026', 'var(--zdc-dim)', 0);
 
   var d = formData();
   d['snapshots_enabled'] = document.getElementById('snapshots_enabled').checked ? 'yes' : 'no';
@@ -1105,6 +1172,7 @@ function _doAutoSave() {
     _saveWarnings = (res.warnings && res.warnings.length) ? res.warnings : null;
     updateDryBanner();
     setTimeout(loadCronStatus, 500);
+    setTimeout(zdcRefreshStatus, 700);
     if (document.getElementById('snapshots_enabled').checked) setTimeout(loadSnapshotStatus, 500);
     var params = new URLSearchParams({datasets_json: JSON.stringify({datasets: _snapDatasets})});
     if (typeof csrf_token !== 'undefined') params.append('csrf_token', csrf_token);
@@ -1117,22 +1185,94 @@ function _doAutoSave() {
   .then(function(res2) {
     if (res2.ok) {
       if (_saveWarnings) {
-        _showAutoStatus('\u26a0 ' + _saveWarnings[0], '#e3b341', 0);
+        _showAutoStatus('\u26a0 ' + _saveWarnings[0], 'var(--zdc-warn)', 0);
       } else {
-        _showAutoStatus('\u2713 Saved', '#56d364', 2000);
+        _showAutoStatus('\u2713 Saved', 'var(--zdc-ok)', 2000);
       }
     } else {
-      _showAutoStatus('\u2717 ' + (res2.error || 'Error'), '#f85149', 0);
+      _showAutoStatus('\u2717 ' + (res2.error || 'Error'), 'var(--zdc-err)', 0);
     }
   })
   .catch(function() {
-    _showAutoStatus('\u2717 Save error', '#f85149', 0);
+    _showAutoStatus('\u2717 Save error', 'var(--zdc-err)', 0);
   });
+}
+
+var ZDC_TABS = ['convert','snapshots','browse','replicate'];
+
+function zdcTab(name) {
+  if (ZDC_TABS.indexOf(name) === -1) name = ZDC_TABS[0];
+  ZDC_TABS.forEach(function(t) {
+    var panel = document.getElementById('tab-' + t);
+    var btn   = document.getElementById('tabbtn-' + t);
+    if (panel) panel.hidden = (t !== name);
+    if (btn)   btn.className = 'zdc-tab' + (t === name ? ' active' : '');
+  });
+  try { localStorage.setItem('zdc-tab', name); } catch (e) {}
+
+  // Load what a tab needs when it becomes visible, instead of leaving the
+  // user to find a Refresh button.
+  if (name === 'snapshots' && !_mgrLast) loadSnapManager();
+  if (name === 'replicate') loadSendStatus();
+}
+
+function zdcRestoreTab() {
+  var saved = null;
+  try { saved = localStorage.getItem('zdc-tab'); } catch (e) {}
+  zdcTab(saved || 'convert');
+}
+
+var _zdcSnap = null, _zdcConv = null;
+
+function zdcRenderStatus() {
+  var el = document.getElementById('zdc-status');
+  if (!el) return;
+  var snap = _zdcSnap, conv = _zdcConv, pills = [];
+
+  function pill(cls, label, value, extra) {
+    pills.push('<span class="zdc-pill ' + cls + '"><span class="dot"></span>'
+      + esc(label) + ' <b>' + esc(value) + '</b>' + (extra || '') + '</span>');
+  }
+
+  var dry = document.getElementById('dry_run');
+  if (dry && dry.checked) pill('warn', 'Mode', 'Dry run');
+
+  if (snap) {
+    if (!snap.active)            pill('warn', 'Snapshots', 'not scheduled');
+    else if (!snap.cron_healthy) pill('warn', 'Snapshots', 'cron not live');
+    else                         pill('ok', 'Snapshots', String(snap.snapshot_count));
+
+    if (snap.last_run) {
+      var r = snap.run || {};
+      pill(r.errors > 0 ? 'err' : '', 'Last run', snap.last_run
+        + (typeof r.created !== 'undefined'
+            ? '  (+' + r.created + ' / -' + r.pruned + (r.errors > 0 ? ' / ' + r.errors + ' err' : '') + ')'
+            : ''));
+    }
+    (snap.pools || []).forEach(function(pl) {
+      var cls = pl.capacity >= 90 ? 'err' : (pl.capacity >= 80 ? 'warn' : 'ok');
+      pill(cls, 'Pool ' + pl.name, pl.capacity + '%',
+        '<span class="zdc-meter"><i style="width:' + Math.min(100, pl.capacity)
+        + '%;background:var(--zdc-' + cls + ')"></i></span>');
+    });
+  }
+
+  if (conv && conv.active) pill(conv.cron_healthy ? 'ok' : 'warn', 'Auto-convert', 'scheduled');
+  el.innerHTML = pills.join('');
+}
+
+function zdcRefreshStatus() {
+  fetch(_base + '/get_snapshot_status.php').then(function(r) { return r.json(); })
+    .then(function(res) { _zdcSnap = res; zdcRenderStatus(); }).catch(function() {});
+  fetch(_base + '/get_cron_status.php').then(function(r) { return r.json(); })
+    .then(function(res) { _zdcConv = res; zdcRenderStatus(); }).catch(function() {});
 }
 
 function toggleSnapDetails() {
   var en = document.getElementById('snapshots_enabled').checked;
-  document.getElementById('snap-details').style.display = en ? '' : 'none';
+  document.querySelectorAll('.snap-gated').forEach(function(el) {
+    el.style.display = en ? '' : 'none';
+  });
   document.getElementById('snap-run-btn').disabled = !en;
   if (en) { updateSnapPreview(); loadSnapshotStatus(); }
 }
@@ -1151,7 +1291,7 @@ function updateSnapPreview() {
   }
   var el = document.getElementById('snap-cron-preview');
   el.textContent = expr || '(empty)';
-  el.style.color = (custom && !validCronExpr(expr)) ? '#f85149' : '#79c0ff';
+  el.style.color = (custom && !validCronExpr(expr)) ? 'var(--zdc-err)' : 'var(--zdc-accent)';
   el.title = (custom && !validCronExpr(expr))
     ? 'Not a valid 5-field cron expression — this schedule will not be installed.' : '';
 }
@@ -1223,7 +1363,7 @@ function getGlobalRetention(field) {
 function renderSnapTable() {
   var tbody = document.getElementById('snap-ds-tbody');
   if (!_snapDatasets.length) {
-    tbody.innerHTML = '<tr><td colspan="9" style="color:#8b949e;text-align:center;padding:10px;">No datasets configured. Add one above.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" style="color:var(--zdc-dim);text-align:center;padding:10px;">No datasets configured. Add one above.</td></tr>';
     return;
   }
   var html = '';
@@ -1286,15 +1426,15 @@ function saveSnapshotSettings() {
   })
   .then(function(res2) {
     if (res2.ok) {
-      resultEl.style.color = '#56d364'; resultEl.textContent = 'Saved.';
+      resultEl.style.color = 'var(--zdc-ok)'; resultEl.textContent = 'Saved.';
       setTimeout(loadSnapshotStatus, 800);
     } else {
-      resultEl.style.color = '#f85149'; resultEl.textContent = 'Error: ' + (res2.error || '?');
+      resultEl.style.color = 'var(--zdc-err)'; resultEl.textContent = 'Error: ' + (res2.error || '?');
     }
     setTimeout(function(){ resultEl.textContent=''; }, 3000);
   })
   .catch(function(e) {
-    resultEl.style.color = '#f85149'; resultEl.textContent = 'Error: ' + e;
+    resultEl.style.color = 'var(--zdc-err)'; resultEl.textContent = 'Error: ' + e;
   });
 }
 
@@ -1304,13 +1444,13 @@ function loadSnapshotStatus() {
   .then(function(res) {
     var badge = document.getElementById('snap-cron-badge');
     if (res.active && res.cron_healthy) {
-      badge.style.color = '#56d364';
+      badge.style.color = 'var(--zdc-ok)';
       badge.textContent = res.entry.split(' ').slice(0,5).join(' ') + ' ✓';
     } else if (res.active) {
-      badge.style.color = '#e3b341';
+      badge.style.color = 'var(--zdc-warn)';
       badge.textContent = res.entry.split(' ').slice(0,5).join(' ') + ' (!)';
     } else {
-      badge.style.color = '#e3b341';
+      badge.style.color = 'var(--zdc-warn)';
       badge.textContent = 'Not installed';
     }
 
@@ -1322,7 +1462,7 @@ function loadSnapshotStatus() {
       } else {
         rEl.textContent = run.created + ' created, ' + run.pruned + ' pruned'
                         + (run.errors > 0 ? ', ' + run.errors + ' error(s)' : '');
-        rEl.style.color = run.errors > 0 ? '#f85149' : '#8b949e';
+        rEl.style.color = run.errors > 0 ? 'var(--zdc-err)' : 'var(--zdc-dim)';
       }
     }
 
@@ -1341,7 +1481,7 @@ function loadSnapshotStatus() {
     if (hEl) {
       if (msgs.length) {
         hEl.style.display = '';
-        hEl.style.color = '#e3b341';
+        hEl.style.color = 'var(--zdc-warn)';
         hEl.textContent = msgs.join('  ');
       } else {
         hEl.style.display = 'none';
@@ -1369,7 +1509,7 @@ function runSnapshotNow(dry) {
   if (_snapDatasets.length === 0) {
     var warnEl = document.getElementById('snap-no-datasets-warn');
     if (warnEl) warnEl.style.display = '';
-    resultEl.style.color = '#e3b341';
+    resultEl.style.color = 'var(--zdc-warn)';
     resultEl.textContent = 'No datasets configured yet.';
     setTimeout(function(){ resultEl.textContent = ''; }, 5000);
     return;
@@ -1382,17 +1522,17 @@ function runSnapshotNow(dry) {
   var logSec = document.getElementById('snap-log-section');
   logSec.style.display = '';
   document.getElementById('snap-log-viewer').innerHTML =
-    '<span style="color:#8b949e;">Starting snapshot_manager.sh ' + (dry ? '--now --dry-run' : '--now') + ' …\n</span>';
+    '<span style="color:var(--zdc-dim);">Starting snapshot_manager.sh ' + (dry ? '--now --dry-run' : '--now') + ' …\n</span>';
 
   postForm(_base + '/run_snapshot_manual.php', dry ? {dry: '1'} : {})
   .then(function(res) {
     if (res.ok) {
-      resultEl.style.color = '#56d364';
+      resultEl.style.color = 'var(--zdc-ok)';
       resultEl.textContent = 'Started (PID ' + res.pid + ')';
       setTimeout(loadSnapshotStatus, 2000);
       setTimeout(loadSnapshotStatus, 5000);
     } else {
-      resultEl.style.color = '#f85149';
+      resultEl.style.color = 'var(--zdc-err)';
       resultEl.textContent = res.error || 'Failed';
     }
     setTimeout(function(){
@@ -1401,7 +1541,7 @@ function runSnapshotNow(dry) {
     }, 6000);
   }).catch(function(e){
     btn.disabled = false; btn.textContent = label;
-    resultEl.style.color = '#f85149';
+    resultEl.style.color = 'var(--zdc-err)';
     resultEl.textContent = 'Error: ' + e;
   });
 }
@@ -1422,9 +1562,9 @@ function renderSnapLog(lines) {
   el.innerHTML = '';
   lines.forEach(function(line) {
     var sp = document.createElement('span');
-    if (/ERROR/.test(line))   sp.style.color = '#f85149';
-    else if (/WARNING/.test(line)) sp.style.color = '#e3b341';
-    else if (/\bOK:/.test(line))   sp.style.color = '#56d364';
+    if (/ERROR/.test(line))   sp.style.color = 'var(--zdc-err)';
+    else if (/WARNING/.test(line)) sp.style.color = 'var(--zdc-warn)';
+    else if (/\bOK:/.test(line))   sp.style.color = 'var(--zdc-ok)';
     sp.textContent = line + '\n';
     el.appendChild(sp);
   });
@@ -1438,7 +1578,7 @@ function loadBrowserSnapshots() {
   var sel = document.getElementById('browser-snapshot');
   while (sel.options.length > 1) sel.remove(1);
   document.getElementById('snap-file-list').innerHTML =
-    '<p style="color:#8b949e;font-size:13px;">Select a dataset and snapshot above, then click Browse.</p>';
+    '<p style="color:var(--zdc-dim);font-size:13px;">Select a dataset and snapshot above, then click Browse.</p>';
   document.getElementById('snap-breadcrumb').innerHTML = '';
   if (!dataset) return;
 
@@ -1453,7 +1593,7 @@ function loadBrowserSnapshots() {
   .then(function(res) {
     if (!res.ok) {
       document.getElementById('snap-file-list').innerHTML =
-        '<p style="color:#f85149;">Error loading snapshots: ' + esc(res.error) + '</p>';
+        '<p style="color:var(--zdc-err);">Error loading snapshots: ' + esc(res.error) + '</p>';
       return;
     }
     if (!res.snapshots.length) {
@@ -1469,7 +1609,7 @@ function loadBrowserSnapshots() {
     }
   }).catch(function(e) {
     document.getElementById('snap-file-list').innerHTML =
-      '<p style="color:#f85149;">Could not load snapshots: ' + esc(String(e)) + '</p>';
+      '<p style="color:var(--zdc-err);">Could not load snapshots: ' + esc(String(e)) + '</p>';
   });
 }
 
@@ -1479,12 +1619,12 @@ function browserBrowse(path) {
   var fileList = document.getElementById('snap-file-list');
 
   if (!dataset || !snapshot) {
-    fileList.innerHTML = '<p style="color:#e3b341;font-size:13px;">Please select a dataset and snapshot first.</p>';
+    fileList.innerHTML = '<p style="color:var(--zdc-warn);font-size:13px;">Please select a dataset and snapshot first.</p>';
     return;
   }
 
   browserPath = path || '/';
-  fileList.innerHTML = '<p style="color:#8b949e;font-size:13px;">Loading…</p>';
+  fileList.innerHTML = '<p style="color:var(--zdc-dim);font-size:13px;">Loading…</p>';
 
   var params = new URLSearchParams({
     action:   'browse',
@@ -1508,13 +1648,13 @@ function browserBrowse(path) {
   })
   .then(function(res) {
     if (!res.ok) {
-      fileList.innerHTML = '<p style="color:#f85149;">Error: ' + esc(res.error) + '</p>';
+      fileList.innerHTML = '<p style="color:var(--zdc-err);">Error: ' + esc(res.error) + '</p>';
       return;
     }
     renderBreadcrumb(res.crumbs);
     renderFileList(res.entries, dataset, snapshot, res.path);
   }).catch(function(e){
-    fileList.innerHTML = '<p style="color:#f85149;">Request failed: ' + esc(String(e)) + '</p>';
+    fileList.innerHTML = '<p style="color:var(--zdc-err);">Request failed: ' + esc(String(e)) + '</p>';
   });
 }
 
@@ -1531,7 +1671,7 @@ function renderBreadcrumb(crumbs) {
 function renderFileList(entries, dataset, snapshot, currentPath) {
   var el = document.getElementById('snap-file-list');
   if (!entries.length) {
-    el.innerHTML = '<p style="color:#8b949e;font-size:13px;">Empty directory.</p>';
+    el.innerHTML = '<p style="color:var(--zdc-dim);font-size:13px;">Empty directory.</p>';
     updateSelCount();
     return;
   }
@@ -1555,8 +1695,8 @@ function renderFileList(entries, dataset, snapshot, currentPath) {
     html += '<tr>'
       + '<td style="padding:4px 6px;text-align:center;"><input type="checkbox" class="snap-sel-cb" onchange="updateSelCount()" data-src="' + esc(srcPath) + '"></td>'
       + '<td>' + nameCell + '</td>'
-      + '<td style="color:#8b949e">' + esc(e.size) + '</td>'
-      + '<td style="color:#8b949e;font-size:11px">' + esc(e.mtime) + '</td>'
+      + '<td style="color:var(--zdc-dim)">' + esc(e.size) + '</td>'
+      + '<td style="color:var(--zdc-dim);font-size:11px">' + esc(e.mtime) + '</td>'
       + '<td><button class="snap-restore-btn" onclick="restoreEntry(\''
         + dataset.replace(/'/g,"\\'") + '\',\''
         + snapshot.replace(/'/g,"\\'") + '\',\''
@@ -1585,7 +1725,7 @@ var _destPath = '/mnt';
 function destHint(msg, color) {
   var el = document.getElementById('dest-hint');
   if (!el) return;
-  el.style.color = color || '#8b949e';
+  el.style.color = color || 'var(--zdc-dim)';
   el.textContent = msg || '';
   if (msg) setTimeout(function() { if (el.textContent === msg) el.textContent = ''; }, 6000);
 }
@@ -1620,7 +1760,7 @@ function destGoTo() {
   var raw = input.value.trim();
 
   if (!raw) { destHint('empty = restore to the original location'); return; }
-  if (raw.charAt(0) !== '/') { destHint('Path must start with /', '#e3b341'); return; }
+  if (raw.charAt(0) !== '/') { destHint('Path must start with /', 'var(--zdc-warn)'); return; }
 
   var path = raw.replace(/\/+$/, '') || '/';
 
@@ -1643,10 +1783,10 @@ function destGoTo() {
         if (res2.ok && res2.path === parent) {
           open(parent, 'does not exist yet \u2014 showing ' + parent + ', it will be created on restore');
         } else {
-          destHint('Not a folder below /mnt: ' + path, '#e3b341');
+          destHint('Not a folder below /mnt: ' + path, 'var(--zdc-warn)');
         }
       });
-  }).catch(function(e) { destHint('Error: ' + e, '#f85149'); });
+  }).catch(function(e) { destHint('Error: ' + e, 'var(--zdc-err)'); });
 }
 
 function initDestPicker() {
@@ -1677,12 +1817,12 @@ function toggleDestPicker() {
 
 function destBrowse(path) {
   var listEl = document.getElementById('dest-list');
-  listEl.innerHTML = '<span style="color:#8b949e;">Loading\u2026</span>';
+  listEl.innerHTML = '<span style="color:var(--zdc-dim);">Loading\u2026</span>';
 
   postForm(_base + '/snapshot_browse.php', {action: 'list_dirs', path: path})
   .then(function(res) {
     if (!res.ok) {
-      listEl.innerHTML = '<span style="color:#f85149;">' + esc(res.error || 'Error') + '</span>';
+      listEl.innerHTML = '<span style="color:var(--zdc-err);">' + esc(res.error || 'Error') + '</span>';
       return;
     }
     _destPath = res.path;
@@ -1698,7 +1838,7 @@ function destBrowse(path) {
     document.getElementById('dest-crumbs').innerHTML = cr;
 
     if (!res.dirs.length) {
-      listEl.innerHTML = '<span style="color:#8b949e;">No subfolders here.</span>';
+      listEl.innerHTML = '<span style="color:var(--zdc-dim);">No subfolders here.</span>';
       return;
     }
     var html = '';
@@ -1708,7 +1848,7 @@ function destBrowse(path) {
     });
     listEl.innerHTML = html;
   }).catch(function(e) {
-    listEl.innerHTML = '<span style="color:#f85149;">' + esc(String(e)) + '</span>';
+    listEl.innerHTML = '<span style="color:var(--zdc-err);">' + esc(String(e)) + '</span>';
   });
 }
 
@@ -1730,14 +1870,14 @@ function restoreSelected() {
   var resultEl = document.getElementById('restore-result');
 
   if (!dataset || !snapshot) {
-    resultEl.style.color = '#e3b341';
+    resultEl.style.color = 'var(--zdc-warn)';
     resultEl.textContent = 'Select a dataset and snapshot first.';
     setTimeout(function(){ resultEl.textContent=''; }, 3000);
     return;
   }
   var cbs = Array.prototype.slice.call(document.querySelectorAll('.snap-sel-cb:checked'));
   if (!cbs.length) {
-    resultEl.style.color = '#e3b341';
+    resultEl.style.color = 'var(--zdc-warn)';
     resultEl.textContent = 'Nothing selected.';
     setTimeout(function(){ resultEl.textContent=''; }, 3000);
     return;
@@ -1751,7 +1891,7 @@ function startRestore(dataset, snapshot, items) {
   var dst      = document.getElementById('restore-dst').value.trim();
   var resultEl = document.getElementById('restore-result');
 
-  resultEl.style.color = '#8b949e';
+  resultEl.style.color = 'var(--zdc-dim)';
   resultEl.textContent = 'Starting restore\u2026';
 
   var params = new URLSearchParams();
@@ -1769,13 +1909,13 @@ function startRestore(dataset, snapshot, items) {
   }).then(function(r) { return r.json(); })
   .then(function(res) {
     if (!res.ok) {
-      resultEl.style.color = '#f85149';
+      resultEl.style.color = 'var(--zdc-err)';
       resultEl.textContent = '\u2717 ' + (res.error || 'Failed');
       return;
     }
     pollRestore(res.job, res.total);
   }).catch(function(e) {
-    resultEl.style.color = '#f85149';
+    resultEl.style.color = 'var(--zdc-err)';
     resultEl.textContent = '\u2717 Error: ' + e;
   });
 }
@@ -1791,7 +1931,7 @@ function pollRestore(job, total) {
       if (st.state === 'starting') { resultEl.textContent = 'Starting\u2026'; return; }
 
       if (st.state === 'running') {
-        resultEl.style.color = '#8b949e';
+        resultEl.style.color = 'var(--zdc-dim)';
         resultEl.textContent = 'Restoring ' + (st.done + st.failed) + '/' + st.total
                              + (st.current ? ' \u2014 ' + st.current : '') + '\u2026';
         return;
@@ -1799,10 +1939,10 @@ function pollRestore(job, total) {
 
       clearInterval(_restorePoll); _restorePoll = null;
       if (st.state === 'done') {
-        resultEl.style.color = '#56d364';
+        resultEl.style.color = 'var(--zdc-ok)';
         resultEl.textContent = '\u2713 ' + st.message;
       } else {
-        resultEl.style.color = '#f85149';
+        resultEl.style.color = 'var(--zdc-err)';
         resultEl.textContent = '\u2717 ' + (st.message || st.state)
                              + ((st.log && st.log.length) ? ' \u2014 ' + st.log[st.log.length - 1] : '');
       }
@@ -1847,7 +1987,7 @@ function fmtBytes(b) {
 
 function mgrHoldSelected(hold) {
   var names = mgrSelectedNames();
-  if (!names.length) { mgrResult('Nothing selected.', '#e3b341'); return; }
+  if (!names.length) { mgrResult('Nothing selected.', 'var(--zdc-warn)'); return; }
 
   mgrResult((hold ? 'Holding ' : 'Releasing ') + names.length + ' snapshot(s)\u2026');
 
@@ -1862,20 +2002,20 @@ function mgrHoldSelected(hold) {
     body: params
   }).then(function(r) { return r.json(); })
   .then(function(res) {
-    if (!res.ok) { mgrResult(res.error || 'Failed', '#f85149'); return; }
+    if (!res.ok) { mgrResult(res.error || 'Failed', 'var(--zdc-err)'); return; }
     var msg = res.changed + (hold ? ' held' : ' released');
     if (res.failed) {
       var first = (res.results || []).filter(function(r) { return !r.ok; })[0];
       msg += ', ' + res.failed + ' failed' + (first ? ' (' + first.error + ')' : '');
     }
-    mgrResult(msg, res.failed ? '#e3b341' : '#56d364');
+    mgrResult(msg, res.failed ? 'var(--zdc-warn)' : 'var(--zdc-ok)');
     loadSnapManager();
-  }).catch(function(e) { mgrResult('Error: ' + e, '#f85149'); });
+  }).catch(function(e) { mgrResult('Error: ' + e, 'var(--zdc-err)'); });
 }
 
 function loadSnapManager() {
   var tbody = document.getElementById('mgr-tbody');
-  tbody.innerHTML = '<tr><td colspan="8" style="color:#8b949e;padding:10px;">Loading…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="8" style="color:var(--zdc-dim);padding:10px;">Loading…</td></tr>';
 
   postForm(_base + '/snapshot_admin.php', {
     action: 'list',
@@ -1883,7 +2023,7 @@ function loadSnapManager() {
     only_auto: document.getElementById('mgr-only-auto').checked ? '1' : '0'
   }).then(function(res) {
     if (!res.ok) {
-      tbody.innerHTML = '<tr><td colspan="8" style="color:#f85149;padding:10px;">' + esc(res.error || 'Error') + '</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" style="color:var(--zdc-err);padding:10px;">' + esc(res.error || 'Error') + '</td></tr>';
       return;
     }
     _mgrSnaps = res.snapshots || [];
@@ -1893,7 +2033,7 @@ function loadSnapManager() {
     Object.keys(_mgrSelected).forEach(function(n) { if (!alive[n]) delete _mgrSelected[n]; });
     renderSnapManager();
   }).catch(function(e) {
-    tbody.innerHTML = '<tr><td colspan="8" style="color:#f85149;padding:10px;">' + esc(String(e)) + '</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" style="color:var(--zdc-err);padding:10px;">' + esc(String(e)) + '</td></tr>';
   });
 }
 
@@ -1924,7 +2064,7 @@ function renderSnapManager() {
   sum.textContent = parts.join('   •   ');
 
   if (!shown.length) {
-    tbody.innerHTML = '<tr><td colspan="8" style="color:#8b949e;padding:10px;">'
+    tbody.innerHTML = '<tr><td colspan="8" style="color:var(--zdc-dim);padding:10px;">'
       + (_mgrSnaps.length ? 'No snapshot matches this filter.' : 'No snapshots found.') + '</td></tr>';
     mgrSyncSelectAll();
     mgrUpdateSelCount();
@@ -1938,9 +2078,9 @@ function renderSnapManager() {
       + '<td><input type="checkbox" class="mgr-cb" data-name="' + esc(s.name) + '"'
         + (_mgrSelected[s.name] ? ' checked' : '') + ' onchange="mgrToggle(this)"></td>'
       + '<td style="text-align:left;font-family:monospace;font-size:11px;word-break:break-all;">' + esc(s.name) + '</td>'
-      + '<td>' + (s.type ? esc(s.type) : (s.managed ? '—' : '<span style="color:#8b949e;">external</span>')) + '</td>'
-      + '<td style="text-align:right;' + (s.used > 1073741824 ? 'color:#e3b341;font-weight:600;' : '') + '">' + esc(s.used_h) + '</td>'
-      + '<td style="text-align:right;color:#8b949e;">' + esc(s.refer_h) + '</td>'
+      + '<td>' + (s.type ? esc(s.type) : (s.managed ? '—' : '<span style="color:var(--zdc-dim);">external</span>')) + '</td>'
+      + '<td style="text-align:right;' + (s.used > 1073741824 ? 'color:var(--zdc-warn);font-weight:600;' : '') + '">' + esc(s.used_h) + '</td>'
+      + '<td style="text-align:right;color:var(--zdc-dim);">' + esc(s.refer_h) + '</td>'
       + '<td style="white-space:nowrap;">' + esc(s.created_h) + '</td>'
       + '<td><button type="button" class="btn-secondary" style="padding:1px 7px;font-size:11px;" '
         + 'onclick="mgrHold(' + i + ')" title="' + (s.held ? 'Release the hold' : 'Hold: protect from automatic pruning') + '">'
@@ -1976,7 +2116,7 @@ function mgrUpdateSelCount() {
   var el = document.getElementById('mgr-sel-note');
   if (!el) return;
   if (hidden > 0) {
-    el.style.color = '#e3b341';
+    el.style.color = 'var(--zdc-warn)';
     el.textContent = hidden + ' of the ' + names.length + ' selected are hidden by the filter';
   } else {
     el.textContent = '';
@@ -1985,13 +2125,13 @@ function mgrUpdateSelCount() {
 
 function mgrResult(msg, color) {
   var el = document.getElementById('mgr-result');
-  el.style.color = color || '#8b949e';
+  el.style.color = color || 'var(--zdc-dim)';
   el.textContent = msg;
 }
 
 function mgrDeleteSelected() {
   var names = mgrSelectedNames();
-  if (!names.length) { mgrResult('Nothing selected.', '#e3b341'); return; }
+  if (!names.length) { mgrResult('Nothing selected.', 'var(--zdc-warn)'); return; }
   if (!confirm('Destroy ' + names.length + ' snapshot(s)?\n\nThis cannot be undone.\n\n'
                + names.slice(0, 10).join('\n') + (names.length > 10 ? '\n…' : ''))) return;
 
@@ -2008,16 +2148,16 @@ function mgrDeleteSelected() {
     body: params
   }).then(function(r) { return r.json(); })
   .then(function(res) {
-    if (!res.ok) { mgrResult(res.error || 'Failed', '#f85149'); return; }
+    if (!res.ok) { mgrResult(res.error || 'Failed', 'var(--zdc-err)'); return; }
     var msg = res.deleted + ' deleted';
     if (res.failed) {
       var first = (res.results || []).filter(function(r) { return !r.ok; })[0];
       msg += ', ' + res.failed + ' failed' + (first ? ' (' + first.error + ')' : '');
     }
-    mgrResult(msg, res.failed ? '#e3b341' : '#56d364');
+    mgrResult(msg, res.failed ? 'var(--zdc-warn)' : 'var(--zdc-ok)');
     loadSnapManager();
     loadSnapshotStatus();
-  }).catch(function(e) { mgrResult('Error: ' + e, '#f85149'); });
+  }).catch(function(e) { mgrResult('Error: ' + e, 'var(--zdc-err)'); });
 }
 
 function mgrHold(i) {
@@ -2026,10 +2166,10 @@ function mgrHold(i) {
   postForm(_base + '/snapshot_admin.php',
            {action: s.held ? 'release' : 'hold', snapshot: s.name})
   .then(function(res) {
-    if (!res.ok) { mgrResult(res.error || 'Failed', '#f85149'); return; }
-    mgrResult((s.held ? 'Hold released on ' : 'Hold set on ') + s.name, '#56d364');
+    if (!res.ok) { mgrResult(res.error || 'Failed', 'var(--zdc-err)'); return; }
+    mgrResult((s.held ? 'Hold released on ' : 'Hold set on ') + s.name, 'var(--zdc-ok)');
     loadSnapManager();
-  }).catch(function(e) { mgrResult('Error: ' + e, '#f85149'); });
+  }).catch(function(e) { mgrResult('Error: ' + e, 'var(--zdc-err)'); });
 }
 
 function mgrRollback(i) {
@@ -2047,17 +2187,17 @@ function mgrRollback(i) {
   if (!confirm(warn)) return;
 
   var typed = prompt('Type the snapshot name to confirm:\n' + s.name);
-  if (typed !== s.name) { mgrResult('Rollback cancelled.', '#8b949e'); return; }
+  if (typed !== s.name) { mgrResult('Rollback cancelled.', 'var(--zdc-dim)'); return; }
 
   mgrResult('Rolling back…');
   postForm(_base + '/snapshot_admin.php',
            {action: 'rollback', snapshot: s.name, confirm: s.name})
   .then(function(res) {
-    if (!res.ok) { mgrResult(res.error || 'Rollback failed', '#f85149'); return; }
-    mgrResult(res.message, '#56d364');
+    if (!res.ok) { mgrResult(res.error || 'Rollback failed', 'var(--zdc-err)'); return; }
+    mgrResult(res.message, 'var(--zdc-ok)');
     loadSnapManager();
     loadSnapshotStatus();
-  }).catch(function(e) { mgrResult('Error: ' + e, '#f85149'); });
+  }).catch(function(e) { mgrResult('Error: ' + e, 'var(--zdc-err)'); });
 }
 
 function runDiff() {
@@ -2067,10 +2207,10 @@ function runDiff() {
   var sumEl    = document.getElementById('diff-summary');
   var outEl    = document.getElementById('diff-result');
 
-  if (!dataset || !snapshot) { sumEl.style.color = '#e3b341'; sumEl.textContent = 'Select a dataset and snapshot first.'; return; }
-  if (target === snapshot)   { sumEl.style.color = '#e3b341'; sumEl.textContent = 'Pick a different comparison target.'; return; }
+  if (!dataset || !snapshot) { sumEl.style.color = 'var(--zdc-warn)'; sumEl.textContent = 'Select a dataset and snapshot first.'; return; }
+  if (target === snapshot)   { sumEl.style.color = 'var(--zdc-warn)'; sumEl.textContent = 'Pick a different comparison target.'; return; }
 
-  sumEl.style.color = '#8b949e';
+  sumEl.style.color = 'var(--zdc-dim)';
   sumEl.textContent = 'Comparing…';
   outEl.style.display = 'block';
   outEl.textContent = '';
@@ -2078,13 +2218,13 @@ function runDiff() {
   postForm(_base + '/snapshot_diff.php', {dataset: dataset, from: snapshot, to: target})
   .then(function(res) {
     if (!res.ok) {
-      sumEl.style.color = '#f85149';
+      sumEl.style.color = 'var(--zdc-err)';
       sumEl.textContent = res.error || 'diff failed';
       outEl.style.display = 'none';
       return;
     }
     var c = res.counts || {};
-    sumEl.style.color = '#8b949e';
+    sumEl.style.color = 'var(--zdc-dim)';
     var shortFrom = String(res.from).split('@').pop();
     var shortTo   = String(res.to).indexOf('@') === -1 ? 'live' : String(res.to).split('@').pop();
     sumEl.textContent = shortFrom + ' \u2192 ' + shortTo + '   '
@@ -2094,11 +2234,11 @@ function runDiff() {
 
     if (!res.entries.length) { outEl.textContent = 'No differences.'; return; }
 
-    var colors = {added: '#56d364', removed: '#f85149', modified: '#79c0ff', renamed: '#e3b341'};
+    var colors = {added: 'var(--zdc-ok)', removed: 'var(--zdc-err)', modified: 'var(--zdc-accent)', renamed: 'var(--zdc-warn)'};
     var signs  = {added: '+', removed: '−', modified: 'M', renamed: 'R'};
     var html = '';
     res.entries.forEach(function(e) {
-      var col = colors[e.kind] || '#c9d1d9';
+      var col = colors[e.kind] || 'var(--zdc-text)';
       html += '<div style="color:' + col + ';white-space:pre-wrap;word-break:break-all;">'
             + esc(signs[e.kind] || e.change) + ' ' + esc(e.path)
             + (e.new_path ? '  →  ' + esc(e.new_path) : '')
@@ -2107,7 +2247,7 @@ function runDiff() {
     });
     outEl.innerHTML = html;
   }).catch(function(e) {
-    sumEl.style.color = '#f85149';
+    sumEl.style.color = 'var(--zdc-err)';
     sumEl.textContent = 'Error: ' + e;
   });
 }
@@ -2143,7 +2283,7 @@ function updateSendPreview() {
   }
   var el = document.getElementById('send-cron-preview');
   el.textContent = expr || '(empty)';
-  el.style.color = (custom && !validCronExpr(expr)) ? '#f85149' : '#79c0ff';
+  el.style.color = (custom && !validCronExpr(expr)) ? 'var(--zdc-err)' : 'var(--zdc-accent)';
 }
 
 function loadSendJobs() {
@@ -2167,7 +2307,7 @@ function sendCheck(i, field, checked) {
 function renderSendTable() {
   var tbody = document.getElementById('send-tbody');
   if (!_sendJobs.length) {
-    tbody.innerHTML = '<tr><td colspan="9" style="color:#8b949e;padding:8px;">No replication jobs yet — click "Add job".</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" style="color:var(--zdc-dim);padding:8px;">No replication jobs yet — click "Add job".</td></tr>';
     return;
   }
   var html = '';
@@ -2229,9 +2369,9 @@ function saveSendJobs() {
              {action: 'save_jobs', jobs_json: JSON.stringify({jobs: _sendJobs})})
     .then(function(res) {
       var el = document.getElementById('send-result');
-      if (!res.ok)          { el.style.color = '#f85149'; el.textContent = res.error; }
-      else if (res.warning) { el.style.color = '#e3b341'; el.textContent = res.warning; }
-      else                  { el.style.color = '#56d364'; el.textContent = '✓ Saved';
+      if (!res.ok)          { el.style.color = 'var(--zdc-err)'; el.textContent = res.error; }
+      else if (res.warning) { el.style.color = 'var(--zdc-warn)'; el.textContent = res.warning; }
+      else                  { el.style.color = 'var(--zdc-ok)'; el.textContent = '✓ Saved';
                               setTimeout(function() { el.textContent = ''; }, 2000); }
     }).catch(function(){});
   }, 900);
@@ -2240,30 +2380,30 @@ function saveSendJobs() {
 function sendTest(i) {
   var j = _sendJobs[i];
   var el = document.getElementById('send-result');
-  el.style.color = '#8b949e';
+  el.style.color = 'var(--zdc-dim)';
   el.textContent = 'Testing "' + (j.name || j.id) + '"…';
   postForm(_base + '/send_control.php', {action: 'test', job: j.id})
   .then(function(res) {
-    if (!res.ok) { el.style.color = '#f85149'; el.textContent = res.error; return; }
-    el.style.color = '#8b949e';
+    if (!res.ok) { el.style.color = 'var(--zdc-err)'; el.textContent = res.error; return; }
+    el.style.color = 'var(--zdc-dim)';
     el.textContent = 'Test started — see the log below.';
     setTimeout(loadSendStatus, 1500);
     setTimeout(loadSendStatus, 4000);
-  }).catch(function(e) { el.style.color = '#f85149'; el.textContent = 'Error: ' + e; });
+  }).catch(function(e) { el.style.color = 'var(--zdc-err)'; el.textContent = 'Error: ' + e; });
 }
 
 function sendRun(action) {
   var el = document.getElementById('send-result');
   if (action === 'run_now' && !confirm('Start replication now?\n\nThis transfers data and can take a while.')) return;
-  el.style.color = '#8b949e';
+  el.style.color = 'var(--zdc-dim)';
   el.textContent = 'Starting…';
 
   postForm(_base + '/send_control.php', {action: action})
   .then(function(res) {
-    if (!res.ok) { el.style.color = '#f85149'; el.textContent = res.error; return; }
+    if (!res.ok) { el.style.color = 'var(--zdc-err)'; el.textContent = res.error; return; }
     el.textContent = (action === 'dry_run' ? 'Dry run started' : 'Replication started') + ' (PID ' + res.pid + ')';
     startSendPoll();
-  }).catch(function(e) { el.style.color = '#f85149'; el.textContent = 'Error: ' + e; });
+  }).catch(function(e) { el.style.color = 'var(--zdc-err)'; el.textContent = 'Error: ' + e; });
 }
 
 function startSendPoll() {
@@ -2279,13 +2419,13 @@ function loadSendStatus() {
 
     var badge = document.getElementById('send-cron-badge');
     if (res.entry && res.cron_healthy) {
-      badge.style.color = '#56d364';
+      badge.style.color = 'var(--zdc-ok)';
       badge.textContent = res.entry.split(' ').slice(0, 5).join(' ') + ' ✓';
     } else if (res.entry) {
-      badge.style.color = '#e3b341';
+      badge.style.color = 'var(--zdc-warn)';
       badge.textContent = res.entry.split(' ').slice(0, 5).join(' ') + ' (!)';
     } else {
-      badge.style.color = '#e3b341';
+      badge.style.color = 'var(--zdc-warn)';
       badge.textContent = res.running ? 'running…' : 'Not installed';
     }
 
@@ -2298,7 +2438,7 @@ function loadSendStatus() {
       rEl.textContent = run.jobs_ok + '/' + run.jobs_run + ' job(s) ok'
                       + (run.errors > 0 ? ', ' + run.errors + ' error(s)' : '')
                       + (run.dry_run ? ' [dry run]' : '');
-      rEl.style.color = run.errors > 0 ? '#f85149' : '#8b949e';
+      rEl.style.color = run.errors > 0 ? 'var(--zdc-err)' : 'var(--zdc-dim)';
     }
 
     var v = document.getElementById('send-log-viewer');
@@ -2315,13 +2455,16 @@ loadDatasetPickers();
 loadSnapDatasetConfig();
 if (document.getElementById('snapshots_enabled').checked) loadSnapshotStatus();
 
-var _sendDetailsEl = document.getElementById('send-details');
-if (_sendDetailsEl) {
-  _sendDetailsEl.addEventListener('change', _triggerAutoSave);
-  _sendDetailsEl.addEventListener('input',  _triggerAutoSave);
+var _sendPanelEl = document.getElementById('tab-replicate');
+if (_sendPanelEl) {
+  _sendPanelEl.addEventListener('change', _triggerAutoSave);
+  _sendPanelEl.addEventListener('input',  _triggerAutoSave);
 }
 initDestPicker();
 updateSendPreview();
 loadSendJobs();
+zdcRestoreTab();
+zdcRefreshStatus();
+setInterval(zdcRefreshStatus, 30000);
 if (document.getElementById('send_enabled').checked) loadSendStatus();
 </script>

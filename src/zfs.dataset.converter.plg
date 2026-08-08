@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.dataset.converter">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.08.08.06">
-<!ENTITY md5       "e72e44dffbf42d53e2892f42ec4c98d9">
+<!ENTITY version   "2026.08.08.07">
+<!ENTITY md5       "c4eeff4e3024d8e399d4c6ecf72f6f24">
 <!ENTITY launch    "Settings/ZFSDatasetConverter">
 <!ENTITY github    "MajorPain007/zfs-dataset-converter">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,28 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.08.08.07 — Tabbed, evenly balanced layout
+
+- The page is now four tabs: Conversion, Snapshots, Browse and Restore,
+  Replication. The last one you used is remembered. Before this everything
+  sat on one 2650px page with a fixed 54/46 split, which left the right
+  column short while wide tables had to be dumped underneath at full width.
+  The tallest tab is now about 1200px.
+- Cards are placed by a single grid rule that fits as many columns as the
+  window allows: three on a wide monitor, two on a laptop, one on a phone.
+  No breakpoints to keep in sync. Tables and log viewers opt into full width
+  because they need it, not because they happened to end up last.
+- The 865px "ZFS Snapshots" card, which held six unrelated things, is split
+  into Snapshot Schedule, Retention and Datasets to snapshot.
+- Folder Scanner and Conversion are merged into one "Scan and Convert" card;
+  they are one workflow, and it makes the row divide evenly.
+- New status strip above the tabs, visible everywhere: dry-run mode, snapshot
+  count and schedule health, last run with created/pruned counts, and a fill
+  meter per pool. That information used to be buried in a card.
+- Colours are consolidated into CSS variables - 198 hardcoded values replaced.
+  Still dark; the variables just make it one place instead of forty.
+- The Snapshot Manager loads by itself when its tab opens.
+
 ## Version 2026.08.08.06 — Live Log shows past runs, type-and-Enter path
 
 - The Live Log was only ever filled while a conversion was actually running.
