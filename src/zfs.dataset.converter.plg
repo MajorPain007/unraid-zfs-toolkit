@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.dataset.converter">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.08.08.19">
-<!ENTITY md5       "64057d197add3f4e2462f07b5af93296">
+<!ENTITY version   "2026.08.08.20">
+<!ENTITY md5       "b0f2dd8622430a33e3942f1b8e1214d4">
 <!ENTITY launch    "Settings/ZFSDatasetConverter">
 <!ENTITY github    "MajorPain007/zfs-dataset-converter">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,23 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.08.08.20 — Honest error when a snapshot will not open
+
+- "Cannot read directory (permission denied)" was a guess: scandir() returns
+  false for any failure and the code always blamed permissions. It now asks the
+  system what actually went wrong and reports that, along with the effective
+  user, so "am I even root here" is answerable at a glance.
+- Before browsing, the snapshot is looked up with zfs rather than trusted from
+  the path. A snapshot destroyed since the list was loaded leaves a stale
+  directory entry that then fails to mount; that now says so instead of
+  claiming a rights problem.
+- If a directory inside .zfs cannot be read, the mount is forced from a fresh
+  process and the read retried - the usual cause is the snapshot not being
+  automounted yet, which a stat from PHP does not always trigger.
+- A snapshot marked for deferred destruction (zfs destroy -d) is reported as
+  such, including any holds. It stays readable, so this rules the suspicion in
+  or out instead of leaving it open.
+
 ## Version 2026.08.08.19 — Follows the Unraid theme
 
 - Colours now come from Unraid's own theme variables, so the plugin looks

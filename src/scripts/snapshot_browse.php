@@ -115,7 +115,38 @@ if ($action === 'browse') {
         exec('zfs set snapdir=visible ' . escapeshellarg($dataset) . ' 2>/dev/null');
     }
 
+    // A snapshot that was just destroyed can still leave a stale directory
+    // entry behind, which then fails to mount. Check with zfs, not the path.
+    $exists = array();
+    exec('zfs list -Hp -o name,defer_destroy,userrefs -t snapshot '
+         . escapeshellarg($dataset . '@' . $snapshot) . ' 2>&1', $exists, $rc_exists);
+    if ($rc_exists !== 0) {
+        zdc_out(array(
+            'ok'    => false,
+            'error' => 'Snapshot ' . $dataset . '@' . $snapshot . ' no longer exists. '
+                     . 'It was probably destroyed since the list was loaded - reload the snapshot list.',
+        ));
+    }
+    // defer_destroy=on means "destroy once the last hold or clone goes away".
+    // Such a snapshot is still readable, so it is worth stating rather than
+    // leaving it as a suspicion.
+    $snap_note = '';
+    if (isset($exists[0])) {
+        $f = explode("\t", $exists[0]);
+        if (isset($f[1]) && $f[1] === 'on') {
+            $snap_note = ' This snapshot is marked for deferred destruction'
+                       . (isset($f[2]) && $f[2] !== '0' ? ' and held (' . $f[2] . ' hold(s))' : '')
+                       . ', which does not by itself prevent reading it.';
+        }
+    }
+
     $snap_base = $mountpoint . '/.zfs/snapshot/' . $snapshot;
+    if (!is_dir($snap_base)) {
+        // Accessing the path is what makes ZFS mount the snapshot; a plain
+        // stat from PHP does not always trigger it.
+        exec('ls -A -- ' . escapeshellarg($snap_base) . ' >/dev/null 2>&1');
+        clearstatcache(true, $snap_base);
+    }
     if (!is_dir($snap_base)) {
         zdc_out(array(
             'ok'    => false,
@@ -134,7 +165,30 @@ if ($action === 'browse') {
 
     $items = @scandir($full_path);
     if ($items === false) {
-        zdc_out(array('ok' => false, 'error' => 'Cannot read directory (permission denied)'));
+        // scandir returns false for any failure. Saying "permission denied"
+        // was a guess; ask the system what actually went wrong. Running ls in
+        // a fresh process also forces the snapshot automount, which is the
+        // usual reason a directory inside .zfs cannot be read on first touch.
+        $probe = array();
+        exec('ls -A -- ' . escapeshellarg($full_path) . ' 2>&1', $probe, $rc_probe);
+        clearstatcache(true, $full_path);
+        $items = @scandir($full_path);
+
+        if ($items === false) {
+            $why = trim(implode(' ', $probe));
+            if ($why === '') $why = 'no error reported by ls';
+            $user = function_exists('posix_geteuid')
+                ? ('uid ' . posix_geteuid() . (posix_geteuid() === 0 ? ' (root)' : ' (not root)'))
+                : 'uid unknown';
+            zdc_out(array(
+                'ok'    => false,
+                'error' => 'Cannot read ' . $full_path . ' - ' . $why
+                         . '. Running as ' . $user
+                         . (is_readable($full_path) ? '' : '; the path is not readable')
+                         . '. Snapshots are read-only, so this is usually the snapshot failing to'
+                         . ' mount rather than a rights problem.' . $snap_note,
+            ));
+        }
     }
 
     $entries = array();
