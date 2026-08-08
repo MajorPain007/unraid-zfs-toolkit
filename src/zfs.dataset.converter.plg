@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.dataset.converter">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.08.08.16">
-<!ENTITY md5       "06afdf4b03f0d244192908257911564a">
+<!ENTITY version   "2026.08.08.17">
+<!ENTITY md5       "5ec6430d29f182efb937c12fed9fd553">
 <!ENTITY launch    "Settings/ZFSDatasetConverter">
 <!ENTITY github    "MajorPain007/zfs-dataset-converter">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,20 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.08.08.17 — No dead end in empty folders, replication saves again
+
+- Opening an empty folder in the snapshot browser left no way out: the listing
+  short-circuited to "Empty directory." before the ".." row was rendered. The
+  empty message is now a row inside the table, below the way back.
+- Replication settings stopped saving as soon as one job was unfinished. A job
+  without both ends cannot be stored - the backend validates the whole payload
+  and rejects it - but blocking every other change was the wrong answer. The
+  finished jobs are saved and a note names how many are still waiting.
+- Spelled out in the legend that both ends are ZFS datasets. `zfs recv` can
+  only write into a dataset, so a path like /mnt/user/Backup is not a valid
+  destination; the field is free text because the dataset usually does not
+  exist yet, not because a folder would work.
+
 ## Version 2026.08.08.16 — Up-one-level entry in the file lists
 
 - The snapshot browser gets a ".." row at the top of the listing, so going up

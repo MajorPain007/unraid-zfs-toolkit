@@ -836,7 +836,7 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
           <th style="width:26px;">On</th>
           <th style="text-align:left">Name</th>
           <th style="text-align:left">Source dataset</th>
-          <th style="text-align:left">Destination &mdash; where the copy goes</th>
+          <th style="text-align:left">Destination dataset &mdash; where the copy goes</th>
           <th title="zfs send -R: also replicate every child dataset of the source">Children</th>
           <th title="zfs recv -F: let the destination be rolled back if it diverged">Force</th>
           <th></th>
@@ -860,6 +860,11 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
         rolled back to the last common snapshot first, <b style="color:var(--zdc-warn);">discarding
         anything written there in the meantime</b>. Only switch it on if the destination is a pure
         copy that nothing else writes to.<br>
+
+        <b style="color:var(--zdc-text);">Both ends are ZFS datasets, never folders.</b>
+        <code>zfs recv</code> can only write into a dataset, so a path like
+        <code>/mnt/user/Backup</code> is not a valid destination &mdash; use <code>pool/dataset</code>.
+        The pool has to exist; the dataset is created on the first run.<br>
 
         <b style="color:var(--zdc-text);">Source</b> &mdash; picked from the datasets on this server.
         <b style="color:var(--zdc-text);">Destination</b> &mdash; the dataset the copy is written to.
@@ -1784,11 +1789,6 @@ function renderBreadcrumb(crumbs) {
 
 function renderFileList(entries, dataset, snapshot, currentPath) {
   var el = document.getElementById('snap-file-list');
-  if (!entries.length) {
-    el.innerHTML = '<p style="color:var(--zdc-dim);font-size:13px;">Empty directory.</p>';
-    updateSelCount();
-    return;
-  }
 
   var html = '<table class="snap-file-table"><thead><tr>'
     + '<th style="width:24px;padding:5px 6px;text-align:center;"><input type="checkbox" id="snap-sel-all" onchange="snapSelectAll(this)" title="Select all"></th>'
@@ -1801,6 +1801,13 @@ function renderFileList(entries, dataset, snapshot, currentPath) {
     html += '<tr><td></td><td colspan="4" style="padding:4px 8px;">'
           + '<span class="snap-dir" onclick="browserBrowse(\'' + parent.replace(/'/g, "\\'") + '\')"'
           + ' title="Up to ' + esc(parent) + '">\u21b0 ..</span></td></tr>';
+  }
+
+  // Render the empty case inside the table, otherwise the ".." row above is
+  // skipped along with it and there is no way back out of an empty folder.
+  if (!entries.length) {
+    html += '<tr><td></td><td colspan="4" style="padding:6px 8px;color:var(--zdc-dim);">'
+          + 'Empty directory.</td></tr>';
   }
 
   entries.forEach(function(e) {
@@ -2512,16 +2519,28 @@ var _sendSaveTimer = null;
 function saveSendJobs() {
   clearTimeout(_sendSaveTimer);
   _sendSaveTimer = setTimeout(function() {
-    var complete = _sendJobs.filter(function(j) { return j.source && j.dest; });
-    if (complete.length !== _sendJobs.length) return;
+    // A job missing either end cannot be stored: the backend validates the
+    // whole payload and rejects it. Previously one unfinished row silently
+    // blocked saving every other change on the tab. Save what is finished and
+    // name what is still missing.
+    var complete   = _sendJobs.filter(function(j) { return j.source && j.dest; });
+    var incomplete = _sendJobs.filter(function(j) { return !(j.source && j.dest); });
+    var el = document.getElementById('send-result');
+
+    if (incomplete.length) {
+      el.style.color = 'var(--zdc-warn)';
+      el.textContent = incomplete.length + ' job(s) still need a source and a destination'
+                     + (complete.length ? ' \u2014 the rest is saved' : ' \u2014 nothing saved yet');
+    }
+    if (!complete.length) return;
 
     postForm(_base + '/send_control.php',
-             {action: 'save_jobs', jobs_json: JSON.stringify({jobs: _sendJobs})})
+             {action: 'save_jobs', jobs_json: JSON.stringify({jobs: complete})})
     .then(function(res) {
-      var el = document.getElementById('send-result');
       if (!res.ok)          { el.style.color = 'var(--zdc-err)'; el.textContent = res.error; }
       else if (res.warning) { el.style.color = 'var(--zdc-warn)'; el.textContent = res.warning; }
-      else                  { el.style.color = 'var(--zdc-ok)'; el.textContent = '✓ Saved';
+      else if (incomplete.length) { /* keep the note about unfinished jobs */ }
+      else                  { el.style.color = 'var(--zdc-ok)'; el.textContent = '\u2713 Saved';
                               setTimeout(function() { el.textContent = ''; }, 2000); }
     }).catch(function(){});
   }, 900);
