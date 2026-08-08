@@ -1795,6 +1795,14 @@ function renderFileList(entries, dataset, snapshot, currentPath) {
     + '<th>Name</th><th>Size</th><th>Modified</th><th></th>'
     + '</tr></thead><tbody>';
 
+  // One level up, so you do not have to aim at the breadcrumb.
+  if (currentPath && currentPath !== '/') {
+    var parent = currentPath.replace(/\/[^\/]*$/, '') || '/';
+    html += '<tr><td></td><td colspan="4" style="padding:4px 8px;">'
+          + '<span class="snap-dir" onclick="browserBrowse(\'' + parent.replace(/'/g, "\\'") + '\')"'
+          + ' title="Up to ' + esc(parent) + '">\u21b0 ..</span></td></tr>';
+  }
+
   entries.forEach(function(e) {
     var isDir = e.type === 'dir';
     var nameCell;
@@ -1951,11 +1959,16 @@ function destBrowse(path) {
     });
     document.getElementById('dest-crumbs').innerHTML = cr;
 
+    var html = '';
+    if (res.path && res.path !== '/mnt') {
+      var up = res.path.replace(/\/[^\/]*$/, '') || '/mnt';
+      html += '<div class="snap-dir" style="padding:2px 0;" onclick="destBrowse(\''
+            + up.replace(/'/g, "\\'") + '\')">\u21b0 ..</div>';
+    }
     if (!res.dirs.length) {
-      listEl.innerHTML = '<span style="color:var(--zdc-dim);">No subfolders here.</span>';
+      listEl.innerHTML = html + '<span style="color:var(--zdc-dim);">No subfolders here.</span>';
       return;
     }
-    var html = '';
     res.dirs.forEach(function(d) {
       html += '<div class="snap-dir" style="padding:2px 0;" onclick="destBrowse(\''
             + d.path.replace(/'/g, "\\'") + '\')">\ud83d\udcc1 ' + esc(d.name) + '</div>';

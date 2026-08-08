@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.dataset.converter">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.08.08.15">
-<!ENTITY md5       "155b19db6cfb37133a0e980dd795dbf9">
+<!ENTITY version   "2026.08.08.16">
+<!ENTITY md5       "06afdf4b03f0d244192908257911564a">
 <!ENTITY launch    "Settings/ZFSDatasetConverter">
 <!ENTITY github    "MajorPain007/zfs-dataset-converter">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,13 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.08.08.16 — Up-one-level entry in the file lists
+
+- The snapshot browser gets a ".." row at the top of the listing, so going up
+  a folder no longer means aiming at the breadcrumb. It appears only below the
+  top level, and moves exactly one level regardless of how deep you are.
+- Same entry in the built-in destination folder browser.
+
 ## Version 2026.08.08.15 — Fix overlapping cards, stretch the browser
 
 - Fix cards overlapping each other and running together without a visible
