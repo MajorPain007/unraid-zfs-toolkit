@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.dataset.converter">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.08.08.21">
-<!ENTITY md5       "4f172b01cd1c6731228095e40ebdb02a">
+<!ENTITY version   "2026.08.08.22">
+<!ENTITY md5       "57215756af4462c7cd11da0047f30a59">
 <!ENTITY launch    "Settings/ZFSDatasetConverter">
 <!ENTITY github    "MajorPain007/zfs-dataset-converter">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,27 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.08.08.22 — Review pass
+
+- Uninstall left /etc/cron.d/zfs.dataset.converter-send behind, so cron kept
+  invoking a script that no longer existed, once per schedule, forever. It was
+  also missing from the crontab cleanup. Both fixed, and a test now checks that
+  every cron file the setup scripts create is removed again.
+- Removed the /etc/rc.d/rc.zfs.dataset.converter script. Nothing ever invoked
+  it, and it had drifted out of date - it never learned about the replication
+  schedule. The disks_mounted event hook is what actually restores the cron
+  jobs after an array start.
+- The Snapshot Manager could delete a replication checkpoint. Automatic pruning
+  never touches them, but a manual delete would silently break the incremental
+  chain. They are now labelled "replication" in the type column and refused
+  unless confirmed separately, with the consequence spelled out.
+- Rollback reports when it destroyed checkpoints, since those jobs then need a
+  full send.
+- The "is a replication run already going" check now uses a pattern that cannot
+  match the shell performing the check. Precautionary: it did not misfire in
+  testing here, but that class of mistake is silent and would make Replicate
+  now permanently unavailable.
+
 ## Version 2026.08.08.21 — Say what the schedule actually does
 
 - "Run every" renamed to "Check every", with a note that it controls how often
@@ -569,14 +590,6 @@ rm -f $(ls &configDir;/&name;-*.txz 2>/dev/null | grep -v '&version;')
 </INLINE>
 </FILE>
 
-<FILE Name="/etc/rc.d/rc.&name;" Mode="755">
-<INLINE>
-#!/bin/bash
-mkdir -p /tmp/zfs.dataset.converter
-/usr/local/emhttp/plugins/zfs.dataset.converter/scripts/setup_cron.sh &gt;/tmp/zfs.dataset.converter/setup_cron.log 2&gt;&amp;1
-/usr/local/emhttp/plugins/zfs.dataset.converter/scripts/setup_snapshots.sh &gt;/tmp/zfs.dataset.converter/setup_snapshots.log 2&gt;&amp;1
-</INLINE>
-</FILE>
 
 <FILE Run="/bin/bash">
 <INLINE>
@@ -653,13 +666,14 @@ fi
 <FILE Run="/bin/bash" Method="remove">
 <INLINE>
 # Remove cron entries (managed files first, then any legacy crontab lines)
-rm -f /etc/cron.d/&name; /etc/cron.d/&name;-snapshots
+rm -f /etc/cron.d/&name; /etc/cron.d/&name;-snapshots /etc/cron.d/&name;-send
 ( crontab -l 2>/dev/null \
   | grep -v "# zfs-dataset-converter" \
   | grep -v "run_auto\.sh" \
   | grep -v "snapshot_manager\.sh" \
+  | grep -v "zfs_send\.sh" \
 ) | crontab - 2>/dev/null
-rm -f /etc/rc.d/rc.&name;
+rm -f /etc/rc.d/rc.&name;   # left over from older versions
 command -v update_cron &gt;/dev/null 2&gt;&amp;1 &amp;&amp; update_cron &gt;/dev/null 2&gt;&amp;1
 [ -f /var/run/crond.pid ] &amp;&amp; kill -HUP "$(cat /var/run/crond.pid)" 2&gt;/dev/null
 removepkg &name; 2&gt;/dev/null || rm -rf &pluginDir;

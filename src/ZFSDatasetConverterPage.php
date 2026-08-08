@@ -2254,7 +2254,9 @@ function renderSnapManager() {
       + '<td><input type="checkbox" class="mgr-cb" data-name="' + esc(s.name) + '"'
         + (_mgrSelected[s.name] ? ' checked' : '') + ' onchange="mgrToggle(this)"></td>'
       + '<td style="text-align:left;font-family:monospace;font-size:11px;word-break:break-all;">' + esc(s.name) + '</td>'
-      + '<td>' + (s.type ? esc(s.type) : (s.managed ? '—' : '<span style="color:var(--zdc-dim);">external</span>')) + '</td>'
+      + '<td>' + (s.checkpoint
+            ? '<span style="color:var(--zdc-accent);" title="Base of a replication chain">replication</span>'
+            : (s.type ? esc(s.type) : (s.managed ? '—' : '<span style="color:var(--zdc-dim);">external</span>'))) + '</td>'
       + '<td style="text-align:right;' + (s.used > 1073741824 ? 'color:var(--zdc-warn);font-weight:600;' : '') + '">' + esc(s.used_h) + '</td>'
       + '<td style="text-align:right;color:var(--zdc-dim);">' + esc(s.refer_h) + '</td>'
       + '<td style="white-space:nowrap;">' + esc(s.created_h) + '</td>'
@@ -2308,6 +2310,21 @@ function mgrResult(msg, color) {
 function mgrDeleteSelected() {
   var names = mgrSelectedNames();
   if (!names.length) { mgrResult('Nothing selected.', 'var(--zdc-warn)'); return; }
+  // The backend refuses replication checkpoints unless told otherwise; ask
+  // separately rather than letting the delete half-fail.
+  var chk = names.filter(function(n) { return n.indexOf('@zdc-send-') !== -1; });
+  var force = false;
+  if (chk.length) {
+    force = confirm(chk.length + ' of the selected snapshots are replication checkpoints:\n\n'
+      + chk.slice(0, 5).join('\n') + (chk.length > 5 ? '\n…' : '')
+      + '\n\nThey are the base of the incremental chain. Deleting them means the next run '
+      + 'of those jobs has to send everything again.\n\nDelete them too?');
+    if (!force) {
+      names = names.filter(function(n) { return n.indexOf('@zdc-send-') === -1; });
+      if (!names.length) { mgrResult('Nothing left to delete.', 'var(--zdc-warn)'); return; }
+    }
+  }
+
   if (!confirm('Destroy ' + names.length + ' snapshot(s)?\n\nThis cannot be undone.\n\n'
                + names.slice(0, 10).join('\n') + (names.length > 10 ? '\n…' : ''))) return;
 
@@ -2315,6 +2332,7 @@ function mgrDeleteSelected() {
 
   var params = new URLSearchParams();
   params.append('action', 'destroy');
+  if (force) params.append('force_checkpoint', '1');
   names.forEach(function(n) { params.append('snapshots[]', n); });
   if (typeof csrf_token !== 'undefined') params.append('csrf_token', csrf_token);
 

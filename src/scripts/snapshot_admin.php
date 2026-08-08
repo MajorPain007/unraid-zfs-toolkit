@@ -45,6 +45,10 @@ if ($action === 'list') {
         $auto = (strpos($sn, 'auto-') === 0);
         if ($onlyAuto && !$auto) continue;
 
+        // Replication checkpoints are the base of the incremental chain.
+        // Automatic pruning never touches them, but a manual delete would.
+        $checkpoint = (strpos($sn, 'zdc-send-') === 0);
+
         $type = '';
         if ($auto) {
             $rest = substr($sn, 5);
@@ -59,7 +63,8 @@ if ($action === 'list') {
             'dataset'   => $ds,
             'snapshot'  => $sn,
             'type'      => $type,
-            'managed'   => $auto,
+            'managed'    => $auto,
+            'checkpoint' => $checkpoint,
             'used'      => $used,
             'used_h'    => zdc_fmt_bytes($f[1]),
             'refer_h'   => zdc_fmt_bytes($f[2]),
@@ -108,6 +113,14 @@ if ($action === 'destroy') {
                                    'error' => 'Snapshot is held - release the hold first');
                 continue;
             }
+        }
+
+        // Deleting the base of an incremental chain forces a full re-send, or
+        // leaves the job unable to run at all. Require it to be spelled out.
+        if (strpos($name, '@zdc-send-') !== false && zdc_post('force_checkpoint', '0') !== '1') {
+            $results[] = array('name' => $name, 'ok' => false,
+                               'error' => 'replication checkpoint - deleting it breaks the incremental chain');
+            continue;
         }
 
         list($out, $rc) = zdc_run('zfs destroy ' . escapeshellarg($name));
@@ -189,6 +202,9 @@ if ($action === 'rollback') {
     }
     if (!$found) zdc_fail('Snapshot not found on dataset ' . $dataset);
 
+    $lostCheckpoints = 0;
+    foreach ($lost as $l) { if (strpos($l, '@zdc-send-') !== false) $lostCheckpoints++; }
+
     list($out, $rc) = zdc_run('zfs rollback -r ' . escapeshellarg($name));
     if ($rc !== 0) {
         zdc_fail('Rollback failed: ' . trim(implode(' ', $out)));
@@ -199,7 +215,9 @@ if ($action === 'rollback') {
         'dataset'   => $dataset,
         'destroyed' => $lost,
         'message'   => 'Rolled back ' . $dataset . ' to ' . $name
-                     . (count($lost) ? ' (' . count($lost) . ' newer snapshot(s) destroyed)' : ''),
+                     . (count($lost) ? ' (' . count($lost) . ' newer snapshot(s) destroyed)' : '')
+                     . ($lostCheckpoints ? '. ' . $lostCheckpoints . ' replication checkpoint(s) went with them'
+                                         . ' - the next run of those jobs will need a full send.' : ''),
     ));
 }
 

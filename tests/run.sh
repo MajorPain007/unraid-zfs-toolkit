@@ -243,6 +243,33 @@ else
     bad "ZFSDatasetConverterPage.php exists"
 fi
 
+group "Uninstall removes what install creates"
+
+zdc_missing_cron=""
+for f in src/scripts/setup_*.sh; do
+    base=$(grep -oE 'CRON_FILE_BASE="[^"]+"' "$f" | cut -d'"' -f2)
+    [ -n "$base" ] || continue
+    grep -q "/etc/cron.d/.*${base#zfs.dataset.converter}" src/zfs.dataset.converter.plg \
+        || zdc_missing_cron="$zdc_missing_cron $base"
+done
+if [ -z "$zdc_missing_cron" ]; then
+    ok "every cron file the setup scripts create is removed on uninstall"
+else
+    bad "every cron file the setup scripts create is removed on uninstall" \
+        "not cleaned up:$zdc_missing_cron - cron would keep calling a deleted script"
+fi
+
+zdc_missing_kill=""
+for pat in run_auto snapshot_manager zfs_send; do
+    grep -q "$pat" <(sed -n '/Method="remove"/,/<\/FILE>/p' src/zfs.dataset.converter.plg) \
+        || zdc_missing_kill="$zdc_missing_kill $pat"
+done
+if [ -z "$zdc_missing_kill" ]; then
+    ok "uninstall strips every legacy crontab line"
+else
+    bad "uninstall strips every legacy crontab line" "missing:$zdc_missing_kill"
+fi
+
 group "GUI references resolve"
 
 if out=$(python3 tests/js_checks.py src/ZFSDatasetConverterPage.php 2>&1); then

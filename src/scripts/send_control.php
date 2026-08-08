@@ -96,7 +96,7 @@ if ($action === 'status') {
         if (is_array($d)) $st = $d;
     }
 
-    $running = trim((string)shell_exec('pgrep -f "zfs_send\.sh" 2>/dev/null | head -1')) !== '';
+    $running = trim((string)shell_exec('pgrep -f "[z]fs_send\.sh" 2>/dev/null | head -1')) !== '';
 
     $cronFile = '/etc/cron.d/zfs.dataset.converter-send';
     $entry = '';
@@ -125,7 +125,7 @@ if ($action === 'status') {
 if ($action === 'run_now' || $action === 'dry_run' || $action === 'test') {
     if (!file_exists($worker)) zdc_fail('zfs_send.sh not found');
 
-    if (trim((string)shell_exec('pgrep -f "zfs_send\.sh" 2>/dev/null | head -1')) !== '') {
+    if (trim((string)shell_exec('pgrep -f "[z]fs_send\.sh" 2>/dev/null | head -1')) !== '') {
         zdc_fail('A replication run is already in progress');
     }
 
