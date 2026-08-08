@@ -817,6 +817,7 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
 
     <p class="zdc-sub">Jobs</p>
     <div style="margin-left:20px;overflow-x:auto;">
+      <datalist id="zdc-dataset-list"></datalist>
       <table class="snap-table" id="send-table" style="min-width:900px;">
         <thead><tr>
           <th style="width:26px;">On</th>
@@ -847,7 +848,10 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
         anything written there in the meantime</b>. Only switch it on if the destination is a pure
         copy that nothing else writes to.<br>
 
+        <b style="color:var(--zdc-text);">Source</b> &mdash; picked from the datasets on this server.
         <b style="color:var(--zdc-text);">Destination</b> &mdash; the dataset the copy is written to.
+        Typed rather than picked, because it usually does not exist yet; for a local target the
+        existing datasets are offered as suggestions.
         With <i>over SSH</i> it lives on the remote host, written the way ZFS does it:
         <code>root@10.0.0.5 : tank/backup/appdata</code>. It is created on first run; the pool has to
         exist already.<br>
@@ -1346,11 +1350,19 @@ function validCronExpr(expr) {
   return expr.split(/\s+/).length === 5;
 }
 
+var _zfsDatasets = [];
+
 function loadDatasetPickers() {
   fetch(_base + '/list_zfs_datasets.php')
   .then(function(r){ return r.json(); })
   .then(function(res) {
     var ds = res.datasets || [];
+    _zfsDatasets = ds;
+
+    // shared suggestion list for the replication destination
+    var dl = document.getElementById('zdc-dataset-list');
+    if (dl) dl.innerHTML = ds.map(function(d) { return '<option value="' + esc(d) + '">'; }).join('');
+    if (_sendJobs.length) renderSendTable();
     var pickers = ['snap-ds-picker', 'browser-dataset', 'mgr-dataset']
       .map(function(id) { return document.getElementById(id); })
       .filter(function(el) { return el; });
@@ -2342,6 +2354,18 @@ function sendField(i, field, val, width, ph) {
        + ' oninput="_sendJobs[' + i + '][\'' + field + '\']=this.value; saveSendJobs();">';
 }
 
+function sendDatasetSelect(i, field, val) {
+  var list = _zfsDatasets.slice();
+  if (val && list.indexOf(val) === -1) list.unshift(val);   // keep an unknown saved value
+  var opts = '<option value="">' + (_zfsDatasets.length ? '— select —' : '— loading —') + '</option>';
+  list.forEach(function(d) {
+    opts += '<option value="' + esc(d) + '"' + (d === val ? ' selected' : '') + '>' + esc(d) + '</option>';
+  });
+  return '<select style="font-size:11px;width:172px;"'
+       + ' onchange="_sendJobs[' + i + '][\'' + field + '\']=this.value; saveSendJobs();">'
+       + opts + '</select>';
+}
+
 function sendCheck(i, field, checked) {
   return '<input type="checkbox"' + (checked ? ' checked' : '')
        + ' onchange="_sendJobs[' + i + '][\'' + field + '\']=this.checked; saveSendJobs();">';
@@ -2359,7 +2383,7 @@ function renderSendTable() {
     html += '<tr>'
       + '<td>' + sendCheck(i, 'enabled', j.enabled !== false) + '</td>'
       + '<td style="text-align:left;">' + sendField(i, 'name', j.name, '120px', 'name') + '</td>'
-      + '<td style="text-align:left;">' + sendField(i, 'source', j.source, '150px', 'cache/appdata') + '</td>'
+      + '<td style="text-align:left;">' + sendDatasetSelect(i, 'source', j.source) + '</td>'
       + '<td style="text-align:left;">'
         + '<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">'
         + '<select style="font-size:11px;width:74px;" title="Where the destination pool lives"'
@@ -2370,7 +2394,10 @@ function renderSendTable() {
             ? sendField(i, 'ssh_host', j.ssh_host, '125px', 'root@10.0.0.5')
               + '<span style="color:var(--zdc-dim);">:</span>'
             : '')
-        + sendField(i, 'dest', j.dest, '145px', 'backup/appdata')
+        + (isSsh
+            ? sendField(i, 'dest', j.dest, '145px', 'tank/backup/appdata')
+            : sendField(i, 'dest', j.dest, '145px', 'backup/appdata').replace(
+                '<input ', '<input list="zdc-dataset-list" '))
         + '</div>'
         + (isSsh
             ? '<div style="margin-top:3px;">'

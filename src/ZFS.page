@@ -1,7 +1,7 @@
 Menu="Tasks:75"
 Type="xmenu"
 Title="ZFS"
-Icon="database"
+Tag="database"
 Markdown="false"
 ---
 <?php

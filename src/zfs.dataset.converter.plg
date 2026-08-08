@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.dataset.converter">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.08.08.11">
-<!ENTITY md5       "0137b181f3ccae7e512474b239b7813e">
+<!ENTITY version   "2026.08.08.12">
+<!ENTITY md5       "997a5bd4dcf5954454137c67c4474779">
 <!ENTITY launch    "Settings/ZFSDatasetConverter">
 <!ENTITY github    "MajorPain007/zfs-dataset-converter">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,18 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.08.08.12 — Pick the replication source from a list
+
+- Source dataset in a replication job is a dropdown of the datasets on this
+  server, like the snapshot tab, instead of something to type out. A saved
+  value that no longer exists stays selected rather than silently vanishing.
+- Destination stays a text field - it usually does not exist yet - but for a
+  local target the existing datasets are offered as autocomplete.
+- Top-level menu entry: switched the icon from Icon="database", which looks for
+  a PNG in the plugin folder, to Tag="database", which uses the icon font and
+  needs no file. If the ZFS entry next to Docker and VMs did not show up, this
+  is the likely reason.
+
 ## Version 2026.08.08.11 — Cards flow instead of sitting in a grid
 
 - The gaps inside a row are gone. A grid row is as tall as its tallest card,
