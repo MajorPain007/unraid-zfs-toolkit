@@ -24,6 +24,12 @@ function cfgBool($key, $default = 'no') {
 <style>
 .zdc-wrap {
   width: 100%;
+  /* Three columns of settings cards plus gaps. Past this the cards only get
+     wider, not fuller, so the remainder becomes an even margin on both sides
+     rather than a gap on the right. */
+  max-width: 1700px;
+  margin-left: auto;
+  margin-right: auto;
   --zdc-card:     #1e2329;
   --zdc-sunken:   #0d1117;
   --zdc-border:   #3a4049;
@@ -73,11 +79,21 @@ function cfgBool($key, $default = 'no') {
    laptop, three on a wide monitor, without breakpoints to keep in sync. */
 .zdc-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 16px;
   align-items: start;
 }
-.zdc-card.wide { grid-column: 1 / -1; }
+/* Pinned to three above this width. auto-fit alone would keep adding columns
+   on a wide monitor, and six cards across five tracks leave a mostly empty
+   second row. Three always divides the settings cards evenly. */
+@media (min-width: 1120px) {
+  .zdc-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+.zdc-card.wide  { grid-column: 1 / -1; }
+.zdc-card.span2 { grid-column: span 2; }
+@media (max-width: 1119px) {
+  .zdc-card.span2 { grid-column: 1 / -1; }
+}
 .zdc-col { min-width: 0; }
 
 .zdc-sub {
@@ -552,7 +568,7 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
     <div id="snap-log-viewer" style="background:var(--zdc-sunken);color:var(--zdc-text);font-family:'Consolas','Monaco',monospace;font-size:12px;line-height:1.6;padding:10px;height:220px;overflow-y:auto;border-radius:4px;border:1px solid var(--zdc-border-2);white-space:pre-wrap;word-break:break-all;"></div>
   </div>
 </div>
-<div class="zdc-card snap-gated"<?= cfgBool('snapshots_enabled')?'':' style="display:none"' ?>>
+<div class="zdc-card span2 snap-gated"<?= cfgBool('snapshots_enabled')?'':' style="display:none"' ?>>
   <h3>Retention</h3>
 <p class="zdc-sub">Global Retention (per dataset unless overridden)</p>
     <div style="display:flex;flex-wrap:wrap;gap:8px 20px;margin-bottom:10px;">
@@ -2339,10 +2355,10 @@ function renderSendTable() {
       + '<td style="text-align:left;">' + sendField(i, 'source', j.source, '150px', 'cache/appdata') + '</td>'
       + '<td style="text-align:left;">'
         + '<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">'
-        + '<select style="font-size:11px;" title="Where the destination pool lives"'
+        + '<select style="font-size:11px;width:74px;" title="Where the destination pool lives"'
           + ' onchange="_sendJobs[' + i + '].transport=this.value; saveSendJobs(); renderSendTable();">'
-          + '<option value="local"' + (isSsh ? '' : ' selected') + '>this server</option>'
-          + '<option value="ssh"'   + (isSsh ? ' selected' : '') + '>over SSH</option></select>'
+          + '<option value="local"' + (isSsh ? '' : ' selected') + '>local</option>'
+          + '<option value="ssh"'   + (isSsh ? ' selected' : '') + '>SSH</option></select>'
         + (isSsh
             ? sendField(i, 'ssh_host', j.ssh_host, '125px', 'root@10.0.0.5')
               + '<span style="color:var(--zdc-dim);">:</span>'
