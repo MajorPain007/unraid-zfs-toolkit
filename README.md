@@ -32,17 +32,10 @@ and VMs — that entry can be switched off in the plugin header.
 
 ### The schedule is a check interval, not a snapshot interval
 
-This is the part that trips people up. The cron entry decides how often the
-plugin *looks for work*; each run creates only what the current period is still
-missing. Checking every 15 minutes with hourly retention gives you one snapshot
-per hour, not four:
-
-| Cron every 15 min, 3 days | |
-|---|---|
-| cron ran | 288× |
-| hourly snapshots | 72 |
-| daily | 3 |
-| weekly / monthly | 1 / 1 |
+The cron entry decides how often the plugin *looks for work*; each run creates
+only what the current period is still missing. So checking every 15 minutes with
+hourly retention gives you one snapshot per hour, not four — over three days
+that is 288 checks and 72 hourly snapshots, plus 3 daily ones.
 
 Only **Frequent** takes one on every run, which is why it defaults to 0.
 
@@ -124,14 +117,14 @@ For each folder under a configured source dataset:
    there — otherwise rsync would write into the parent dataset and the data
    would be shadowed the moment the child mounts
 3. Data is copied with `rsync -aHAX --numeric-ids`, so hardlinks, ACLs and
-   extended attributes survive (plain `-a` drops all three, which breaks a
-   surprising number of containers)
+   extended attributes survive — plain `-a` preserves none of the three
 4. Entry count and size are validated against a tolerance
 5. The temp folder is removed if cleanup is enabled
 
-Containers and VMs that were stopped are restarted from an exit trap, so
-pressing Stop or an out-of-memory kill cannot leave them powered off. An
-interrupted run resumes from the leftover `*_temp` directory.
+Containers and VMs that were stopped are restarted from an exit trap, which also
+covers pressing Stop and a normal termination signal. A `kill -9`, a crash or a
+power cut bypasses any trap — in that case they stay stopped and you start them
+yourself. An interrupted run resumes from the leftover `*_temp` directory.
 
 ## Settings
 
@@ -160,26 +153,20 @@ interrupted run resumes from the leftover `*_temp` directory.
 ## Troubleshooting
 
 **Diagnostics** on the Snapshots tab downloads a bundle with the configuration,
-logs, cron state and the pool and snapshot inventory. Private keys are excluded.
+logs, cron state and the pool and snapshot inventory. Files that look like
+private keys are left out.
 
-Check that the schedule is actually live:
-
-```bash
-cat /etc/cron.d/zfs.toolkit-snapshots; crontab -l | grep snapshot_manager
-```
-
-`/etc/cron.d` is on a RAM disk, so the plugin re-registers all cron jobs after
-every array start via a `disks_mounted` event hook.
-
-## Development
+Schedules are stored as `.cron` files in the plugin's config directory, which is
+where Unraid's `update_cron` collects them from. They live on the flash drive
+and are rebuilt into the crontab on every boot. To check that a schedule is
+live:
 
 ```bash
-tests/run.sh                       # 79 checks, no Unraid needed
-./scripts/build.sh 2026.08.08.23   # build the package, sync the manifest
+ls /boot/config/plugins/zfs.toolkit/*.cron; crontab -c /etc/cron.d -l | grep snapshot_manager
 ```
 
-CI runs the same suite plus shellcheck and a PHP 7.4 lint, because Unraid builds
-in the wild may still ship PHP 7.
+The `-c /etc/cron.d` matters: that is the spool directory Unraid installs the
+crontab into, and on some builds a bare `crontab -l` reads a different one.
 
 ## Credits
 
