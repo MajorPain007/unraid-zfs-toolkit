@@ -7,41 +7,52 @@ on:
   workflow_dispatch:
 
 jobs:
-  checks:
+  # Unraid builds in the wild still ship PHP 7, so every endpoint has to parse
+  # there as well. setup-php is cached; adding ondrej/php via apt took minutes
+  # on every push and depended on an external repository staying up.
+  php-lint:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['7.4', '8.3']
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install PHP
-        uses: shivammathur/setup-php@v2
+      - uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.1'
+          php-version: ${{ matrix.php }}
+          coverage: none
           tools: none
 
-      # The plugin must keep working on Unraid builds that still ship PHP 7.
-      - name: Install PHP 7.4 for compatibility linting
-        run: |
-          sudo add-apt-repository -y ppa:ondrej/php
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq php7.4-cli
-
-      - name: PHP 7.4 syntax check
+      - name: Syntax check on PHP ${{ matrix.php }}
         run: |
           fail=0
-          for f in src/scripts/*.php src/*.page; do
-            if ! out=$(php7.4 -l "$f" 2>&1); then
+          for f in src/scripts/*.php src/*.page src/ZFSDatasetConverterPage.php; do
+            [ -f "$f" ] || continue
+            if ! out=$(php -l "$f" 2>&1); then
               echo "::error file=$f::$out"
               fail=1
             fi
           done
           exit $fail
 
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          tools: none
+
       - name: Test suite
         run: bash tests/run.sh
 
       - name: shellcheck (errors are fatal)
         run: |
-          sudo apt-get install -y -qq shellcheck
           shellcheck --severity=error --shell=bash \
             src/scripts/*.sh src/event/* scripts/*.sh tests/*.sh
 
@@ -64,4 +75,3 @@ jobs:
             git --no-pager diff --stat
             exit 1
           fi
-
