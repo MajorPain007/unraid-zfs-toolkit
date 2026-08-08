@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.dataset.converter">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.08.08.13">
-<!ENTITY md5       "153510c40f72538f5ff9c8e76a9803f1">
+<!ENTITY version   "2026.08.08.14">
+<!ENTITY md5       "2ab0491cdac1baef2e1f9e7040e4ae6d">
 <!ENTITY launch    "Settings/ZFSDatasetConverter">
 <!ENTITY github    "MajorPain007/zfs-dataset-converter">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,15 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.08.08.14 — Menu switch moved into the plugin header
+
+- "Show in top menu" now sits in the plugin's own header, top right, next to
+  the status badge. It was under General Settings on the Conversion tab, which
+  reads like a conversion option and is easy to mistake for an Unraid setting.
+  It applies to the whole plugin, so it belongs where every tab can see it.
+- Its own hint line next to the switch says a reload is needed. The shared
+  "Saved" indicator used to overwrite that message a second later.
+
 ## Version 2026.08.08.13 — The top menu entry is a switch now
 
 - "Show in the top menu" under General Settings. On by default; turn it off and

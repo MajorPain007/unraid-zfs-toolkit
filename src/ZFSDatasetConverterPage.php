@@ -332,7 +332,16 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
     <h2 style="margin:0;font-size:18px;">ZFS Dataset Converter</h2>
     <p style="margin:3px 0 0;color:var(--zdc-dim);font-size:12px;">Convert plain folders to ZFS child datasets — with Docker &amp; VM awareness.</p>
   </div>
-  <div style="display:flex;align-items:center;gap:12px;">
+  <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:flex-end;">
+    <label style="display:flex;align-items:center;gap:7px;font-size:12px;color:var(--zdc-dim);cursor:pointer;"
+           title="Adds a ZFS entry to the top menu bar, next to Docker and VMs. Reload the page after changing it.">
+      <span class="zdc-toggle" style="pointer-events:none;">
+        <input type="checkbox" id="show_in_menu" name="show_in_menu" <?= cfgBool('show_in_menu','yes')?'checked':'' ?>
+               onchange="onMenuToggle()"><span class="zdc-slider"></span>
+      </span>
+      Show in top menu
+    </label>
+    <span id="menu-hint" style="font-size:11px;color:var(--zdc-warn);"></span>
     <span id="autosave-status" style="font-size:11px;color:var(--zdc-ok);opacity:0;transition:opacity .4s;"></span>
     <span id="status-badge" class="badge-idle">Idle</span>
   </div>
@@ -367,11 +376,6 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
   <div class="zdc-row">
     <label class="row-label">Replace spaces with underscores</label>
     <label class="zdc-toggle"><input type="checkbox" name="replace_spaces" id="replace_spaces" <?= cfgBool('replace_spaces')?'checked':'' ?>><span class="zdc-slider"></span></label>
-  </div>
-  <div class="zdc-row">
-    <label class="row-label">Show in the top menu</label>
-    <label class="zdc-toggle"><input type="checkbox" id="show_in_menu" name="show_in_menu" <?= cfgBool('show_in_menu','yes')?'checked':'' ?>><span class="zdc-slider"></span></label>
-    <span class="zdc-note">Adds a ZFS entry next to Docker and VMs &mdash; reload the page after changing</span>
   </div>
   <div class="zdc-row">
     <label class="row-label">Send Unraid notifications</label>
@@ -892,7 +896,7 @@ function toggle(id, show) { document.getElementById(id).style.display = show ? '
 
 function formData() {
   var f = document.getElementById('settings-form');
-  var bools = ['dry_run','cleanup','replace_spaces','send_notifications','show_in_menu',
+  var bools = ['dry_run','cleanup','replace_spaces','send_notifications',
                'should_process_containers','should_process_vms',
                'cron_enabled'];
   var d = {};
@@ -1204,7 +1208,8 @@ function _doAutoSave() {
 
   var d = formData();
   d['snapshots_enabled'] = document.getElementById('snapshots_enabled').checked ? 'yes' : 'no';
-  d['send_enabled'] = document.getElementById('send_enabled').checked ? 'yes' : 'no';
+  d['send_enabled']   = document.getElementById('send_enabled').checked ? 'yes' : 'no';
+  d['show_in_menu']   = document.getElementById('show_in_menu').checked ? 'yes' : 'no';
   ['snap_hourly','snap_daily','snap_weekly','snap_monthly','snap_yearly',
    'snap_frequent','snap_daily_hour','snap_min_free_pct','snap_free_target',
    'snap_age_hourly','snap_age_daily','snap_age_weekly','snap_age_monthly',
@@ -1318,6 +1323,20 @@ function zdcRefreshStatus() {
     .then(function(res) { _zdcSnap = res; zdcRenderStatus(); }).catch(function() {});
   fetch(_base + '/get_cron_status.php').then(function(r) { return r.json(); })
     .then(function(res) { _zdcConv = res; zdcRenderStatus(); }).catch(function() {});
+}
+
+/* The menu entry is rendered server-side from the page header, so the change
+   only becomes visible after a reload. Say so instead of leaving the user
+   wondering why nothing happened. */
+function onMenuToggle() {
+  var on = document.getElementById('show_in_menu').checked;
+  var el = document.getElementById('menu-hint');
+  _triggerAutoSave();
+  if (!el) return;
+  el.textContent = on ? 'reload the page to see the entry'
+                      : 'reload the page, the entry will be gone';
+  clearTimeout(window._menuHintTimer);
+  window._menuHintTimer = setTimeout(function() { el.textContent = ''; }, 8000);
 }
 
 function toggleSnapDetails() {
