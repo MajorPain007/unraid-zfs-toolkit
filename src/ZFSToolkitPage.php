@@ -65,12 +65,13 @@ function cfgBool($key, $default = 'no') {
   margin: 12px 0 16px;
   border-bottom: 1px solid var(--zdc-border);
 }
-.zdc-tab {
+.zdc-wrap .zdc-tab {
   appearance: none;
   background: transparent;
   border: 1px solid transparent;
   border-bottom: none;
   border-radius: 5px 5px 0 0;
+  box-shadow: none;
   color: var(--zdc-dim);
   cursor: pointer;
   font-size: 13px;
@@ -78,10 +79,11 @@ function cfgBool($key, $default = 'no') {
   letter-spacing: .03em;
   margin-bottom: -1px;
   padding: 8px 16px;
+  text-shadow: none;
   text-transform: uppercase;
 }
-.zdc-tab:hover { color: var(--zdc-text); background: rgba(255,255,255,.04); }
-.zdc-tab.active {
+.zdc-wrap .zdc-tab:hover { color: var(--zdc-text); background: rgba(255,255,255,.04); }
+.zdc-wrap .zdc-tab.active {
   color: var(--zdc-text);
   background: var(--zdc-card);
   border-color: var(--zdc-border);
@@ -141,13 +143,13 @@ function cfgBool($key, $default = 'no') {
   white-space: nowrap;
 }
 .zdc-pill b { color: var(--zdc-text); font-weight: 600; }
-.zdc-pill.ok   { border-color: rgba(86,211,100,.4); }
-.zdc-pill.warn { border-color: rgba(227,179,65,.5); }
-.zdc-pill.err  { border-color: rgba(248,81,73,.5); }
+.zdc-pill.zdc-ok   { border-color: rgba(86,211,100,.4); }
+.zdc-pill.zdc-warn { border-color: rgba(227,179,65,.5); }
+.zdc-pill.zdc-err  { border-color: rgba(248,81,73,.5); }
 .zdc-pill .dot { background: var(--zdc-muted); border-radius: 50%; flex: none; height: 7px; width: 7px; }
-.zdc-pill.ok   .dot { background: var(--zdc-ok); }
-.zdc-pill.warn .dot { background: var(--zdc-warn); }
-.zdc-pill.err  .dot { background: var(--zdc-err); }
+.zdc-pill.zdc-ok   .dot { background: var(--zdc-ok); }
+.zdc-pill.zdc-warn .dot { background: var(--zdc-warn); }
+.zdc-pill.zdc-err  .dot { background: var(--zdc-err); }
 .zdc-meter { background: rgba(255,255,255,.12); border-radius: 3px; height: 5px; overflow: hidden; width: 54px; }
 .zdc-meter i { display: block; height: 100%; }
 .zdc-card {
@@ -1338,8 +1340,8 @@ function zdcRenderStatus() {
   if (!el) return;
   var snap = _zdcSnap, conv = _zdcConv, pills = [];
 
-  function pill(cls, label, value, extra) {
-    pills.push('<span class="zdc-pill ' + cls + '"><span class="dot"></span>'
+  function pill(state, label, value, extra) {
+    pills.push('<span class="zdc-pill' + (state ? ' zdc-' + state : '') + '"><span class="dot"></span>'
       + esc(label) + ' <b>' + esc(value) + '</b>' + (extra || '') + '</span>');
   }
 

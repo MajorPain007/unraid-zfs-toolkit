@@ -290,6 +290,22 @@ if [ -f "$PAGE" ]; then
         bad "every PHP endpoint referenced by the page exists" "missing:$missing"
     fi
 
+    state_leak=""
+    grep -qE "zdc-pill ' \+" "$PAGE" \
+        && state_leak="$state_leak concatenates a bare state into the pill class;"
+    grep -qE 'class="(ok|warn|err)"' "$PAGE" \
+        && state_leak="$state_leak a bare ok/warn/err class literal;"
+    grep -qE '^\.zdc-pill\.(ok|warn|err)\b' "$PAGE" \
+        && state_leak="$state_leak CSS still targets the unprefixed state;"
+    grep -q "' zdc-' + state" "$PAGE" \
+        || state_leak="$state_leak the namespaced pill class is gone;"
+    if [ -z "$state_leak" ]; then
+        ok "state classes are namespaced (Unraid's theme defines .warn and .err itself)"
+    else
+        bad "state classes are namespaced" \
+            "found:$state_leak - a bare .warn gets Unraid's yellow notice styling, which leaves our light value text unreadable on it"
+    fi
+
     posts=$(grep -c "method: 'POST'" "$PAGE")
     tokens=$(grep -c "csrf_token" "$PAGE")
     if [ "$tokens" -ge "$posts" ]; then

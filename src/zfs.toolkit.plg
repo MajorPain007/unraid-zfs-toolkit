@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.toolkit">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.08.08.23">
-<!ENTITY md5       "5ad0b57d8dfe16dd4294f9bc8d192357">
+<!ENTITY version   "2026.08.08.24">
+<!ENTITY md5       "da09aef8954539f01104344613c79831">
 <!ENTITY launch    "Settings/ZFSToolkit">
 <!ENTITY github    "MajorPain007/unraid-zfs-toolkit">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,17 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.08.08.24 — Unreadable status pills
+
+- The status pills used bare "warn" and "err" class names. Unraid's own theme
+  defines those for notice banners, so the pill got a filled yellow background
+  while our value text stayed light - white on pale yellow, unreadable, and the
+  state dot vanished into the fill. The state classes are namespaced now, so no
+  host stylesheet can claim them. A test guards it.
+- The tab strip had the same weakness one level down: only the active tab
+  carried a second class, so Unraid's button styling showed through on the
+  inactive ones. Their rules are now scoped under .zdc-wrap.
+
 ## Version 2026.08.08.23 — Renamed to ZFS Toolkit
 
 The plugin has not been "a dataset converter" for a while: conversion is one of
