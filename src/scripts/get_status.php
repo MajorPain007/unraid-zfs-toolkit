@@ -3,8 +3,8 @@ while (ob_get_level() > 0) ob_end_clean();
 header('Content-Type: application/json');
 header('Cache-Control: no-cache, no-store');
 
-$statusFile = '/tmp/zfs.dataset.converter/status.json';
-$tmpDir     = '/tmp/zfs.dataset.converter';
+$statusFile = '/tmp/zfs.toolkit/status.json';
+$tmpDir     = '/tmp/zfs.toolkit';
 
 function zdc_classify_log($logFile) {
     if ($logFile === '' || !file_exists($logFile)) return 'idle';

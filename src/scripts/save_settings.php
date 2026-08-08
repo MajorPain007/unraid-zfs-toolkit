@@ -46,7 +46,7 @@ function validCron($expr) {
     return count(preg_split('/\s+/', $expr)) === 5;
 }
 
-$configDir  = '/boot/config/plugins/zfs.dataset.converter';
+$configDir  = '/boot/config/plugins/zfs.toolkit';
 $configFile = $configDir . '/settings.cfg';
 
 if (!is_dir($configDir)) {
@@ -66,7 +66,7 @@ if (file_exists($configFile)) {
     }
 }
 
-$lines = ['# ZFS Dataset Converter settings - saved ' . date('Y-m-d H:i:s'), ''];
+$lines = ['# ZFS Toolkit settings - saved ' . date('Y-m-d H:i:s'), ''];
 foreach ($allowed as $key) {
     if (isset($_POST[$key])) {
         $val = preg_replace('/[\r\n]/', '', $_POST[$key]);
@@ -106,7 +106,7 @@ if (isset($_POST['snap_free_target']) && trim($_POST['snap_free_target']) !== ''
         . '" is not understood - use something like 100G or 10%.';
 }
 
-$base = '/usr/local/emhttp/plugins/zfs.dataset.converter/scripts/';
+$base = '/usr/local/emhttp/plugins/zfs.toolkit/scripts/';
 foreach (['setup_cron.sh'      => 'Conversion',
           'setup_snapshots.sh' => 'Snapshot',
           'setup_send.sh'      => 'Replication'] as $script => $label) {

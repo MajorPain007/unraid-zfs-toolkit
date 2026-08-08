@@ -1,6 +1,6 @@
 <?php
 
-$NAME       = 'zfs.dataset.converter';
+$NAME       = 'zfs.toolkit';
 $CONFIG_DIR = '/boot/config/plugins/' . $NAME;
 $TMP_DIR    = '/tmp/' . $NAME;
 $PLUGIN_DIR = '/usr/local/emhttp/plugins/' . $NAME;
@@ -38,7 +38,7 @@ if (file_exists($plg)) {
     if (preg_match('/<!ENTITY\s+version\s+"([^"]+)"/', file_get_contents($plg), $m)) $version = $m[1];
 }
 
-$report  = "ZFS Dataset Converter - diagnostics\n";
+$report  = "ZFS Toolkit - diagnostics\n";
 $report .= "Generated: " . date('Y-m-d H:i:s T') . "\n";
 $report .= "Plugin version: " . $version . "\n\n";
 

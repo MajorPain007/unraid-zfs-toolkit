@@ -1,7 +1,7 @@
 #!/bin/bash
 
-PLUGIN_DIR="/usr/local/emhttp/plugins/zfs.dataset.converter"
-LOG_DIR="/tmp/zfs.dataset.converter"
+PLUGIN_DIR="/usr/local/emhttp/plugins/zfs.toolkit"
+LOG_DIR="/tmp/zfs.toolkit"
 
 mkdir -p "$LOG_DIR"
 

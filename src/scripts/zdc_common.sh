@@ -1,6 +1,6 @@
 #!/bin/bash
 
-ZDC_NAME="zfs.dataset.converter"
+ZDC_NAME="zfs.toolkit"
 ZDC_CONFIG_DIR="${ZDC_CONFIG_DIR:-/boot/config/plugins/${ZDC_NAME}}"
 ZDC_SETTINGS="${ZDC_SETTINGS:-${ZDC_CONFIG_DIR}/settings.cfg}"
 ZDC_TMP_DIR="${ZDC_TMP_DIR:-/tmp/${ZDC_NAME}}"
@@ -62,7 +62,7 @@ zdc_remove_cron() {
     local cronfile="${ZDC_CRON_DIR}/$1" pattern="$2"
     rm -f "$cronfile"
     if crontab -l 2>/dev/null | grep -q -- "$pattern"; then
-        crontab -l 2>/dev/null | grep -v -- "$pattern" | grep -v '^# zfs-dataset-converter' | crontab - 2>/dev/null
+        crontab -l 2>/dev/null | grep -v -- "$pattern" | grep -v '^# zfs-toolkit' | crontab - 2>/dev/null
     fi
     zdc_refresh_cron
 }
@@ -88,14 +88,14 @@ zdc_install_cron() {
     fi
 
     if crontab -l 2>/dev/null | grep -q -- "$pattern"; then
-        crontab -l 2>/dev/null | grep -v -- "$pattern" | grep -v '^# zfs-dataset-converter' | crontab - 2>/dev/null
+        crontab -l 2>/dev/null | grep -v -- "$pattern" | grep -v '^# zfs-toolkit' | crontab - 2>/dev/null
     fi
 
     mkdir -p "$ZDC_CRON_DIR"
     local tmp
     tmp=$(mktemp "${ZDC_CRON_DIR}/.${base}.XXXXXX") || { echo "ERROR: mktemp failed" >&2; return 1; }
     {
-        echo "# Managed by ${ZDC_NAME} - edit via Settings > ZFS Dataset Converter"
+        echo "# Managed by ${ZDC_NAME} - edit via Settings > ZFS Toolkit"
         echo "${expr} ${cmd}"
     } > "$tmp"
     chmod 0644 "$tmp"
@@ -108,7 +108,7 @@ zdc_install_cron() {
         return 0
     fi
 
-    ( crontab -l 2>/dev/null; echo "# zfs-dataset-converter"; echo "${expr} ${cmd}" ) | crontab - 2>/dev/null
+    ( crontab -l 2>/dev/null; echo "# zfs-toolkit"; echo "${expr} ${cmd}" ) | crontab - 2>/dev/null
     if crontab -l 2>/dev/null | grep -q -- "$pattern"; then
         echo "Cron installed via crontab fallback: ${expr} (${cronfile} was not picked up)"
         return 0
@@ -144,7 +144,7 @@ zdc_notify() {
     local subject="$1" message="$2" importance="${3:-normal}"
     local notify=/usr/local/emhttp/webGui/scripts/notify
     [ -x "$notify" ] || return 0
-    "$notify" -e "ZFS Dataset Converter" -s "$subject" -d "$message" -i "$importance" >/dev/null 2>&1 || true
+    "$notify" -e "ZFS Toolkit" -s "$subject" -d "$message" -i "$importance" >/dev/null 2>&1 || true
 }
 
 zdc_zfs_ready() {

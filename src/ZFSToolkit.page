@@ -1,0 +1,9 @@
+Menu="Utilities"
+Title="ZFS Toolkit"
+Icon="database"
+Tag="exchange-alt"
+Markdown="false"
+---
+<?php
+include '/usr/local/emhttp/plugins/zfs.toolkit/ZFSToolkitPage.php';
+?>

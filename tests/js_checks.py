@@ -84,7 +84,7 @@ def element_ids(text):
 
 
 def main():
-    path = Path(sys.argv[1] if len(sys.argv) > 1 else 'src/ZFSDatasetConverterPage.php')
+    path = Path(sys.argv[1] if len(sys.argv) > 1 else 'src/ZFSToolkitPage.php')
     text = path.read_text()
     js = extract_script(text)
     if not js:

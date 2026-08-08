@@ -98,7 +98,7 @@ if ($action === 'status') {
 
     $running = trim((string)shell_exec('pgrep -f "[z]fs_send\.sh" 2>/dev/null | head -1')) !== '';
 
-    $cronFile = '/etc/cron.d/zfs.dataset.converter-send';
+    $cronFile = '/etc/cron.d/zfs.toolkit-send';
     $entry = '';
     if (is_readable($cronFile)) {
         foreach (file($cronFile, FILE_IGNORE_NEW_LINES) as $line) {

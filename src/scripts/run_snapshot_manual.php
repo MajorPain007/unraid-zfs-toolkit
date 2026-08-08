@@ -4,8 +4,8 @@ while (ob_get_level() > 0) ob_end_clean();
 header('Content-Type: application/json');
 header('Cache-Control: no-cache, no-store');
 
-$plugin_dir = '/usr/local/emhttp/plugins/zfs.dataset.converter';
-$log_dir    = '/tmp/zfs.dataset.converter';
+$plugin_dir = '/usr/local/emhttp/plugins/zfs.toolkit';
+$log_dir    = '/tmp/zfs.toolkit';
 $runner     = "$plugin_dir/scripts/snapshot_manager.sh";
 
 if (!file_exists($runner)) {

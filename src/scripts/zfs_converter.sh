@@ -134,7 +134,7 @@ send_notification() {
 
     if [[ "$send_notifications" =~ ^[Yy]es$ ]]; then
         /usr/local/emhttp/webGui/scripts/notify \
-            -e "ZFS Dataset Converter" \
+            -e "ZFS Toolkit" \
             -s "$subject" \
             -d "$message" \
             -i "$importance" 2>/dev/null || true
@@ -638,7 +638,7 @@ if [[ "$should_process_vms" =~ ^[Yy]es$ ]]; then
     source_path_vms="${source_pool_where_vm_domains_are}/${source_dataset_where_vm_domains_are}"
 fi
 
-log "ZFS Dataset Converter starting..."
+log "ZFS Toolkit starting..."
 [[ "$dry_run" =~ ^[Yy]es$ ]] && log_warn "DRY RUN MODE - no changes will be made."
 
 can_i_go_to_work

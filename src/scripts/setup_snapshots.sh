@@ -4,7 +4,7 @@ PLUGIN_DIR="${ZDC_PLUGIN_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 . "${PLUGIN_DIR}/scripts/zdc_common.sh"
 
 RUNNER="${PLUGIN_DIR}/scripts/snapshot_manager.sh"
-CRON_FILE_BASE="zfs.dataset.converter-snapshots"
+CRON_FILE_BASE="zfs.toolkit-snapshots"
 PATTERN="snapshot_manager\.sh"
 
 zdc_load_cfg "$ZDC_SETTINGS"

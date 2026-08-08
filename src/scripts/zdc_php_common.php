@@ -3,7 +3,7 @@
 if (!defined('ZDC_COMMON_LOADED')) {
     define('ZDC_COMMON_LOADED', true);
 
-    define('ZDC_NAME',       'zfs.dataset.converter');
+    define('ZDC_NAME',       'zfs.toolkit');
     define('ZDC_PLUGIN_DIR', '/usr/local/emhttp/plugins/' . ZDC_NAME);
     define('ZDC_CONFIG_DIR', '/boot/config/plugins/' . ZDC_NAME);
     define('ZDC_TMP_DIR',    '/tmp/' . ZDC_NAME);

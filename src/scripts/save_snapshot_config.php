@@ -9,7 +9,7 @@ set_error_handler(function($errno, $errstr) {
     exit;
 });
 
-$config_dir = '/boot/config/plugins/zfs.dataset.converter';
+$config_dir = '/boot/config/plugins/zfs.toolkit';
 $datasets_raw = $_POST['datasets_json'] ?? '';
 
 if (!empty($datasets_raw)) {
@@ -24,7 +24,7 @@ if (!empty($datasets_raw)) {
     }
 }
 
-$setup = '/usr/local/emhttp/plugins/zfs.dataset.converter/scripts/setup_snapshots.sh';
-shell_exec("/bin/bash " . escapeshellarg($setup) . " >/tmp/zfs.dataset.converter/setup_snapshots.log 2>&1");
+$setup = '/usr/local/emhttp/plugins/zfs.toolkit/scripts/setup_snapshots.sh';
+shell_exec("/bin/bash " . escapeshellarg($setup) . " >/tmp/zfs.toolkit/setup_snapshots.log 2>&1");
 
 echo json_encode(['ok' => true]);

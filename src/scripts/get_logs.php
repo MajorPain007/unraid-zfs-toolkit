@@ -5,7 +5,7 @@ header('Content-Type: application/json');
 $file   = $_GET['file']   ?? '';
 $offset = max(0, (int)($_GET['offset'] ?? 0));
 
-$allowedDir = '/tmp/zfs.dataset.converter/';
+$allowedDir = '/tmp/zfs.toolkit/';
 $realFile   = realpath($file);
 
 if (!$realFile || strpos($realFile, $allowedDir) !== 0 || !file_exists($realFile)) {

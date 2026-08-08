@@ -1,9 +1,0 @@
-Menu="Utilities"
-Title="ZFS Dataset Converter"
-Icon="database"
-Tag="exchange-alt"
-Markdown="false"
----
-<?php
-include '/usr/local/emhttp/plugins/zfs.dataset.converter/ZFSDatasetConverterPage.php';
-?>

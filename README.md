@@ -21,7 +21,7 @@ install alongside it.
 **Plugins → Install Plugin**, paste:
 
 ```
-https://raw.githubusercontent.com/MajorPain007/zfs-dataset-converter/main/src/zfs.dataset.converter.plg
+https://raw.githubusercontent.com/MajorPain007/unraid-zfs-toolkit/main/src/zfs.toolkit.plg
 ```
 
 Requires Unraid 6.12 or newer with ZFS. The plugin appears under
@@ -108,8 +108,8 @@ on **both** sides.
 - SSH is key-based only — the plugin never handles passwords:
 
 ```bash
-ssh-keygen -t ed25519 -f /boot/config/plugins/zfs.dataset.converter/id_send -N ""
-ssh-copy-id -i /boot/config/plugins/zfs.dataset.converter/id_send.pub root@10.0.0.5
+ssh-keygen -t ed25519 -f /boot/config/plugins/zfs.toolkit/id_send -N ""
+ssh-copy-id -i /boot/config/plugins/zfs.toolkit/id_send.pub root@10.0.0.5
 ```
 
 **Test** checks reachability and **Dry run** shows what would be sent — neither
@@ -165,7 +165,7 @@ logs, cron state and the pool and snapshot inventory. Private keys are excluded.
 Check that the schedule is actually live:
 
 ```bash
-cat /etc/cron.d/zfs.dataset.converter-snapshots; crontab -l | grep snapshot_manager
+cat /etc/cron.d/zfs.toolkit-snapshots; crontab -l | grep snapshot_manager
 ```
 
 `/etc/cron.d` is on a RAM disk, so the plugin re-registers all cron jobs after
@@ -184,8 +184,7 @@ in the wild may still ship PHP 7.
 ## Credits
 
 Conversion logic based on the original script by
-[SpaceInvaderOne](https://github.com/SpaceInvaderOne), inspired by
-[SplitAnAtom/zfs-dataset-converter](https://github.com/SplitAnAtom/zfs-dataset-converter).
+[SpaceInvaderOne](https://github.com/SpaceInvaderOne).
 Packaged and extended by [MajorPain007](https://github.com/MajorPain007).
 
 ## License

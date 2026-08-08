@@ -1,5 +1,5 @@
 <?php
-$configFile = '/boot/config/plugins/zfs.dataset.converter/settings.cfg';
+$configFile = '/boot/config/plugins/zfs.toolkit/settings.cfg';
 $settings = [];
 if (file_exists($configFile)) {
     foreach (file($configFile) as $line) {
@@ -353,7 +353,7 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
 
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
   <div>
-    <h2 style="margin:0;font-size:18px;">ZFS Dataset Converter</h2>
+    <h2 style="margin:0;font-size:18px;">ZFS Toolkit</h2>
     <p style="margin:3px 0 0;color:var(--zdc-dim);font-size:12px;">Convert plain folders to ZFS child datasets — with Docker &amp; VM awareness.</p>
   </div>
   <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:flex-end;">
@@ -599,13 +599,13 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
     <button type="button" class="btn-primary" id="snap-run-btn" onclick="runSnapshotNow(false)" <?= cfgBool('snapshots_enabled')?'':'disabled' ?>>Run Now</button>
     <button type="button" class="btn-secondary" id="snap-dry-btn" onclick="runSnapshotNow(true)" title="Show what would be created and pruned, change nothing">Dry Run</button>
     <button type="button" class="btn-secondary" id="snap-log-toggle-btn" onclick="toggleSnapLog()">View Log</button>
-    <a class="btn-secondary" href="/plugins/zfs.dataset.converter/scripts/diagnostics.php?download=1"
+    <a class="btn-secondary" href="/plugins/zfs.toolkit/scripts/diagnostics.php?download=1"
        style="text-decoration:none;padding:6px 14px;" title="Download a support bundle (config, logs, zfs state). Private keys are excluded.">Diagnostics</a>
     <span id="snap-save-result" style="font-size:13px;"></span>
   </div>
 <div id="snap-log-section" style="margin-top:10px;display:none;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
-      <span style="font-size:12px;font-weight:600;color:var(--zdc-dim);">Snapshot Log <span id="snap-log-hint" style="font-weight:400;color:#555;">(last 30 lines of /tmp/zfs.dataset.converter/snapshots.log)</span></span>
+      <span style="font-size:12px;font-weight:600;color:var(--zdc-dim);">Snapshot Log <span id="snap-log-hint" style="font-weight:400;color:#555;">(last 30 lines of /tmp/zfs.toolkit/snapshots.log)</span></span>
       <button type="button" class="btn-secondary" style="padding:2px 10px;font-size:11px;" onclick="clearSnapLog()">Clear view</button>
     </div>
     <div id="snap-log-viewer" style="background:var(--zdc-sunken);color:var(--zdc-text);font-family:'Consolas','Monaco',monospace;font-size:12px;line-height:1.6;padding:10px;height:220px;overflow-y:auto;border-radius:4px;border:1px solid var(--zdc-border-2);white-space:pre-wrap;word-break:break-all;"></div>
@@ -901,8 +901,8 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
 
         <b style="color:var(--zdc-text);">SSH</b> &mdash; key-based authentication only, this plugin
         never handles passwords. Create a key, copy it to the destination, then enter its path above:<br>
-        <code style="font-size:11px;">ssh-keygen -t ed25519 -f /boot/config/plugins/zfs.dataset.converter/id_send -N ""</code><br>
-        <code style="font-size:11px;">ssh-copy-id -i /boot/config/plugins/zfs.dataset.converter/id_send.pub root@10.0.0.5</code><br>
+        <code style="font-size:11px;">ssh-keygen -t ed25519 -f /boot/config/plugins/zfs.toolkit/id_send -N ""</code><br>
+        <code style="font-size:11px;">ssh-copy-id -i /boot/config/plugins/zfs.toolkit/id_send.pub root@10.0.0.5</code><br>
 
         Use <b style="color:var(--zdc-text);">Test</b> to check the destination is reachable and
         <b style="color:var(--zdc-text);">Dry run</b> to see what would be sent &mdash; neither
@@ -924,7 +924,7 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
 </div>
 <script>
 var _poll = null, _logFile = null, _logOffset = 0;
-var _base = '/plugins/zfs.dataset.converter/scripts';
+var _base = '/plugins/zfs.toolkit/scripts';
 
 function toggle(id, show) { document.getElementById(id).style.display = show ? '' : 'none'; }
 

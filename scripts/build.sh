@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-PLUGIN="zfs.dataset.converter"
+PLUGIN="zfs.toolkit"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 VERSION="${1:-$(date '+%Y.%m.%d').01}"
@@ -25,18 +25,18 @@ PDIR="${STAGE}/usr/local/emhttp/plugins/${PLUGIN}"
 mkdir -p "${PDIR}/scripts" "${PDIR}/event" "${STAGE}/install"
 
 cp "${ROOT_DIR}/src/"*.page "${PDIR}/"
-cp "${ROOT_DIR}/src/ZFSDatasetConverterPage.php" "${PDIR}/"
+cp "${ROOT_DIR}/src/ZFSToolkitPage.php" "${PDIR}/"
 cp "${ROOT_DIR}/src/scripts/"*.php "${PDIR}/scripts/"
 cp "${ROOT_DIR}/src/scripts/"*.sh  "${PDIR}/scripts/"
 cp "${ROOT_DIR}/src/event/"*       "${PDIR}/event/"
 chmod 755 "${PDIR}/scripts/"*.sh "${PDIR}/event/"*
-chmod 644 "${PDIR}/scripts/"*.php "${PDIR}/"*.page "${PDIR}/ZFSDatasetConverterPage.php"
+chmod 644 "${PDIR}/scripts/"*.php "${PDIR}/"*.page "${PDIR}/ZFSToolkitPage.php"
 
 for s in "${PDIR}/scripts/"*.sh "${PDIR}/event/"*; do
     bash -n "$s" || { echo "SYNTAX ERROR in $s" >&2; exit 1; }
 done
 if command -v php >/dev/null 2>&1; then
-    for p in "${PDIR}/scripts/"*.php "${PDIR}/"*.page "${PDIR}/ZFSDatasetConverterPage.php"; do
+    for p in "${PDIR}/scripts/"*.php "${PDIR}/"*.page "${PDIR}/ZFSToolkitPage.php"; do
         php -l "$p" >/dev/null || { echo "PHP SYNTAX ERROR in $p" >&2; exit 1; }
     done
 else
@@ -44,7 +44,7 @@ else
 fi
 
 cat > "${STAGE}/install/slack-desc" << EOF
-${PLUGIN}: ZFS Dataset Converter (MajorPain007)
+${PLUGIN}: ZFS Toolkit (MajorPain007)
 ${PLUGIN}:
 ${PLUGIN}: Converts regular folders to ZFS child datasets, manages native
 ${PLUGIN}: snapshots with retention, browses and restores them, and

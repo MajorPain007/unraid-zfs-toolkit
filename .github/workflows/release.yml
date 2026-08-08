@@ -70,7 +70,7 @@ jobs:
         run: |
           VERSION="${{ steps.v.outputs.version }}"
           MD5="${{ steps.build.outputs.md5 }}"
-          PLG="src/zfs.dataset.converter.plg"
+          PLG="src/zfs.toolkit.plg"
           REPO="${{ github.repository }}"
 
           sed -i \
@@ -96,10 +96,10 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet -- src/zfs.dataset.converter.plg; then
+          if git diff --quiet -- src/zfs.toolkit.plg; then
             echo "Manifest already up to date."
             exit 0
           fi
-          git add src/zfs.dataset.converter.plg
+          git add src/zfs.toolkit.plg
           git commit -m "release ${{ steps.v.outputs.version }}: point manifest at the GitHub Release"
           git push origin HEAD:main

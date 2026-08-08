@@ -14,8 +14,8 @@ register_shutdown_function(function() {
 });
 
 define('ZDC_RSYNC',  '-a -H -A -X --numeric-ids');
-define('ZDC_TMP',    '/tmp/zfs.dataset.converter');
-define('ZDC_PLUGIN', '/usr/local/emhttp/plugins/zfs.dataset.converter');
+define('ZDC_TMP',    '/tmp/zfs.toolkit');
+define('ZDC_PLUGIN', '/usr/local/emhttp/plugins/zfs.toolkit');
 
 function zdc_out($data) {
     echo json_encode($data);

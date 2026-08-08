@@ -28,7 +28,7 @@ jobs:
       - name: Syntax check on PHP ${{ matrix.php }}
         run: |
           fail=0
-          for f in src/scripts/*.php src/*.page src/ZFSDatasetConverterPage.php; do
+          for f in src/scripts/*.php src/*.page src/ZFSToolkitPage.php; do
             [ -f "$f" ] || continue
             if ! out=$(php -l "$f" 2>&1); then
               echo "::error file=$f::$out"
@@ -66,7 +66,7 @@ jobs:
         run: |
           ZDC_OUT_DIR=dist ZDC_SKIP_PLG=1 ./scripts/build.sh 2026.01.01.01
           tar -tJf dist/*.txz
-          test -s dist/zfs.dataset.converter-2026.01.01.01-x86_64-1.txz
+          test -s dist/zfs.toolkit-2026.01.01.01-x86_64-1.txz
 
       - name: Working tree must be clean after a test build
         run: |

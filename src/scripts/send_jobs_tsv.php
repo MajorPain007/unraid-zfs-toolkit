@@ -1,6 +1,6 @@
 <?php
 
-$file = '/boot/config/plugins/zfs.dataset.converter/send_jobs.json';
+$file = '/boot/config/plugins/zfs.toolkit/send_jobs.json';
 if (!file_exists($file)) exit(0);
 
 $data = json_decode(file_get_contents($file), true);

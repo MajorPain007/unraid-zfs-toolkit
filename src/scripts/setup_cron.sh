@@ -4,7 +4,7 @@ PLUGIN_DIR="${ZDC_PLUGIN_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 . "${PLUGIN_DIR}/scripts/zdc_common.sh"
 
 RUNNER="${PLUGIN_DIR}/scripts/run_auto.sh"
-CRON_FILE_BASE="zfs.dataset.converter"
+CRON_FILE_BASE="zfs.toolkit"
 PATTERN="run_auto\.sh"
 
 zdc_load_cfg "$ZDC_SETTINGS"

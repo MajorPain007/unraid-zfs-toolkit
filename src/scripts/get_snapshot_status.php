@@ -4,9 +4,9 @@ while (ob_get_level() > 0) ob_end_clean();
 header('Content-Type: application/json');
 header('Cache-Control: no-cache, no-store');
 
-$tmpDir    = '/tmp/zfs.dataset.converter';
-$configDir = '/boot/config/plugins/zfs.dataset.converter';
-$cronFile  = '/etc/cron.d/zfs.dataset.converter-snapshots';
+$tmpDir    = '/tmp/zfs.toolkit';
+$configDir = '/boot/config/plugins/zfs.toolkit';
+$cronFile  = '/etc/cron.d/zfs.toolkit-snapshots';
 
 $snap_entry  = '';
 $cron_source = '';

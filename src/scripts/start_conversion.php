@@ -21,8 +21,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-$statusFile = '/tmp/zfs.dataset.converter/status.json';
-$tmpDir     = '/tmp/zfs.dataset.converter';
+$statusFile = '/tmp/zfs.toolkit/status.json';
+$tmpDir     = '/tmp/zfs.toolkit';
 
 if (file_exists($statusFile)) {
     $st = json_decode(file_get_contents($statusFile), true);

@@ -1,11 +1,11 @@
 <?xml version='1.0' standalone='yes'?>
 <!DOCTYPE PLUGIN [
-<!ENTITY name      "zfs.dataset.converter">
+<!ENTITY name      "zfs.toolkit">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.08.08.22">
-<!ENTITY md5       "57215756af4462c7cd11da0047f30a59">
-<!ENTITY launch    "Settings/ZFSDatasetConverter">
-<!ENTITY github    "MajorPain007/zfs-dataset-converter">
+<!ENTITY version   "2026.08.08.23">
+<!ENTITY md5       "5ad0b57d8dfe16dd4294f9bc8d192357">
+<!ENTITY launch    "Settings/ZFSToolkit">
+<!ENTITY github    "MajorPain007/unraid-zfs-toolkit">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
 <!ENTITY pkgURL    "https://raw.githubusercontent.com/&github;/main/archive">
 <!ENTITY pluginDir "/usr/local/emhttp/plugins/&name;">
@@ -19,13 +19,29 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.08.08.23 — Renamed to ZFS Toolkit
+
+The plugin has not been "a dataset converter" for a while: conversion is one of
+four tabs next to snapshots, browse and restore, and replication. The name now
+says so.
+
+- Plugin identity is zfs.toolkit, so the install paths, the config directory
+  under /boot/config/plugins and the cron file names all follow.
+- The page moved from Settings/ZFSDatasetConverter to Settings/ZFSToolkit.
+- The repository is now MajorPain007/unraid-zfs-toolkit, matching the naming of
+  the other Unraid plugins.
+
+This is a clean break, not an in-place upgrade. Remove the old plugin first;
+its settings live under the old config directory and are not migrated. ZFS
+datasets and snapshots are untouched by either operation.
+
 ## Version 2026.08.08.22 — Review pass
 
-- Uninstall left /etc/cron.d/zfs.dataset.converter-send behind, so cron kept
+- Uninstall left /etc/cron.d/zfs.toolkit-send behind, so cron kept
   invoking a script that no longer existed, once per schedule, forever. It was
   also missing from the crontab cleanup. Both fixed, and a test now checks that
   every cron file the setup scripts create is removed again.
-- Removed the /etc/rc.d/rc.zfs.dataset.converter script. Nothing ever invoked
+- Removed the /etc/rc.d/rc.zfs.toolkit script. Nothing ever invoked
   it, and it had drifted out of date - it never learned about the replication
   schedule. The disks_mounted event hook is what actually restores the cron
   jobs after an array start.
@@ -332,7 +348,7 @@
 - Two fixes, belt and braces:
   1. The page header now sets `Markdown="false"`, the same way Unraid's own
      Plugins.page does.
-  2. The markup moved to `ZFSDatasetConverterPage.php`, which the `.page`
+  2. The markup moved to `ZFSToolkitPage.php`, which the `.page`
      includes. Unraid now only ever sees a four-line page body, so nothing it
      does to page content can reach the markup.
 - `tests/run.sh` guards both: the header directive and the page staying minimal.
@@ -383,8 +399,8 @@
   snapshot inventory. Private keys are excluded.
 
 ### Scheduling (this is why snapshots were sometimes missing)
-- Cron jobs are now installed the Unraid way: `/etc/cron.d/zfs.dataset.converter`
-  and `/etc/cron.d/zfs.dataset.converter-snapshots` plus `update_cron`.
+- Cron jobs are now installed the Unraid way: `/etc/cron.d/zfs.toolkit`
+  and `/etc/cron.d/zfs.toolkit-snapshots` plus `update_cron`.
   Entries written directly with `crontab -` were silently dropped whenever
   anything else on the system rebuilt the crontab (other plugins, User
   Scripts, schedule changes). A verification step falls back to the old
@@ -595,7 +611,7 @@ rm -f $(ls &configDir;/&name;-*.txz 2>/dev/null | grep -v '&version;')
 <INLINE>
 if [ ! -f &configDir;/settings.cfg ]; then
 cat &gt; &configDir;/settings.cfg &lt;&lt; 'SETTINGS_EOF'
-# ZFS Dataset Converter - default settings
+# ZFS Toolkit - default settings
 dry_run=yes
 cleanup=yes
 replace_spaces=no
@@ -652,14 +668,14 @@ fi
 # Those are now managed through /etc/cron.d, so drop the leftovers to avoid
 # every job running twice.
 ( crontab -l 2>/dev/null \
-  | grep -v '^# zfs-dataset-converter' \
+  | grep -v '^# zfs-toolkit' \
   | grep -v 'run_auto\.sh' \
   | grep -v 'snapshot_manager\.sh' \
 ) | crontab - 2&gt;/dev/null
 
 # Apply cron jobs from saved settings
-/usr/local/emhttp/plugins/zfs.dataset.converter/scripts/setup_cron.sh &gt;/tmp/zfs.dataset.converter/setup_cron.log 2&gt;&amp;1
-/usr/local/emhttp/plugins/zfs.dataset.converter/scripts/setup_snapshots.sh &gt;/tmp/zfs.dataset.converter/setup_snapshots.log 2&gt;&amp;1
+/usr/local/emhttp/plugins/zfs.toolkit/scripts/setup_cron.sh &gt;/tmp/zfs.toolkit/setup_cron.log 2&gt;&amp;1
+/usr/local/emhttp/plugins/zfs.toolkit/scripts/setup_snapshots.sh &gt;/tmp/zfs.toolkit/setup_snapshots.log 2&gt;&amp;1
 </INLINE>
 </FILE>
 
@@ -668,7 +684,7 @@ fi
 # Remove cron entries (managed files first, then any legacy crontab lines)
 rm -f /etc/cron.d/&name; /etc/cron.d/&name;-snapshots /etc/cron.d/&name;-send
 ( crontab -l 2>/dev/null \
-  | grep -v "# zfs-dataset-converter" \
+  | grep -v "# zfs-toolkit" \
   | grep -v "run_auto\.sh" \
   | grep -v "snapshot_manager\.sh" \
   | grep -v "zfs_send\.sh" \
@@ -678,7 +694,7 @@ command -v update_cron &gt;/dev/null 2&gt;&amp;1 &amp;&amp; update_cron &gt;/dev
 [ -f /var/run/crond.pid ] &amp;&amp; kill -HUP "$(cat /var/run/crond.pid)" 2&gt;/dev/null
 removepkg &name; 2&gt;/dev/null || rm -rf &pluginDir;
 rm -rf &tmpDir;
-echo "ZFS Dataset Converter removed. Settings in &configDir; preserved."
+echo "ZFS Toolkit removed. Settings in &configDir; preserved."
 </INLINE>
 </FILE>
 

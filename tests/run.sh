@@ -22,7 +22,7 @@ done
 
 group "PHP syntax"
 if command -v php >/dev/null 2>&1; then
-    for f in src/scripts/*.php src/*.page src/ZFSDatasetConverterPage.php; do
+    for f in src/scripts/*.php src/*.page src/ZFSToolkitPage.php; do
         [ -f "$f" ] || continue
         if err=$(php -l "$f" 2>&1); then ok "$f"; else bad "$f" "$err"; fi
     done
@@ -191,7 +191,7 @@ else
 fi
 
 group "Plugin manifest"
-PLG="src/zfs.dataset.converter.plg"
+PLG="src/zfs.toolkit.plg"
 if [ -f "$PLG" ]; then
     if python3 -c "import xml.dom.minidom,sys; xml.dom.minidom.parse('$PLG')" 2>/dev/null; then
         ok "plg is well-formed XML"
@@ -230,17 +230,17 @@ else
         "missing in:$zdc_md_missing - Unraid runs .page bodies through Markdown otherwise, which eats */5 in a cron string and turns indented blocks into code, so the JS renders as text."
 fi
 
-page_body_lines=$(sed -n '/^---$/,$p' src/ZFSDatasetConverter.page | grep -c .)
+page_body_lines=$(sed -n '/^---$/,$p' src/ZFSToolkit.page | grep -c .)
 if [ "$page_body_lines" -le 6 ]; then
     ok ".page body stays minimal (${page_body_lines} lines, includes the real page)"
 else
-    bad ".page body stays minimal" "${page_body_lines} lines - keep markup in ZFSDatasetConverterPage.php"
+    bad ".page body stays minimal" "${page_body_lines} lines - keep markup in ZFSToolkitPage.php"
 fi
 
-if [ -f src/ZFSDatasetConverterPage.php ]; then
-    ok "ZFSDatasetConverterPage.php exists"
+if [ -f src/ZFSToolkitPage.php ]; then
+    ok "ZFSToolkitPage.php exists"
 else
-    bad "ZFSDatasetConverterPage.php exists"
+    bad "ZFSToolkitPage.php exists"
 fi
 
 group "Uninstall removes what install creates"
@@ -249,7 +249,7 @@ zdc_missing_cron=""
 for f in src/scripts/setup_*.sh; do
     base=$(grep -oE 'CRON_FILE_BASE="[^"]+"' "$f" | cut -d'"' -f2)
     [ -n "$base" ] || continue
-    grep -q "/etc/cron.d/.*${base#zfs.dataset.converter}" src/zfs.dataset.converter.plg \
+    grep -q "/etc/cron.d/.*${base#zfs.toolkit}" src/zfs.toolkit.plg \
         || zdc_missing_cron="$zdc_missing_cron $base"
 done
 if [ -z "$zdc_missing_cron" ]; then
@@ -261,7 +261,7 @@ fi
 
 zdc_missing_kill=""
 for pat in run_auto snapshot_manager zfs_send; do
-    grep -q "$pat" <(sed -n '/Method="remove"/,/<\/FILE>/p' src/zfs.dataset.converter.plg) \
+    grep -q "$pat" <(sed -n '/Method="remove"/,/<\/FILE>/p' src/zfs.toolkit.plg) \
         || zdc_missing_kill="$zdc_missing_kill $pat"
 done
 if [ -z "$zdc_missing_kill" ]; then
@@ -272,13 +272,13 @@ fi
 
 group "GUI references resolve"
 
-if out=$(python3 tests/js_checks.py src/ZFSDatasetConverterPage.php 2>&1); then
+if out=$(python3 tests/js_checks.py src/ZFSToolkitPage.php 2>&1); then
     ok "JS calls, on* handlers and element ids all resolve"
     printf '       %s\n' "$(printf '%s' "$out" | sed 's/^ *//')"
 else
     bad "JS calls, on* handlers and element ids all resolve" "$out"
 fi
-PAGE="src/ZFSDatasetConverterPage.php"
+PAGE="src/ZFSToolkitPage.php"
 if [ -f "$PAGE" ]; then
     missing=""
     for ep in $(grep -oE "scripts/[a-z_]+\.php" "$PAGE" | sort -u | sed 's|scripts/||'); do
