@@ -2512,6 +2512,8 @@ function removeSendJob(i) {
              + 'Existing snapshots on the destination are left untouched.')) return;
   _sendJobs.splice(i, 1);
   renderSendTable();
+  clearTimeout(_sendSaveTimer);
+  _sendSaveTimer = null;
   saveSendJobs();
 }
 
@@ -2519,29 +2521,27 @@ var _sendSaveTimer = null;
 function saveSendJobs() {
   clearTimeout(_sendSaveTimer);
   _sendSaveTimer = setTimeout(function() {
-    // A job missing either end cannot be stored: the backend validates the
-    // whole payload and rejects it. Previously one unfinished row silently
-    // blocked saving every other change on the tab. Save what is finished and
-    // name what is still missing.
-    var complete   = _sendJobs.filter(function(j) { return j.source && j.dest; });
-    var incomplete = _sendJobs.filter(function(j) { return !(j.source && j.dest); });
     var el = document.getElementById('send-result');
 
-    if (incomplete.length) {
-      el.style.color = 'var(--zdc-warn)';
-      el.textContent = incomplete.length + ' job(s) still need a source and a destination'
-                     + (complete.length ? ' \u2014 the rest is saved' : ' \u2014 nothing saved yet');
-    }
-    if (!complete.length) return;
-
+    // Send the list as it stands, including an empty one. Filtering here used
+    // to mean that deleting the last job saved nothing at all, and that
+    // clearing a field to retype it dropped that job from the file.
     postForm(_base + '/send_control.php',
-             {action: 'save_jobs', jobs_json: JSON.stringify({jobs: complete})})
+             {action: 'save_jobs', jobs_json: JSON.stringify({jobs: _sendJobs})})
     .then(function(res) {
-      if (!res.ok)          { el.style.color = 'var(--zdc-err)'; el.textContent = res.error; }
-      else if (res.warning) { el.style.color = 'var(--zdc-warn)'; el.textContent = res.warning; }
-      else if (incomplete.length) { /* keep the note about unfinished jobs */ }
-      else                  { el.style.color = 'var(--zdc-ok)'; el.textContent = '\u2713 Saved';
-                              setTimeout(function() { el.textContent = ''; }, 2000); }
+      if (!res.ok) { el.style.color = 'var(--zdc-err)'; el.textContent = res.error; return; }
+
+      var draft = _sendJobs.filter(function(j) { return !(j.source && j.dest); }).length;
+      if (res.warning) {
+        el.style.color = 'var(--zdc-warn)'; el.textContent = res.warning;
+      } else if (draft) {
+        el.style.color = 'var(--zdc-warn)';
+        el.textContent = draft + ' job(s) need a source and a destination \u2014 saved but disabled';
+      } else {
+        el.style.color = 'var(--zdc-ok)';
+        el.textContent = '\u2713 Saved';
+        setTimeout(function() { if (el.textContent === '\u2713 Saved') el.textContent = ''; }, 2000);
+      }
     }).catch(function(){});
   }, 900);
 }

@@ -26,43 +26,51 @@ if ($action === 'save_jobs') {
     if ($data === null) zdc_fail('Invalid JSON: ' . json_last_error_msg());
     if (!isset($data['jobs']) || !is_array($data['jobs'])) $data = array('jobs' => array());
 
+    // Everything the user typed is stored, including half-finished rows -
+    // otherwise clearing a field to retype it would delete the job. A row that
+    // is not runnable is stored disabled, so the worker never sees it.
+    $warnings = array();
     $seen = array();
+
     foreach ($data['jobs'] as $i => $j) {
-        $label = isset($j['name']) && $j['name'] !== '' ? $j['name'] : ('#' . ($i + 1));
+        if (!is_array($j)) { unset($data['jobs'][$i]); continue; }
 
-        if (empty($j['source']) || !zdc_valid_dataset($j['source'])) {
-            zdc_fail('Job ' . $label . ': invalid source dataset');
-        }
-        if (empty($j['dest']) || !zdc_valid_dataset($j['dest'])) {
-            zdc_fail('Job ' . $label . ': invalid destination dataset');
-        }
-
+        $label = (isset($j['name']) && $j['name'] !== '') ? $j['name'] : ('#' . ($i + 1));
+        $src   = isset($j['source']) ? trim($j['source']) : '';
+        $dst   = isset($j['dest'])   ? trim($j['dest'])   : '';
         $transport = (isset($j['transport']) && $j['transport'] === 'ssh') ? 'ssh' : 'local';
-        if ($transport === 'local') {
-            if ($j['source'] === $j['dest']) {
-                zdc_fail('Job ' . $label . ': source and destination are identical');
-            }
-            if (strpos($j['dest'] . '/', $j['source'] . '/') === 0) {
-                zdc_fail('Job ' . $label . ': destination lies inside the source dataset');
-            }
-        } else {
-            if (empty($j['ssh_host'])
-                || !preg_match('/^[A-Za-z0-9._@-]+$/', $j['ssh_host'])) {
-                zdc_fail('Job ' . $label . ': invalid SSH host (expected user@host)');
-            }
-            if (!empty($j['ssh_key']) && !preg_match('#^/[A-Za-z0-9._/-]+$#', $j['ssh_key'])) {
-                zdc_fail('Job ' . $label . ': invalid SSH key path');
-            }
-        }
 
         $id = isset($j['id']) ? $j['id'] : '';
-        if ($id === '' || !preg_match('/^[A-Za-z0-9_-]+$/', $id)) {
-            $id = 'job' . ($i + 1);
-            $data['jobs'][$i]['id'] = $id;
-        }
-        if (isset($seen[$id])) zdc_fail('Duplicate job id: ' . $id);
+        if ($id === '' || !preg_match('/^[A-Za-z0-9_-]+$/', $id)) $id = 'job' . ($i + 1);
+        while (isset($seen[$id])) $id .= '_';
         $seen[$id] = true;
+        $data['jobs'][$i]['id'] = $id;
+
+        $why = '';
+        if ($src === '' || $dst === '') {
+            $why = 'incomplete';
+        } elseif (!zdc_valid_dataset($src)) {
+            $why = 'source "' . $src . '" is not a valid dataset name';
+        } elseif (!zdc_valid_dataset($dst)) {
+            $why = 'destination "' . $dst . '" is not a valid dataset name';
+        } elseif ($transport === 'ssh') {
+            if (empty($j['ssh_host']) || !preg_match('/^[A-Za-z0-9._@-]+$/', $j['ssh_host'])) {
+                $why = 'SSH host missing or invalid (expected user@host)';
+            } elseif (!empty($j['ssh_key']) && !preg_match('#^/[A-Za-z0-9._/-]+$#', $j['ssh_key'])) {
+                $why = 'SSH key path is invalid';
+            }
+        } elseif ($src === $dst) {
+            $why = 'source and destination are identical';
+        } elseif (strpos($dst . '/', $src . '/') === 0) {
+            $why = 'destination lies inside the source dataset';
+        }
+
+        if ($why !== '') {
+            $data['jobs'][$i]['enabled'] = false;
+            if ($why !== 'incomplete') $warnings[] = 'Job ' . $label . ': ' . $why . ' - disabled';
+        }
     }
+    $data['jobs'] = array_values($data['jobs']);
 
     if (!is_dir(ZDC_CONFIG_DIR)) @mkdir(ZDC_CONFIG_DIR, 0755, true);
     $written = file_put_contents(
@@ -71,13 +79,13 @@ if ($action === 'save_jobs') {
     if ($written === false) zdc_fail('Cannot write ' . $jobsFile);
 
     $setup = ZDC_PLUGIN_DIR . '/scripts/setup_send.sh';
-    $warn  = '';
     if (file_exists($setup)) {
         list($out, $rc) = zdc_run('/bin/bash ' . escapeshellarg($setup));
-        if ($rc !== 0) $warn = trim(implode(' ', $out));
+        if ($rc !== 0) $warnings[] = trim(implode(' ', $out));
     }
 
-    zdc_out(array('ok' => true, 'warning' => $warn));
+    zdc_out(array('ok' => true, 'saved' => count($data['jobs']),
+                  'warning' => $warnings ? implode('; ', $warnings) : ''));
 }
 
 if ($action === 'status') {

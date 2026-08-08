@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.dataset.converter">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.08.08.17">
-<!ENTITY md5       "5ec6430d29f182efb937c12fed9fd553">
+<!ENTITY version   "2026.08.08.18">
+<!ENTITY md5       "61dfcf9ad1c94e27272e666390f7d2d0">
 <!ENTITY launch    "Settings/ZFSDatasetConverter">
 <!ENTITY github    "MajorPain007/zfs-dataset-converter">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,19 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.08.08.18 — Deleting a replication job sticks
+
+- Deleting a job appeared to work and came back on reload. The save routine
+  skipped the write whenever no complete job was left, so removing the last one
+  wrote nothing and the old file survived.
+- The same guard had a worse side effect: clearing a field to retype it made
+  that job count as incomplete, and the next save dropped it from the file.
+- Both are gone. The list is written as it stands, empty included. A job that
+  is not runnable is stored disabled rather than discarded, so nothing is lost
+  mid-edit and the worker still never sees a half-finished job. Reasons like an
+  invalid dataset name or a destination inside the source are reported instead
+  of failing the whole save.
+
 ## Version 2026.08.08.17 — No dead end in empty folders, replication saves again
 
 - Opening an empty folder in the snapshot browser left no way out: the listing
