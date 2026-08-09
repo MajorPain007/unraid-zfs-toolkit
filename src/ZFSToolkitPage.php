@@ -619,7 +619,8 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
 </div>
 <div class="zdc-card snap-gated"<?= cfgBool('snapshots_enabled')?'':' style="display:none"' ?>>
   <h3>Retention</h3>
-<p class="zdc-sub">Global Retention (per dataset unless overridden)</p>
+<p class="zdc-sub">Global Retention &mdash; how many snapshots of each type to keep</p>
+    <p style="font-size:12px;color:var(--zdc-dim);margin:-6px 0 10px;">These are counts, not times of day. 24 hourly keeps one day's worth. Applies to every dataset that does not override it below; 0 switches that type off.</p>
     <div style="display:flex;flex-wrap:wrap;gap:8px 20px;margin-bottom:10px;">
       <?php
         $snap_fields = [
@@ -682,7 +683,7 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
           <th style="text-align:left">Dataset</th>
           <th>Recursive</th>
           <th title="Use global retention values">Template</th>
-          <th>Hourly</th><th>Daily</th><th>Weekly</th><th>Monthly</th><th>Yearly</th>
+          <th title="How many hourly snapshots to keep">Hourly</th><th title="How many daily snapshots to keep">Daily</th><th title="How many weekly snapshots to keep">Weekly</th><th title="How many monthly snapshots to keep">Monthly</th><th title="How many yearly snapshots to keep">Yearly</th>
           <th></th>
         </tr></thead>
         <tbody id="snap-ds-tbody"></tbody>
@@ -1121,9 +1122,12 @@ function toggleCronDetails() {
 
 function updateCronPreview() {
   var preset  = document.getElementById('cron_preset').value;
-  var hour    = parseInt(document.getElementById('cron_hour').value)   || 0;
-  var minute  = parseInt(document.getElementById('cron_minute').value) || 0;
-  var weekday = parseInt(document.getElementById('cron_weekday').value);
+  // Same limits and same fallbacks as setup_cron.sh, which clamps before it
+  // builds the expression. Without them the preview shows "99 2 * * *" while
+  // "0 2 * * *" is what actually gets installed.
+  var hour    = zdcClamp(document.getElementById('cron_hour').value,    0, 23, 2);
+  var minute  = zdcClamp(document.getElementById('cron_minute').value,  0, 59, 0);
+  var weekday = zdcClamp(document.getElementById('cron_weekday').value, 0,  7, 0);
   var custom  = document.getElementById('cron_custom').value.trim();
 
   var timeRow    = document.getElementById('cron-time-row');
@@ -1459,6 +1463,14 @@ function updateSnapPreview() {
 //
 // Kept in step with zdc_valid_cron in zdc_common.sh and cronProblem in
 // save_settings.php; tests/run.sh compares all three against one table.
+// A field value the way the setup scripts read it: a number inside the range,
+// or the same fallback they use. Keeping the two in step is what makes the
+// preview show the schedule that will actually be installed.
+function zdcClamp(value, lo, hi, fallback) {
+  var n = parseInt(value, 10);
+  return (isNaN(n) || n < lo || n > hi) ? fallback : n;
+}
+
 function cronProblem(expr) {
   // Inside the function on purpose. As a top-level var it was hoisted but not
   // yet assigned when updateCronPreview() runs during page setup further up the
@@ -1521,6 +1533,9 @@ function cronProblem(expr) {
 function validCronExpr(expr) { return cronProblem(expr) === ''; }
 
 function zdcCronPreview(previewId, hintId, expr, custom) {
+  // Only a hand-written expression is checked. The presets build theirs from
+  // fields the setup scripts clamp to their ranges anyway, so flagging one would
+  // be a false alarm about a schedule that installs correctly.
   var why = custom ? cronProblem(expr) : '';
   var el  = document.getElementById(previewId);
   if (el) {
@@ -2533,8 +2548,7 @@ function toggleSendDetails() {
 
 function updateSendPreview() {
   var preset = document.getElementById('send_schedule_preset').value;
-  var hour   = parseInt(document.getElementById('send_schedule_hour').value, 10);
-  if (isNaN(hour) || hour < 0 || hour > 23) hour = 4;
+  var hour = zdcClamp(document.getElementById('send_schedule_hour').value, 0, 23, 4);
 
   document.getElementById('send-hour-wrap').style.display =
     (preset === 'daily' || preset === 'weekly') ? '' : 'none';

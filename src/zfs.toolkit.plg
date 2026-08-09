@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.toolkit">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.08.08.31">
-<!ENTITY md5       "ddf2c3c600ea9938f88726bd0147ab81">
+<!ENTITY version   "2026.08.08.32">
+<!ENTITY md5       "5173022a81d003f87639e716904cc501">
 <!ENTITY launch    "Settings/ZFSToolkit">
 <!ENTITY github    "MajorPain007/unraid-zfs-toolkit">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,23 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.08.08.32 — The schedule preview showed one thing, cron ran another
+
+Typing a value past the limit of the hour or minute box, say 99, left the
+preview reading "99 2 * * *". The setup scripts clamp those fields before they
+build the expression, so what actually got installed was "0 2 * * *" - a working
+schedule, at a time nobody had been shown.
+
+The page now applies the same limits and the same fallbacks as the setup
+scripts, so the preview is the schedule. A test compares the two sides and fails
+if either changes alone.
+
+Nothing was broken by this; the schedules were correct all along. What was wrong
+was being told otherwise.
+
+Also: the Retention card says what its numbers are. "Hourly 24" is how many
+snapshots to keep, not a time of day, and nothing on the card said so.
+
 ## Version 2026.08.08.31 — Fixes 2026.08.08.30, which broke the page
 
 The page did not work in .30: no tabs, overlapping cards, no datasets. One

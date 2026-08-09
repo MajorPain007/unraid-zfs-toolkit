@@ -200,6 +200,26 @@ else
     bad "prune matcher selects only our own snapshots of that type" "$matched"
 fi
 
+group "Preview limits match the setup scripts"
+
+# The setup scripts clamp hour, minute and weekday before building the
+# expression, so a preset schedule is valid whatever is typed into those boxes.
+# The page has to clamp identically, or it shows one schedule while another gets
+# installed.
+zdc_clamp_bad=""
+grep -q 'zdcClamp(document.getElementById(.cron_hour.).value,    0, 23, 2)'   src/ZFSToolkitPage.php || zdc_clamp_bad="$zdc_clamp_bad cron_hour"
+grep -q 'zdcClamp(document.getElementById(.cron_minute.).value,  0, 59, 0)'   src/ZFSToolkitPage.php || zdc_clamp_bad="$zdc_clamp_bad cron_minute"
+grep -q 'zdcClamp(document.getElementById(.send_schedule_hour.).value, 0, 23, 4)' src/ZFSToolkitPage.php || zdc_clamp_bad="$zdc_clamp_bad send_hour"
+grep -q 'HOUR    <= 23 )) || HOUR=2'   src/scripts/setup_cron.sh || zdc_clamp_bad="$zdc_clamp_bad backend_hour"
+grep -q 'MINUTE  <= 59 )) || MINUTE=0' src/scripts/setup_cron.sh || zdc_clamp_bad="$zdc_clamp_bad backend_minute"
+grep -q 'HOUR <= 23 )) || HOUR=4'      src/scripts/setup_send.sh || zdc_clamp_bad="$zdc_clamp_bad backend_send_hour"
+if [ -z "$zdc_clamp_bad" ]; then
+    ok "page and setup scripts clamp the schedule fields to the same values"
+else
+    bad "page and setup scripts clamp to the same values" \
+        "out of step:$zdc_clamp_bad - the preview would show a schedule other than the one installed"
+fi
+
 group "Cron validators agree with each other"
 
 # Three implementations - shell, PHP, JavaScript - decide whether a schedule is
