@@ -115,17 +115,40 @@ while ($json =~ /\{([^{}]*)\}/g) {
     next unless defined $ds{name} && length $ds{name};
     my $rec = (defined($ds{recursive}) && $ds{recursive} eq "true") ? "1" : "0";
     my $tpl = (!defined($ds{use_template}) || $ds{use_template} eq "true") ? "1" : "0";
-    my @r = map { my $v = $ds{$_}; (defined($v) && $v ne "") ? $v : "t" }
+    # A missing key means the config predates per-dataset overrides and should
+    # follow the template. An empty field means the user cleared it, and "keep
+    # none" is already spelled 0 - no separate marker needed, and a number
+    # cannot make the columns shift the way an empty one would.
+    my @r = map { my $v = $ds{$_};
+                  !defined($v) ? "t" : ($v eq "" ? 0 : $v) }
             qw(hourly daily weekly monthly yearly);
     @r = ("t") x 5 if $tpl eq "1";
-    print join("\t", $ds{name}, $rec, @r), "\n";
+    # frequent has no per-dataset field, so it follows the template switch: on
+    # means the global value, off means off. Without this a row switched fully
+    # off still took frequent snapshots as soon as the global was raised.
+    my $freq = $tpl eq "1" ? "t" : 0;
+    print join("\t", $ds{name}, $rec, @r, $freq), "\n";
 }
 ' "$DATASETS_JSON" 2>/dev/null
 }
 
+# Turn a configured retention into a number of snapshots to keep: "t" follows
+# the global template, a number is that number, and 0 - which is what an empty
+# field becomes - means none, i.e. no snapshots of that type.
+#
+# Anything else is nonsense and counts as off rather than quietly falling back
+# to the global, which is how a dataset switched off ended up following it.
+# The warning goes to stderr: this runs inside $(...) and stdout would land in
+# the value.
 resolve() {
-    local val="$1" global="$2"
-    if [ "$val" = "t" ] || ! zdc_valid_int "$val"; then echo "$global"; else echo "$val"; fi
+    local val="$1" global="$2" what="$3"
+    [ "$val" = "t" ] && { echo "$global"; return; }
+    if zdc_valid_int "$val"; then
+        echo "$val"
+        return
+    fi
+    log_warn "Ignoring invalid retention '${val}' for ${what} - treating it as off" >&2
+    echo 0
 }
 
 SNAP_ROWS=""
@@ -338,7 +361,7 @@ process_dataset() {
 
     load_snaps "$name"
 
-    if (( SNAP_FREQUENT > 0 )) || (( FORCE_ALL )); then
+    if (( f_keep > 0 )) || (( FORCE_ALL )); then
         create_snapshot "$name" "frequent" "$K_FREQ" "$recursive"
     fi
 
@@ -351,7 +374,7 @@ process_dataset() {
         (( y_keep > 0 )) && create_snapshot "$name" "yearly"  "$K_YEAR"  "$recursive"
     fi
 
-    prune_snapshots "$name" "frequent" "$SNAP_FREQUENT" "$recursive" "$AGE_FREQUENT"
+    prune_snapshots "$name" "frequent" "$f_keep" "$recursive" "$AGE_FREQUENT"
     prune_snapshots "$name" "hourly"   "$h_keep" "$recursive" "$AGE_HOURLY"
     prune_snapshots "$name" "daily"    "$d_keep" "$recursive" "$AGE_DAILY"
     prune_snapshots "$name" "weekly"   "$w_keep" "$recursive" "$AGE_WEEKLY"
@@ -377,7 +400,7 @@ AVAILABLE=$(zfs list -H -o name 2>/dev/null)
 DS_COUNT=0
 POOLS=""
 
-while IFS=$'\t' read -r name recursive h d w m y; do
+while IFS=$'\t' read -r name recursive h d w m y f; do
     [ -n "$name" ] || continue
 
     if ! zdc_valid_dataset "$name"; then
@@ -394,11 +417,12 @@ while IFS=$'\t' read -r name recursive h d w m y; do
     pool="${name%%/*}"
     [[ "$POOLS" != *"|${pool}|"* ]] && POOLS="${POOLS}|${pool}|"
 
-    h_keep=$(resolve "$h" "$SNAP_HOURLY")
-    d_keep=$(resolve "$d" "$SNAP_DAILY")
-    w_keep=$(resolve "$w" "$SNAP_WEEKLY")
-    m_keep=$(resolve "$m" "$SNAP_MONTHLY")
-    y_keep=$(resolve "$y" "$SNAP_YEARLY")
+    h_keep=$(resolve "$h" "$SNAP_HOURLY" "${name} hourly")
+    d_keep=$(resolve "$d" "$SNAP_DAILY" "${name} daily")
+    w_keep=$(resolve "$w" "$SNAP_WEEKLY" "${name} weekly")
+    m_keep=$(resolve "$m" "$SNAP_MONTHLY" "${name} monthly")
+    y_keep=$(resolve "$y" "$SNAP_YEARLY" "${name} yearly")
+    f_keep=$(resolve "$f" "$SNAP_FREQUENT" "${name} frequent")
 
     log "Processing dataset: ${name} (recursive=${recursive})"
     process_dataset "$name" "$recursive" "$h_keep" "$d_keep" "$w_keep" "$m_keep" "$y_keep"

@@ -283,6 +283,57 @@ else
     bad "uninstall strips every legacy crontab line" "missing:$zdc_missing_kill"
 fi
 
+group "Per-dataset snapshot settings"
+
+# A row with the template switched off and every field left blank must produce
+# no snapshots. It used to: an empty value stayed empty and failed the > 0 test.
+# The rewrite turned empty into "use the template", so such a dataset silently
+# started following the global retention.
+zdc_tmp_json=$(mktemp)
+cat > "$zdc_tmp_json" <<'JSON'
+{"datasets":[
+ {"name":"cache/appdata","recursive":true,"use_template":true,"hourly":"","daily":"","weekly":"","monthly":"","yearly":""},
+ {"name":"cache/Downloads","recursive":false,"use_template":false,"hourly":"","daily":"","weekly":"","monthly":"","yearly":""},
+ {"name":"cache/isos","recursive":false,"use_template":false,"hourly":"6","daily":"","weekly":"","monthly":"","yearly":""}
+]}
+JSON
+zdc_rows=$(python3 - "$zdc_tmp_json" <<'ZDCPY'
+import re, subprocess, sys, pathlib
+src = pathlib.Path('src/scripts/snapshot_manager.sh').read_text()
+m = re.search(r"perl -e '\n(.*?)\n' \"\$DATASETS_JSON\"", src, re.S)
+if not m:
+    sys.exit("EXTRACT_FAIL")
+pl = pathlib.Path(sys.argv[1] + '.pl')
+pl.write_text(m.group(1))
+r = subprocess.run(['perl', str(pl), sys.argv[1]], capture_output=True, text=True)
+sys.stdout.write(r.stdout)
+ZDCPY
+)
+
+zdc_off=$(printf '%s\n' "$zdc_rows" | grep '^cache/Downloads' | cut -f3-)
+if [ "$zdc_off" = "$(printf '0\t0\t0\t0\t0\t0')" ]; then
+    ok "a dataset with the template off and no values is off, not on the global"
+else
+    bad "a dataset with the template off and no values is off" \
+        "got '$zdc_off' - anything but zeros means it follows the global retention"
+fi
+
+zdc_tpl=$(printf '%s\n' "$zdc_rows" | grep '^cache/appdata' | cut -f3-)
+if [ "$zdc_tpl" = "$(printf 't\tt\tt\tt\tt\tt')" ]; then
+    ok "a dataset with the template on follows the global retention"
+else
+    bad "a dataset with the template on follows the global retention" "got '$zdc_tpl'"
+fi
+
+zdc_mix=$(printf '%s\n' "$zdc_rows" | grep '^cache/isos' | cut -f3-)
+if [ "$zdc_mix" = "$(printf '6\t0\t0\t0\t0\t0')" ]; then
+    ok "one value set and the rest blank keeps the blanks off"
+else
+    bad "one value set and the rest blank keeps the blanks off" \
+        "got '$zdc_mix' - the columns must not shift when a field is empty"
+fi
+rm -f "$zdc_tmp_json" "$zdc_tmp_json.pl"
+
 group "GUI references resolve"
 
 if out=$(python3 tests/js_checks.py src/ZFSToolkitPage.php 2>&1); then

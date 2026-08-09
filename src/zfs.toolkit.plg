@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.toolkit">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.08.08.26">
-<!ENTITY md5       "bde690e21a80c4def93cf7498733e86c">
+<!ENTITY version   "2026.08.08.27">
+<!ENTITY md5       "2dbe057daff7b12f2d3c5bffc0446e3b">
 <!ENTITY launch    "Settings/ZFSToolkit">
 <!ENTITY github    "MajorPain007/unraid-zfs-toolkit">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,26 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.08.08.27 — A dataset switched off stayed off
+
+A dataset with the template switch off and no retention values entered was
+getting snapshots anyway, following the global retention. The switches have to
+mean what they say, and this one did not.
+
+- An empty retention field now means none of that type, which is what leaving it
+  blank looks like it means. It regressed in 2026.08.08.01: before that an empty
+  value stayed empty and failed the "keep more than zero" test, afterwards it was
+  read as "no value given, use the template".
+- Frequent snapshots followed the global setting for every dataset, with no way
+  to switch them off per dataset. They follow the template switch now, so a row
+  turned off does not start taking them the moment the global is raised.
+- A retention value that is not a number counts as off and says so in the log,
+  instead of quietly falling back to the global.
+- The fields show "off" as their placeholder, so a blank one reads as what it is.
+
+Three tests cover the case, including one dataset with a single value set and
+the rest blank.
+
 ## Version 2026.08.08.26 — Stop reporting a working schedule as failed
 
 Follow-up to .25, from looking at a real system: /etc/cron.d and

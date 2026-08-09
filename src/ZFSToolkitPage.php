@@ -1540,7 +1540,8 @@ function renderSnapTable() {
       var val = tpl ? getGlobalRetention(f) : (ds[f] !== undefined && ds[f] !== '' ? ds[f] : '');
       var attrs = tpl
         ? 'disabled title="Using global template value" style="opacity:.55;width:52px;text-align:center;padding:2px 4px;font-size:12px;background:var(--zdc-sunken);"'
-        : 'oninput="snapDsField('+i+',\''+f+'\',this.value)" style="width:52px;text-align:center;padding:2px 4px;font-size:12px;"';
+        : 'placeholder="off" title="Empty or 0 = no ' + f + ' snapshots for this dataset"'
+          + ' oninput="snapDsField('+i+',\''+f+'\',this.value)" style="width:52px;text-align:center;padding:2px 4px;font-size:12px;"';
       html += '<td><input type="number" min="0" max="999" ' + attrs + ' value="' + esc(String(val)) + '"></td>';
     });
     html += '<td><button type="button" class="btn-danger" style="padding:2px 8px;font-size:11px;" onclick="removeSnapDataset('+i+')">✕</button></td>';
