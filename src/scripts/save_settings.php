@@ -39,12 +39,64 @@ $allowed = [
     'send_enabled', 'send_schedule_preset', 'send_schedule_hour', 'send_schedule_custom',
 ];
 
-function validCron($expr) {
+/**
+ * Says what is wrong with a cron expression, or '' when nothing is.
+ *
+ * Digits and the four operators only - no month or weekday names. Numbers are
+ * unambiguous, and refusing names is what makes it possible to check each field
+ * against its own range rather than only its shape: "70 * * * *" has five
+ * fields and legal characters, and never runs.
+ *
+ * Kept in step with zdc_valid_cron in zdc_common.sh and cronProblem in the page;
+ * tests/run.sh compares all three against the same table.
+ */
+function cronProblem($expr) {
     $expr = trim($expr);
-    if ($expr === '') return false;
-    if (!preg_match('/^[0-9A-Za-z*\/,\s-]+$/', $expr)) return false;
-    return count(preg_split('/\s+/', $expr)) === 5;
+    if ($expr === '') return 'No cron expression entered.';
+    if (preg_match('/[;&|$`()<>\r\n]/', $expr)) {
+        return 'Contains characters that could be read as a shell command.';
+    }
+    if (!preg_match('/^[0-9*\/,\s-]+$/', $expr)) {
+        return 'Only digits and * / , - are allowed. Use numbers for weekdays and months.';
+    }
+    $fields = preg_split('/\s+/', $expr);
+    if (count($fields) !== 5) {
+        return 'A cron expression has 5 fields (minute hour day month weekday), this one has '
+             . count($fields) . '.';
+    }
+    $names = array('Minute', 'Hour', 'Day of month', 'Month', 'Weekday');
+    $lo    = array(0, 0, 1, 1, 0);
+    $hi    = array(59, 23, 31, 12, 7);
+    foreach ($fields as $i => $field) {
+        foreach (explode(',', $field) as $part) {
+            if ($part === '') return $names[$i] . ': empty value in the list.';
+            if (strpos($part, '/') !== false) {
+                list($part, $step) = explode('/', $part, 2);
+                if (!preg_match('/^[0-9]+$/', $step) || (int)$step < 1 || (int)$step > $hi[$i]) {
+                    return $names[$i] . ': step must be 1-' . $hi[$i] . '.';
+                }
+            }
+            if ($part === '*') continue;
+            if (strpos($part, '-') !== false) {
+                list($a, $b) = explode('-', $part, 2);
+                if (!preg_match('/^[0-9]+$/', $a) || !preg_match('/^[0-9]+$/', $b)) {
+                    return $names[$i] . ': range must be two numbers.';
+                }
+                if ((int)$a < $lo[$i] || (int)$b > $hi[$i] || (int)$a > (int)$b) {
+                    return $names[$i] . ': range must run upwards inside ' . $lo[$i] . '-' . $hi[$i] . '.';
+                }
+                continue;
+            }
+            if (!preg_match('/^[0-9]+$/', $part)
+                || (int)$part < $lo[$i] || (int)$part > $hi[$i]) {
+                return $names[$i] . ' must be ' . $lo[$i] . '-' . $hi[$i] . ', got "' . $part . '".';
+            }
+        }
+    }
+    return '';
 }
+
+function validCron($expr) { return cronProblem($expr) === ''; }
 
 $configDir  = '/boot/config/plugins/zfs.toolkit';
 $configFile = $configDir . '/settings.cfg';

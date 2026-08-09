@@ -83,7 +83,17 @@ if ZDC_TMP_DIR="$(mktemp -d)" . src/scripts/zdc_common.sh 2>/dev/null; then
     }
     cron_case '*/15 * * * *'        valid
     cron_case '0 2 * * *'           valid
-    cron_case '0 */6 * * MON-FRI'   valid
+    cron_case '0 */6 * * 1-5'       valid
+    cron_case '0 */6 * * MON-FRI'   reject   # names are out, numbers only
+    cron_case '70 * * * *'          reject
+    cron_case '0 25 * * *'          reject
+    cron_case '0 0 32 * *'          reject
+    cron_case '0 0 * 13 *'          reject
+    cron_case '0 0 * * 8'           reject
+    cron_case '*/0 * * * *'         reject
+    cron_case '5-2 * * * *'         reject
+    cron_case '0,30 8-18 * * 1-5'   valid
+    cron_case '59 23 31 12 7'       valid
     cron_case '30 3 1,15 * *'       valid
     cron_case '*/15 * * *'          reject
     cron_case '*/15 * * * * *'      reject
@@ -189,6 +199,68 @@ if [ "$matched" = "cache/appdata@auto-hourly-2026-08-07_10-00" ]; then
 else
     bad "prune matcher selects only our own snapshots of that type" "$matched"
 fi
+
+group "Cron validators agree with each other"
+
+# Three implementations - shell, PHP, JavaScript - decide whether a schedule is
+# installed, saved and shown as valid. They have to give the same answer, or the
+# UI accepts something the backend refuses, or the other way round.
+zdc_cron_cases='*/15 * * * *:valid
+0 2 * * *:valid
+0 */6 * * 1-5:valid
+0,30 8-18 * * 1-5:valid
+59 23 31 12 7:valid
+0 0 1 1 0:valid
+70 * * * *:reject
+0 25 * * *:reject
+0 0 32 * *:reject
+0 0 * 13 *:reject
+0 0 * * 8:reject
+*/0 * * * *:reject
+5-2 * * * *:reject
+0 2 * * MON:reject
+abc * * * *:reject
+0 2 * *:reject
+:reject
+0 2 * * * ; rm -rf /:reject'
+
+zdc_php_probe=$(mktemp); zdc_js_probe=$(mktemp)
+{ echo "<?php"; sed -n "/^function cronProblem/,/^function validCron/p" src/scripts/save_settings.php; } > "$zdc_php_probe.inc"
+python3 - "$zdc_js_probe" <<'ZDCJS'
+import re, sys, pathlib
+src = pathlib.Path('src/ZFSToolkitPage.php').read_text()
+i = src.index('var CRON_FIELDS')
+j = src.index('function validCronExpr(expr)')
+pathlib.Path(sys.argv[1]).write_text(src[i:j])
+ZDCJS
+
+zdc_disagree=""
+while IFS= read -r line; do
+    expr="${line%:*}"; want="${line##*:}"
+
+    if zdc_valid_cron "$expr" 2>/dev/null; then sh_got=valid; else sh_got=reject; fi
+
+    php_got=$(EXPR="$expr" INC="$zdc_php_probe.inc" php -r '
+        include getenv("INC");
+        echo cronProblem(getenv("EXPR")) === "" ? "valid" : "reject";
+    ' 2>/dev/null) || php_got="error"
+
+    js_got=$(EXPR="$expr" node -e '
+        '"$(cat "$zdc_js_probe")"'
+        process.stdout.write(cronProblem(process.env.EXPR) === "" ? "valid" : "reject");
+    ' 2>/dev/null) || js_got="error"
+
+    for pair in "shell:$sh_got" "php:$php_got" "js:$js_got"; do
+        [ "${pair#*:}" = "$want" ] || zdc_disagree="$zdc_disagree [${pair%%:*} on '$expr': ${pair#*:}, want $want]"
+    done
+done <<< "$zdc_cron_cases"
+
+if [ -z "$zdc_disagree" ]; then
+    ok "shell, PHP and JavaScript agree on all $(printf '%s\n' "$zdc_cron_cases" | grep -c .) expressions"
+else
+    bad "shell, PHP and JavaScript agree on every expression" "$zdc_disagree"
+fi
+rm -f "$zdc_php_probe" "$zdc_php_probe.inc" "$zdc_js_probe"
 
 group "Plugin manifest"
 PLG="src/zfs.toolkit.plg"

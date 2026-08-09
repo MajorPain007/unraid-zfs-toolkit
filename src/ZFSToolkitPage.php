@@ -1451,18 +1451,66 @@ function updateSnapPreview() {
   zdcCronPreview('snap-cron-preview', 'snap-cron-hint', expr, custom);
 }
 
-// Returns '' when the expression is usable, otherwise what is wrong with it.
-// A bad expression is refused rather than replaced by a default: running on
-// some other schedule without saying so is worse than not running.
+// Says what is wrong with a cron expression, or '' when nothing is. Digits and
+// the four operators only - no month or weekday names. Numbers are unambiguous,
+// and refusing names is what makes it possible to check each field against its
+// own range instead of only its shape: "70 * * * *" has five fields and legal
+// characters, and never runs.
+//
+// Kept in step with zdc_valid_cron in zdc_common.sh and cronProblem in
+// save_settings.php; tests/run.sh compares all three against one table.
+var CRON_FIELDS = [
+  {name: 'Minute',       lo: 0, hi: 59},
+  {name: 'Hour',         lo: 0, hi: 23},
+  {name: 'Day of month', lo: 1, hi: 31},
+  {name: 'Month',        lo: 1, hi: 12},
+  {name: 'Weekday',      lo: 0, hi: 7}
+];
+
 function cronProblem(expr) {
   expr = (expr || '').trim();
   if (!expr) return 'No cron expression entered.';
-  if (!/^[0-9A-Za-z*\/,\s-]+$/.test(expr)) {
-    return 'Contains characters a cron expression cannot have.';
+  if (/[;&|$`()<>\r\n]/.test(expr)) {
+    return 'Contains characters that could be read as a shell command.';
   }
-  var n = expr.split(/\s+/).length;
-  if (n !== 5) {
-    return 'A cron expression has 5 fields (minute hour day month weekday), this one has ' + n + '.';
+  if (!/^[0-9*\/,\s-]+$/.test(expr)) {
+    return 'Only digits and * / , - are allowed. Use numbers for weekdays and months.';
+  }
+  var fields = expr.split(/\s+/);
+  if (fields.length !== 5) {
+    return 'A cron expression has 5 fields (minute hour day month weekday), this one has '
+         + fields.length + '.';
+  }
+  for (var i = 0; i < 5; i++) {
+    var f = CRON_FIELDS[i];
+    var parts = fields[i].split(',');
+    for (var j = 0; j < parts.length; j++) {
+      var part = parts[j];
+      if (part === '') return f.name + ': empty value in the list.';
+      var slash = part.indexOf('/');
+      if (slash !== -1) {
+        var step = part.slice(slash + 1);
+        part = part.slice(0, slash);
+        if (!/^[0-9]+$/.test(step) || +step < 1 || +step > f.hi) {
+          return f.name + ': step must be 1-' + f.hi + '.';
+        }
+      }
+      if (part === '*') continue;
+      var dash = part.indexOf('-');
+      if (dash !== -1) {
+        var a = part.slice(0, dash), b = part.slice(dash + 1);
+        if (!/^[0-9]+$/.test(a) || !/^[0-9]+$/.test(b)) {
+          return f.name + ': range must be two numbers.';
+        }
+        if (+a < f.lo || +b > f.hi || +a > +b) {
+          return f.name + ': range must run upwards inside ' + f.lo + '-' + f.hi + '.';
+        }
+        continue;
+      }
+      if (!/^[0-9]+$/.test(part) || +part < f.lo || +part > f.hi) {
+        return f.name + ' must be ' + f.lo + '-' + f.hi + ', got "' + part + '".';
+      }
+    }
   }
   return '';
 }

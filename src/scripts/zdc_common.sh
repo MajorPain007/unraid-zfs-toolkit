@@ -36,15 +36,59 @@ zdc_cfg() {
     fi
 }
 
+# One field of a cron expression against its own range: a bare number, a range,
+# a list, or any of those with a /step. Checking the range matters - "70 * * * *"
+# has five fields and only legal characters, and never runs.
+zdc_valid_cron_field() {
+    local spec="$1" lo="$2" hi="$3" part step a b
+    local -a parts
+    # read -ra, not "for part in $spec": an unquoted expansion is glob-expanded,
+    # and a field containing * would be replaced by the directory listing.
+    IFS=',' read -ra parts <<< "$spec"
+    for part in "${parts[@]}"; do
+        [ -n "$part" ] || return 1
+        case "$part" in
+            */*)
+                step="${part#*/}"
+                part="${part%%/*}"
+                [[ "$step" =~ ^[0-9]+$ ]] || return 1
+                [ "$step" -ge 1 ] && [ "$step" -le "$hi" ] || return 1
+                ;;
+        esac
+        case "$part" in
+            '*') ;;
+            *-*)
+                a="${part%%-*}"; b="${part#*-}"
+                [[ "$a" =~ ^[0-9]+$ ]] && [[ "$b" =~ ^[0-9]+$ ]] || return 1
+                [ "$a" -ge "$lo" ] && [ "$b" -le "$hi" ] && [ "$a" -le "$b" ] || return 1
+                ;;
+            *)
+                [[ "$part" =~ ^[0-9]+$ ]] || return 1
+                [ "$part" -ge "$lo" ] && [ "$part" -le "$hi" ] || return 1
+                ;;
+        esac
+    done
+    return 0
+}
+
+# Digits and the four cron operators only. Month and weekday names are not
+# accepted: numbers are unambiguous, and refusing names is what lets every field
+# be checked against its range instead of merely looking plausible.
 zdc_valid_cron() {
-    local expr="$1" fields
+    local expr="$1" i=0 field
+    local mins=(0 0 1 1 0) maxs=(59 23 31 12 7)
     [ -n "$expr" ] || return 1
     case "$expr" in
         *$'\n'*|*$'\r'*|*';'*|*'&'*|*'|'*|*'$'*|*'`'*|*'('*|*')'*|*'<'*|*'>'*) return 1 ;;
     esac
-    [[ "$expr" =~ ^[0-9A-Za-z*/,\ -]+$ ]] || return 1
-    fields=$(awk '{print NF}' <<< "$expr")
-    [ "$fields" = "5" ] || return 1
+    [[ "$expr" =~ ^[0-9*/,\ -]+$ ]] || return 1
+    local -a fields
+    IFS=' ' read -ra fields <<< "$expr"
+    [ "${#fields[@]}" = "5" ] || return 1
+    for field in "${fields[@]}"; do
+        zdc_valid_cron_field "$field" "${mins[$i]}" "${maxs[$i]}" || return 1
+        i=$((i + 1))
+    done
     return 0
 }
 

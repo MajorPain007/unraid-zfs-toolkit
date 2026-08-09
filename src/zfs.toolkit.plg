@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.toolkit">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.08.08.29">
-<!ENTITY md5       "77d45a732315f679c7a96543403db22c">
+<!ENTITY version   "2026.08.08.30">
+<!ENTITY md5       "2214a2cdaa1a0eb67fe8d1710c98692f">
 <!ENTITY launch    "Settings/ZFSToolkit">
 <!ENTITY github    "MajorPain007/unraid-zfs-toolkit">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,24 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.08.08.30 — Cron expressions are checked properly now
+
+A cron field was only checked for shape: five fields, no odd characters. So
+"70 * * * *" and "0 25 * * *" were accepted and then simply never ran, which
+looks exactly like the plugin being broken.
+
+- Every field is checked against its own range: minute 0-59, hour 0-23, day
+  1-31, month 1-12, weekday 0-7. Ranges must run upwards, a step must be at
+  least 1, and an empty entry in a list is refused.
+- Month and weekday names are no longer accepted - use numbers. MON-FRI becomes
+  1-5. Dropping names is what makes checking the ranges possible at all, and a
+  number cannot be misread.
+- The message names the field and the value: "Hour must be 0-23, got 25."
+
+The three places that decide this - the schedule installer, the settings save
+and the page - now share one set of rules, and a test compares all three against
+the same 18 expressions. Letting one drift makes it fail.
+
 ## Version 2026.08.08.29 — Audit: dead code out, three loose ends tied
 
 A pass over the whole plugin looking for code without a job, and for places
