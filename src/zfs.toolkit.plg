@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.toolkit">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.08.08.30">
-<!ENTITY md5       "2214a2cdaa1a0eb67fe8d1710c98692f">
+<!ENTITY version   "2026.08.08.31">
+<!ENTITY md5       "ddf2c3c600ea9938f88726bd0147ab81">
 <!ENTITY launch    "Settings/ZFSToolkit">
 <!ENTITY github    "MajorPain007/unraid-zfs-toolkit">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,25 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.08.08.31 — Fixes 2026.08.08.30, which broke the page
+
+The page did not work in .30: no tabs, overlapping cards, no datasets. One
+mistake of mine, and all three symptoms came from it.
+
+The cron field table added in .30 sat at the top level of the script, below a
+setup call that already needed it. A var is hoisted but its assignment is not,
+so the first check read the table off undefined and the exception took the rest
+of the page setup with it - which is why the tabs, the layout and the dataset
+list all stopped at once. The table now lives inside the function that uses it.
+
+Sorry for that one: the checks were all green. They inspected the script without
+ever running it, so a script that dies on its first statement passed them.
+
+The suite now runs the page's JavaScript against a stubbed browser and fails if
+it throws, nine times over with different form values - with an empty one most
+of the code never executes and the check proves little. Putting the fault back
+makes it fail.
+
 ## Version 2026.08.08.30 — Cron expressions are checked properly now
 
 A cron field was only checked for shape: five fields, no odd characters. So

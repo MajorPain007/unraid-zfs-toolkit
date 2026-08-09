@@ -1459,15 +1459,18 @@ function updateSnapPreview() {
 //
 // Kept in step with zdc_valid_cron in zdc_common.sh and cronProblem in
 // save_settings.php; tests/run.sh compares all three against one table.
-var CRON_FIELDS = [
-  {name: 'Minute',       lo: 0, hi: 59},
-  {name: 'Hour',         lo: 0, hi: 23},
-  {name: 'Day of month', lo: 1, hi: 31},
-  {name: 'Month',        lo: 1, hi: 12},
-  {name: 'Weekday',      lo: 0, hi: 7}
-];
-
 function cronProblem(expr) {
+  // Inside the function on purpose. As a top-level var it was hoisted but not
+  // yet assigned when updateCronPreview() runs during page setup further up the
+  // script, so the first call read CRON_FIELDS[0] off undefined and took the
+  // whole init with it - tabs, layout and the dataset list included.
+  var CRON_FIELDS = [
+    {name: 'Minute',       lo: 0, hi: 59},
+    {name: 'Hour',         lo: 0, hi: 23},
+    {name: 'Day of month', lo: 1, hi: 31},
+    {name: 'Month',        lo: 1, hi: 12},
+    {name: 'Weekday',      lo: 0, hi: 7}
+  ];
   expr = (expr || '').trim();
   if (!expr) return 'No cron expression entered.';
   if (/[;&|$`()<>\r\n]/.test(expr)) {

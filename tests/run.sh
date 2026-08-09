@@ -229,7 +229,7 @@ zdc_php_probe=$(mktemp); zdc_js_probe=$(mktemp)
 python3 - "$zdc_js_probe" <<'ZDCJS'
 import re, sys, pathlib
 src = pathlib.Path('src/ZFSToolkitPage.php').read_text()
-i = src.index('var CRON_FIELDS')
+i = src.index('function cronProblem')
 j = src.index('function validCronExpr(expr)')
 pathlib.Path(sys.argv[1]).write_text(src[i:j])
 ZDCJS
@@ -430,6 +430,31 @@ if grep -q "crontab -c ' . escapeshellarg(ZDC_CRON_SPOOL)" src/scripts/zdc_php_c
 else
     bad "the live-crontab probe passes -c" \
         "a bare 'crontab -l' reads a different spool directory on Unraid 7"
+fi
+
+group "The page's JavaScript actually runs"
+
+# Syntax checks and name resolution both pass on a script that dies on its first
+# statement, which is exactly what happened once: node --check was happy, every
+# call resolved, and the page was dead - no tabs, no layout, no datasets.
+# Running it against a stubbed DOM is the only check that sees that.
+#
+# Several times with different form values: with an empty one most switch
+# statements fall to their default and half the code never executes.
+if command -v node >/dev/null 2>&1; then
+    zdc_smoke_bad=""
+    for zdc_v in "" custom daily weekly hourly 15min 30min 5min 6hourly; do
+        if ! out=$(ZDC_STUB_VALUE="$zdc_v" node tests/page_smoke.js 2>&1); then
+            zdc_smoke_bad="$zdc_smoke_bad\n    [field value '${zdc_v}'] $(printf '%s' "$out" | head -2 | tr '\n' ' ')"
+        fi
+    done
+    if [ -z "$zdc_smoke_bad" ]; then
+        ok "the page script runs to the end for every form value tried"
+    else
+        bad "the page script runs to the end" "$(printf '%b' "$zdc_smoke_bad")"
+    fi
+else
+    skip "node not installed - cannot run the page script"
 fi
 
 group "GUI references resolve"
