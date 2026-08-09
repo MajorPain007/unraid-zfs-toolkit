@@ -468,12 +468,14 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
     </div>
     <div class="zdc-row" style="margin-left:20px">
       <label class="row-label">Server time</label>
-      <span id="server-time" style="font-size:12px;color:var(--zdc-dim);font-family:monospace;">
         <?php
           $tz = trim(shell_exec('cat /etc/timezone 2>/dev/null || timedatectl 2>/dev/null | grep "Time zone" | awk \'{print $3}\'') ?? '');
-          echo htmlspecialchars(date('H:i:s') . ' ' . date('T') . ($tz ? " ($tz)" : ''));
+          $tzLabel = ' ' . date('T') . ($tz ? " ($tz)" : '');
         ?>
-      </span>
+        <span id="server-time" style="font-size:12px;color:var(--zdc-dim);font-family:monospace;"
+              data-epoch="<?= time() + (int)date('Z') ?>"
+              data-suffix="<?= htmlspecialchars($tzLabel, ENT_QUOTES) ?>"><?=
+          htmlspecialchars(date('H:i:s') . $tzLabel) ?></span>
     </div>
   </div>
 </div>
@@ -559,7 +561,7 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
     <label class="zdc-toggle"><input type="checkbox" id="snapshots_enabled" name="snapshots_enabled" <?= cfgBool('snapshots_enabled')?'checked':'' ?> onchange="toggleSnapDetails()"><span class="zdc-slider"></span></label>
     <span class="zdc-note">Uses native <code>zfs snapshot</code> — no extra tools needed</span>
   </div>
-  <div id="snap-details" class="snap-gated"<?= cfgBool('snapshots_enabled')?'':' style="display:none"' ?>>
+  <div class="snap-gated"<?= cfgBool('snapshots_enabled')?'':' style="display:none"' ?>>
     <div class="zdc-row">
       <label class="row-label">Check every</label>
       <select name="snap_schedule_preset" id="snap_schedule_preset" onchange="updateSnapPreview()" class="snap-sel">
@@ -609,7 +611,7 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
   </div>
 <div id="snap-log-section" style="margin-top:10px;display:none;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
-      <span style="font-size:12px;font-weight:600;color:var(--zdc-dim);">Snapshot Log <span id="snap-log-hint" style="font-weight:400;color:#555;">(last 30 lines of /tmp/zfs.toolkit/snapshots.log)</span></span>
+      <span style="font-size:12px;font-weight:600;color:var(--zdc-dim);">Snapshot Log <span style="font-weight:400;color:#555;">(last 30 lines of /tmp/zfs.toolkit/snapshots.log)</span></span>
       <button type="button" class="btn-secondary" style="padding:2px 10px;font-size:11px;" onclick="clearSnapLog()">Clear view</button>
     </div>
     <div id="snap-log-viewer" style="background:var(--zdc-sunken);color:var(--zdc-text);font-family:'Consolas','Monaco',monospace;font-size:12px;line-height:1.6;padding:10px;height:220px;overflow-y:auto;border-radius:4px;border:1px solid var(--zdc-border-2);white-space:pre-wrap;word-break:break-all;"></div>
@@ -675,7 +677,7 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
   <h3>Datasets to snapshot</h3>
     <div>
       <div class="snap-table-scroll">
-      <table class="snap-table" id="snap-ds-table">
+      <table class="snap-table">
         <thead><tr>
           <th style="text-align:left">Dataset</th>
           <th>Recursive</th>
@@ -729,7 +731,7 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
   <div id="mgr-summary" style="font-size:12px;color:var(--zdc-dim);margin-bottom:8px;"></div>
 
   <div style="overflow-x:auto;max-height:420px;overflow-y:auto;">
-    <table class="snap-table" id="mgr-table" style="min-width:820px;">
+    <table class="snap-table" style="min-width:820px;">
       <thead><tr>
         <th style="width:26px;"><input type="checkbox" id="mgr-all" onchange="mgrSelectAll(this)"></th>
         <th style="text-align:left">Snapshot</th>
@@ -796,7 +798,7 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
     <div id="snap-file-list">
       <p style="color:var(--zdc-dim);font-size:13px;">Select a dataset and snapshot above, then click Browse.</p>
     </div>
-    <div id="restore-controls" style="position:relative;margin-top:10px;display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:12px;">
+    <div style="position:relative;margin-top:10px;display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:12px;">
       <span style="color:var(--zdc-dim);white-space:nowrap;">Destination folder:</span>
       <input type="text" id="restore-dst" class="textPath"
              data-pickroot="/mnt/" data-picktop="/mnt/" data-pickfolders="true"
@@ -861,7 +863,7 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
     <p class="zdc-sub">Jobs</p>
     <div style="margin-left:20px;overflow-x:auto;">
       <datalist id="zdc-dataset-list"></datalist>
-      <table class="snap-table" id="send-table" style="min-width:900px;">
+      <table class="snap-table" style="min-width:900px;">
         <thead><tr>
           <th style="width:26px;">On</th>
           <th style="text-align:left">Name</th>
@@ -1595,47 +1597,6 @@ function snapToggleTpl(idx, checked) {
   _triggerAutoSave();
 }
 
-function saveSnapshotSettings() {
-  var resultEl = document.getElementById('snap-save-result');
-  resultEl.textContent = 'Saving…';
-
-  var f = document.getElementById('settings-form');
-  var d = formData();
-  d['snapshots_enabled'] = document.getElementById('snapshots_enabled').checked ? 'yes' : 'no';
-  ['snap_hourly','snap_daily','snap_weekly','snap_monthly','snap_yearly','snap_frequent','snap_daily_hour'].forEach(function(n) {
-    var el = document.querySelector('[name="'+n+'"]');
-    if (el) d[n] = el.value;
-  });
-  var presetEl = document.getElementById('snap_schedule_preset');
-  if (presetEl) d['snap_schedule_preset'] = presetEl.value;
-  var customEl = document.getElementById('snap_schedule_custom');
-  if (customEl) d['snap_schedule_custom'] = customEl.value;
-
-  postForm(_base + '/save_settings.php', d)
-  .then(function(res) {
-    if (!res.success) throw new Error(res.error || 'save_settings failed');
-    var params = new URLSearchParams({datasets_json: JSON.stringify({datasets: _snapDatasets})});
-    if (typeof csrf_token !== 'undefined') params.append('csrf_token', csrf_token);
-    return fetch(_base + '/save_snapshot_config.php', {
-      method:'POST',
-      headers:{'Content-Type':'application/x-www-form-urlencoded'},
-      body: params
-    }).then(function(r){ return r.json(); });
-  })
-  .then(function(res2) {
-    if (res2.ok) {
-      resultEl.style.color = 'var(--zdc-ok)'; resultEl.textContent = 'Saved.';
-      setTimeout(loadSnapshotStatus, 800);
-    } else {
-      resultEl.style.color = 'var(--zdc-err)'; resultEl.textContent = 'Error: ' + (res2.error || '?');
-    }
-    setTimeout(function(){ resultEl.textContent=''; }, 3000);
-  })
-  .catch(function(e) {
-    resultEl.style.color = 'var(--zdc-err)'; resultEl.textContent = 'Error: ' + e;
-  });
-}
-
 function loadSnapshotStatus() {
   fetch(_base + '/get_snapshot_status.php')
   .then(function(r){ return r.json(); })
@@ -1744,10 +1705,31 @@ function runSnapshotNow(dry) {
   });
 }
 
+// The label says "Server time", so it has to move. It ticks from the server's
+// clock rather than the browser's: the epoch is rendered shifted by the
+// server's UTC offset, so formatting it as UTC yields the server's local time
+// and any difference between the two machines' clocks stays out of it.
+function startServerClock() {
+  var el = document.getElementById('server-time');
+  if (!el) return;
+  var epoch = parseInt(el.getAttribute('data-epoch'), 10);
+  if (!epoch) return;
+  var suffix   = el.getAttribute('data-suffix') || '';
+  var loadedAt = Date.now();
+  var pad = function(n) { return n < 10 ? '0' + n : String(n); };
+  setInterval(function() {
+    var t = new Date(epoch * 1000 + (Date.now() - loadedAt));
+    el.textContent = pad(t.getUTCHours()) + ':' + pad(t.getUTCMinutes()) + ':'
+                   + pad(t.getUTCSeconds()) + suffix;
+  }, 1000);
+}
+
 function toggleSnapLog() {
   var sec = document.getElementById('snap-log-section');
   var open = sec.style.display !== 'none';
   sec.style.display = open ? 'none' : '';
+  var btn = document.getElementById('snap-log-toggle-btn');
+  if (btn) btn.textContent = open ? 'View Log' : 'Hide Log';
   if (!open) loadSnapshotStatus();  // refresh log content when opening
 }
 
@@ -1923,7 +1905,12 @@ function snapSelectAll(cb) {
 }
 
 function updateSelCount() {
+  var boxes = document.querySelectorAll('.snap-sel-cb');
   var n = document.querySelectorAll('.snap-sel-cb:checked').length;
+  // Keep the header box honest: after moving to another folder the rows are
+  // rebuilt unchecked, and a box left ticked claims a selection that is gone.
+  var all = document.getElementById('snap-sel-all');
+  if (all) all.checked = (boxes.length > 0 && n === boxes.length);
   var el = document.getElementById('sel-count');
   if (el) el.textContent = n;
 }
@@ -2728,6 +2715,7 @@ initDestPicker();
 updateSendPreview();
 loadSendJobs();
 zdcApplyTheme();
+startServerClock();
 zdcRestoreTab();
 zdcWatchLayout();
 zdcRefreshStatus();

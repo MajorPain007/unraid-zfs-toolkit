@@ -118,19 +118,6 @@ if (!defined('ZDC_COMMON_LOADED')) {
         return (($i === 0) ? (int)$b : round($b, ($b < 10 ? 2 : 1))) . ' ' . $units[$i];
     }
 
-    function zdc_load_settings() {
-        $file = ZDC_CONFIG_DIR . '/settings.cfg';
-        $cfg  = array();
-        if (!file_exists($file)) return $cfg;
-        foreach (file($file) as $line) {
-            $line = trim($line);
-            if ($line === '' || $line[0] === '#') continue;
-            $parts = explode('=', $line, 2);
-            if (count($parts) === 2) $cfg[trim($parts[0])] = trim($parts[1]);
-        }
-        return $cfg;
-    }
-
     function zdc_tail($path, $count) {
         if (!file_exists($path)) return array();
         $fh = @fopen($path, 'rb');
