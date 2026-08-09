@@ -460,6 +460,7 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
     <div class="zdc-row" style="margin-left:20px">
       <label class="row-label">Cron expression</label>
       <span id="cron-preview" style="font-size:13px;color:var(--zdc-accent);font-family:monospace;"></span>
+      <div id="cron-hint" style="display:none;color:var(--zdc-err);font-size:12px;margin-top:4px;"></div>
     </div>
     <div class="zdc-row" style="margin-left:20px">
       <label class="row-label">Active cron entry</label>
@@ -576,6 +577,7 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
     <div class="zdc-row">
       <label class="row-label">Cron expression</label>
       <span id="snap-cron-preview" style="font-size:13px;color:var(--zdc-accent);font-family:monospace;"></span>
+      <div id="snap-cron-hint" style="display:none;color:var(--zdc-err);font-size:12px;margin-top:4px;"></div>
     </div>
     <p class="zdc-note" style="margin:2px 0 0;">
       How often the plugin looks for work, not how often it snapshots. Each run creates only
@@ -853,6 +855,7 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
       </label>
       <input type="text" name="send_schedule_custom" id="send_schedule_custom" value="<?= cfg('send_schedule_custom','0 4 * * *') ?>" style="width:150px;display:none" oninput="updateSendPreview()">
       <span id="send-cron-preview" style="font-size:13px;color:var(--zdc-accent);font-family:monospace;"></span>
+      <div id="send-cron-hint" style="display:none;color:var(--zdc-err);font-size:12px;margin-top:4px;"></div>
     </div>
 
     <p class="zdc-sub">Jobs</p>
@@ -1155,11 +1158,10 @@ function updateCronPreview() {
       break;
   }
 
-  var el = document.getElementById('cron-preview');
-  el.textContent = (expr || '(empty)') + (label !== expr ? '  (' + label + ')' : '');
-  var bad = (preset === 'custom' && !validCronExpr(expr));
-  el.style.color = bad ? 'var(--zdc-err)' : '';
-  el.title = bad ? 'Not a valid 5-field cron expression — this schedule will not be installed.' : '';
+  zdcCronPreview('cron-preview', 'cron-hint', expr, preset === 'custom');
+  if (label !== expr && validCronExpr(expr)) {
+    document.getElementById('cron-preview').textContent = expr + '  (' + label + ')';
+  }
 }
 
 function loadCronStatus() {
@@ -1444,18 +1446,42 @@ function updateSnapPreview() {
     case 'custom': expr = document.getElementById('snap_schedule_custom').value.trim(); custom = true; break;
     default:       expr = '*/15 * * * *';
   }
-  var el = document.getElementById('snap-cron-preview');
-  el.textContent = expr || '(empty)';
-  el.style.color = (custom && !validCronExpr(expr)) ? 'var(--zdc-err)' : 'var(--zdc-accent)';
-  el.title = (custom && !validCronExpr(expr))
-    ? 'Not a valid 5-field cron expression — this schedule will not be installed.' : '';
+  zdcCronPreview('snap-cron-preview', 'snap-cron-hint', expr, custom);
 }
 
-function validCronExpr(expr) {
+// Returns '' when the expression is usable, otherwise what is wrong with it.
+// A bad expression is refused rather than replaced by a default: running on
+// some other schedule without saying so is worse than not running.
+function cronProblem(expr) {
   expr = (expr || '').trim();
-  if (!expr) return false;
-  if (!/^[0-9A-Za-z*\/,\s-]+$/.test(expr)) return false;
-  return expr.split(/\s+/).length === 5;
+  if (!expr) return 'No cron expression entered.';
+  if (!/^[0-9A-Za-z*\/,\s-]+$/.test(expr)) {
+    return 'Contains characters a cron expression cannot have.';
+  }
+  var n = expr.split(/\s+/).length;
+  if (n !== 5) {
+    return 'A cron expression has 5 fields (minute hour day month weekday), this one has ' + n + '.';
+  }
+  return '';
+}
+
+function validCronExpr(expr) { return cronProblem(expr) === ''; }
+
+function zdcCronPreview(previewId, hintId, expr, custom) {
+  var why = custom ? cronProblem(expr) : '';
+  var el  = document.getElementById(previewId);
+  if (el) {
+    el.textContent = expr || '(empty)';
+    el.style.color = why ? 'var(--zdc-err)' : 'var(--zdc-accent)';
+    el.title = '';
+  }
+  var hint = document.getElementById(hintId);
+  if (hint) {
+    hint.textContent = why
+      ? why + ' It will not be installed - the schedule currently running stays as it is.'
+      : '';
+    hint.style.display = why ? 'block' : 'none';
+  }
 }
 
 var _zfsDatasets = [];
@@ -1532,15 +1558,23 @@ function renderSnapTable() {
   var html = '';
   _snapDatasets.forEach(function(ds, i) {
     var tpl = ds.use_template !== false;
+    // One marker for the row rather than a placeholder in every field: with
+    // only Hourly filled in, "off" in the other four is true but reads as if
+    // the whole row were off.
+    var rowOff = !tpl && ['hourly','daily','weekly','monthly','yearly']
+      .every(function(f) { return !(parseInt(ds[f], 10) > 0); });
     html += '<tr>';
-    html += '<td>' + esc(ds.name) + '</td>';
+    html += '<td>' + esc(ds.name)
+          + (rowOff ? ' <span style="color:var(--zdc-warn);font-size:11px;" '
+                    + 'title="No retention set, so this dataset is not snapshotted">off</span>' : '')
+          + '</td>';
     html += '<td><label class="zdc-toggle" style="margin:auto;"><input type="checkbox" onchange="snapDsField('+i+',\'recursive\',this.checked)" '+(ds.recursive?'checked':'')+'><span class="zdc-slider"></span></label></td>';
     html += '<td><label class="zdc-toggle" style="margin:auto;"><input type="checkbox" id="snap-tpl-'+i+'" onchange="snapToggleTpl('+i+',this.checked)" '+(tpl?'checked':'')+'><span class="zdc-slider"></span></label></td>';
     ['hourly','daily','weekly','monthly','yearly'].forEach(function(f) {
       var val = tpl ? getGlobalRetention(f) : (ds[f] !== undefined && ds[f] !== '' ? ds[f] : '');
       var attrs = tpl
         ? 'disabled title="Using global template value" style="opacity:.55;width:52px;text-align:center;padding:2px 4px;font-size:12px;background:var(--zdc-sunken);"'
-        : 'placeholder="off" title="Empty or 0 = no ' + f + ' snapshots for this dataset"'
+        : 'title="Empty = no ' + f + ' snapshots for this dataset"'
           + ' oninput="snapDsField('+i+',\''+f+'\',this.value)" style="width:52px;text-align:center;padding:2px 4px;font-size:12px;"';
       html += '<td><input type="number" min="0" max="999" ' + attrs + ' value="' + esc(String(val)) + '"></td>';
     });
@@ -2478,9 +2512,7 @@ function updateSendPreview() {
     case 'custom':  expr = document.getElementById('send_schedule_custom').value.trim(); custom = true; break;
     default:        expr = '0 4 * * *';
   }
-  var el = document.getElementById('send-cron-preview');
-  el.textContent = expr || '(empty)';
-  el.style.color = (custom && !validCronExpr(expr)) ? 'var(--zdc-err)' : 'var(--zdc-accent)';
+  zdcCronPreview('send-cron-preview', 'send-cron-hint', expr, custom);
 }
 
 function loadSendJobs() {

@@ -1,43 +1,17 @@
 <?php
 
+require_once __DIR__ . '/zdc_php_common.php';
+
 while (ob_get_level() > 0) ob_end_clean();
 header('Content-Type: application/json');
 header('Cache-Control: no-cache, no-store');
 
 $tmpDir    = '/tmp/zfs.toolkit';
 $configDir = '/boot/config/plugins/zfs.toolkit';
-$cronFile  = '/etc/cron.d/zfs.toolkit-snapshots';
-
-$snap_entry  = '';
-$cron_source = '';
-
-if (is_readable($cronFile)) {
-    foreach (file($cronFile, FILE_IGNORE_NEW_LINES) as $line) {
-        $line = trim($line);
-        if ($line === '' || $line[0] === '#') continue;
-        if (strpos($line, 'snapshot_manager.sh') !== false) {
-            $snap_entry  = $line;
-            $cron_source = 'cron.d';
-            break;
-        }
-    }
-}
-
-$lines = array();
-exec('crontab -l 2>/dev/null', $lines);
-$in_live_crontab = false;
-foreach ($lines as $line) {
-    if (strpos($line, 'snapshot_manager.sh') !== false) {
-        $in_live_crontab = true;
-        if ($snap_entry === '') {
-            $snap_entry  = trim($line);
-            $cron_source = 'crontab';
-        }
-        break;
-    }
-}
-
-$cron_healthy = ($snap_entry !== '' && $in_live_crontab);
+$cron = zdc_cron_state('zfs.toolkit-snapshots', 'snapshot_manager.sh');
+$snap_entry   = $cron['entry'];
+$cron_source  = $cron['source'];
+$cron_healthy = $cron['healthy'];
 
 $snap_lines = array();
 exec('zfs list -H -t snapshot -o name 2>/dev/null | grep -c "@auto-"', $snap_lines);

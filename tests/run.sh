@@ -334,6 +334,32 @@ else
 fi
 rm -f "$zdc_tmp_json" "$zdc_tmp_json.pl"
 
+group "Cron status is read where cron actually lives"
+
+# The schedules moved out of /etc/cron.d in 2026.08.08.25, but the status
+# endpoints kept looking for a file there and probing the live crontab without
+# -c. Both conditions had to hold, so the UI said "Not installed" while the
+# snapshots were running on time.
+zdc_cron_stale=""
+for f in src/scripts/get_snapshot_status.php src/scripts/get_cron_status.php src/scripts/send_control.php; do
+    [ -f "$f" ] || continue
+    grep -q "/etc/cron.d/zfs.toolkit" "$f" && zdc_cron_stale="$zdc_cron_stale $(basename "$f")"
+    grep -q "zdc_cron_state" "$f" || zdc_cron_stale="$zdc_cron_stale $(basename "$f"):no-helper"
+done
+if [ -z "$zdc_cron_stale" ]; then
+    ok "status endpoints ask zdc_cron_state, not /etc/cron.d"
+else
+    bad "status endpoints ask zdc_cron_state, not /etc/cron.d" \
+        "stale:$zdc_cron_stale - that file has not existed since the schedules moved to the config dir"
+fi
+
+if grep -q "crontab -c ' . escapeshellarg(ZDC_CRON_SPOOL)" src/scripts/zdc_php_common.php; then
+    ok "the live-crontab probe passes -c, like update_cron does"
+else
+    bad "the live-crontab probe passes -c" \
+        "a bare 'crontab -l' reads a different spool directory on Unraid 7"
+fi
+
 group "GUI references resolve"
 
 if out=$(python3 tests/js_checks.py src/ZFSToolkitPage.php 2>&1); then

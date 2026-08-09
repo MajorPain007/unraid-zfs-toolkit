@@ -8,6 +8,7 @@ if (!defined('ZDC_COMMON_LOADED')) {
     define('ZDC_CONFIG_DIR', '/boot/config/plugins/' . ZDC_NAME);
     define('ZDC_TMP_DIR',    '/tmp/' . ZDC_NAME);
     define('ZDC_RSYNC',      '-a -H -A -X --numeric-ids');
+    define('ZDC_CRON_SPOOL', '/etc/cron.d');
 
     while (ob_get_level() > 0) ob_end_clean();
     header('Content-Type: application/json');
@@ -37,6 +38,56 @@ if (!defined('ZDC_COMMON_LOADED')) {
 
     function zdc_post($key, $default = '') {
         return isset($_POST[$key]) ? $_POST[$key] : $default;
+    }
+
+    /**
+     * State of one of our cron entries, the way zdc_common.sh installs it.
+     *
+     * The schedule lives as <config dir>/<base>.cron - that is what Unraid's
+     * update_cron reads - and lands in the crontab it installs with
+     * `crontab -c /etc/cron.d -`. A bare `crontab -l` reads whatever spool the
+     * binary defaults to, and on Unraid 7 that is a different directory, so
+     * asking only that reports "not installed" for a schedule that is running.
+     * Ask both.
+     */
+    function zdc_cron_state($base, $pattern) {
+        $entry = '';
+        $file  = ZDC_CONFIG_DIR . '/' . $base . '.cron';
+        if (is_readable($file)) {
+            foreach (file($file, FILE_IGNORE_NEW_LINES) as $line) {
+                $line = trim($line);
+                if ($line === '' || $line[0] === '#') continue;
+                if (strpos($line, $pattern) !== false) { $entry = $line; break; }
+            }
+        }
+
+        $live = false;
+        $where = '';
+        $probes = array(
+            'crontab -c ' . escapeshellarg(ZDC_CRON_SPOOL) . ' -l 2>/dev/null' => 'cron.d',
+            'crontab -l 2>/dev/null'                                          => 'crontab',
+        );
+        foreach ($probes as $cmd => $label) {
+            $lines = array();
+            exec($cmd, $lines);
+            foreach ($lines as $line) {
+                if (strpos($line, $pattern) !== false) {
+                    $live  = true;
+                    $where = $label;
+                    if ($entry === '') $entry = trim($line);
+                    break 2;
+                }
+            }
+        }
+
+        return array(
+            'entry'  => $entry,
+            'live'   => $live,
+            'source' => $where !== '' ? $where : ($entry !== '' ? 'file' : ''),
+            // Whether it runs is the question. The managed file is how it gets
+            // there; a schedule present in the live crontab is doing its job.
+            'healthy' => $live,
+        );
     }
 
     function zdc_valid_dataset($name) {

@@ -98,26 +98,14 @@ if ($action === 'status') {
 
     $running = trim((string)shell_exec('pgrep -f "[z]fs_send\.sh" 2>/dev/null | head -1')) !== '';
 
-    $cronFile = '/etc/cron.d/zfs.toolkit-send';
-    $entry = '';
-    if (is_readable($cronFile)) {
-        foreach (file($cronFile, FILE_IGNORE_NEW_LINES) as $line) {
-            $line = trim($line);
-            if ($line === '' || $line[0] === '#') continue;
-            if (strpos($line, 'zfs_send.sh') !== false) { $entry = $line; break; }
-        }
-    }
-    $live = array();
-    exec('crontab -l 2>/dev/null', $live);
-    $inLive = false;
-    foreach ($live as $l) { if (strpos($l, 'zfs_send.sh') !== false) { $inLive = true; break; } }
+    $cron = zdc_cron_state('zfs.toolkit-send', 'zfs_send.sh');
 
     zdc_out(array(
         'ok'           => true,
         'run'          => $st,
         'running'      => $running,
-        'entry'        => $entry,
-        'cron_healthy' => ($entry !== '' && $inLive),
+        'entry'        => $cron['entry'],
+        'cron_healthy' => $cron['healthy'],
         'log'          => zdc_tail($logFile, 40),
     ));
 }
