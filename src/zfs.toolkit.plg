@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.toolkit">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.08.08.32">
-<!ENTITY md5       "5173022a81d003f87639e716904cc501">
+<!ENTITY version   "2026.08.08.33">
+<!ENTITY md5       "b5bf2ad913f3d0142806dd3c3afff7c3">
 <!ENTITY launch    "Settings/ZFSToolkit">
 <!ENTITY github    "MajorPain007/unraid-zfs-toolkit">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,29 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.08.08.33 — Rollback asks once instead of twice
+
+Rolling a dataset back made you type the snapshot name out after the warning
+had already been accepted. Snapshot names are long, and the second gate carried
+nothing the first had not already said.
+
+There is one dialog now, and it earns being the only one: it names the snapshot
+and its date, says that everything since is discarded, counts the newer
+snapshots that will be destroyed, and calls out the two cases worth knowing
+before rather than after - how many of them are replication checkpoints, whose
+jobs then need a full send, and how many are held, which makes ZFS refuse the
+rollback until the hold is released.
+
+Also in this release:
+
+- The schedule preview reads the expression out in words on all three cards, not
+  just the conversion one. "0 * * * *" and "*/15 * * * *" both start with a
+  minute field, which is exactly what makes them hard to tell apart; the reading
+  is derived from the expression, so it cannot disagree with it, and it works
+  for a hand-written expression too.
+- The Retention card says its numbers are counts of snapshots to keep, not times
+  of day.
+
 ## Version 2026.08.08.32 — The schedule preview showed one thing, cron ran another
 
 Typing a value past the limit of the hour or minute box, say 99, left the

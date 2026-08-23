@@ -1137,37 +1137,28 @@ function updateCronPreview() {
   weekRow.style.display   = preset === 'weekly'  ? '' : 'none';
   customRow.style.display = preset === 'custom'  ? '' : 'none';
 
-  var days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   var pad  = function(n){ return n < 10 ? '0'+n : n; };
-  var expr, label;
+  var expr;
 
   switch (preset) {
     case 'hourly':
       expr = '0 * * * *';
-      label = 'Every hour at :00';
       break;
     case '6hourly':
       expr = pad(minute) + ' */6 * * *';
-      label = 'Every 6 hours at :' + pad(minute);
       break;
     case 'daily':
       expr = pad(minute) + ' ' + hour + ' * * *';
-      label = 'Daily at ' + pad(hour) + ':' + pad(minute);
       break;
     case 'weekly':
       expr = pad(minute) + ' ' + hour + ' * * ' + weekday;
-      label = 'Every ' + days[weekday] + ' at ' + pad(hour) + ':' + pad(minute);
       break;
     case 'custom':
       expr  = custom;
-      label = expr;
       break;
   }
 
   zdcCronPreview('cron-preview', 'cron-hint', expr, preset === 'custom');
-  if (label !== expr && validCronExpr(expr)) {
-    document.getElementById('cron-preview').textContent = expr + '  (' + label + ')';
-  }
 }
 
 function loadCronStatus() {
@@ -1532,6 +1523,52 @@ function cronProblem(expr) {
 
 function validCronExpr(expr) { return cronProblem(expr) === ''; }
 
+// Puts a cron expression into words. Derived from the expression rather than
+// tracked alongside it, so the two cannot disagree - and it covers a
+// hand-written one as well, where the reading is least obvious.
+//
+// The first field is always the minute. "0 * * * *" is hourly and "*/15 * * * *"
+// is quarter-hourly; both start with a minute, which is what makes them hard to
+// tell apart at a glance.
+function cronExplain(expr) {
+  var f = (expr || '').trim().split(/\s+/);
+  if (f.length !== 5) return '';
+  var min = f[0], hr = f[1], dom = f[2], mon = f[3], dow = f[4];
+  var days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  var pad = function(n) { return (+n < 10 ? '0' : '') + (+n); };
+  if (mon !== '*') return '';
+  var onDay = '';
+  if (dom !== '*') {
+    if (!/^\d+$/.test(dom) || dow !== '*') return '';
+    onDay = ' on day ' + (+dom) + ' of the month';
+  }
+
+  var everyMin = /^\*\/(\d+)$/.exec(min);
+  var everyHr  = /^\*\/(\d+)$/.exec(hr);
+
+  if (onDay) {
+    if (!/^\d+$/.test(min) || !/^\d+$/.test(hr)) return '';
+    return 'At ' + pad(hr) + ':' + pad(min) + onDay;
+  }
+  if (everyMin && hr === '*' && dow === '*') {
+    return 'Every ' + everyMin[1] + ' minutes';
+  }
+  if (!/^\d+$/.test(min)) return '';
+
+  if (hr === '*' && dow === '*') {
+    return +min === 0 ? 'Every hour at :00' : 'Every hour at :' + pad(min);
+  }
+  if (everyHr && dow === '*') {
+    return 'Every ' + everyHr[1] + ' hours at :' + pad(min);
+  }
+  if (/^\d+$/.test(hr)) {
+    var at = pad(hr) + ':' + pad(min);
+    if (dow === '*') return 'Daily at ' + at;
+    if (/^\d+$/.test(dow)) return 'Every ' + days[+dow % 7] + ' at ' + at;
+  }
+  return '';
+}
+
 function zdcCronPreview(previewId, hintId, expr, custom) {
   // Only a hand-written expression is checked. The presets build theirs from
   // fields the setup scripts clamp to their ranges anyway, so flagging one would
@@ -1539,7 +1576,8 @@ function zdcCronPreview(previewId, hintId, expr, custom) {
   var why = custom ? cronProblem(expr) : '';
   var el  = document.getElementById(previewId);
   if (el) {
-    el.textContent = expr || '(empty)';
+    var words = why ? '' : cronExplain(expr);
+    el.textContent = (expr || '(empty)') + (words ? '  (' + words + ')' : '');
     el.style.color = why ? 'var(--zdc-err)' : 'var(--zdc-accent)';
     el.title = '';
   }
@@ -2464,14 +2502,29 @@ function mgrRollback(i) {
     return x.dataset === s.dataset && x.creation > s.creation;
   });
 
-  var warn = 'Roll back ' + s.dataset + ' to\n  ' + s.snapshot + '\n\n'
-           + 'Every change made since that snapshot is DISCARDED.\n';
-  if (newer.length) warn += newer.length + ' newer snapshot(s) of this dataset will be destroyed.\n';
-  warn += '\nStop any container or VM using this dataset first.\n\nContinue?';
-  if (!confirm(warn)) return;
+  // One dialog, and it has to earn that by saying exactly what will be lost.
+  // Typing the name out was a second gate that added no information - anyone who
+  // got this far had already read the warning and meant it.
+  var checkpoints = newer.filter(function(x) { return x.checkpoint; }).length;
+  var heldNewer   = newer.filter(function(x) { return x.held; }).length;
 
-  var typed = prompt('Type the snapshot name to confirm:\n' + s.name);
-  if (typed !== s.name) { mgrResult('Rollback cancelled.', 'var(--zdc-dim)'); return; }
+  var warn = 'Roll back ' + s.dataset + ' to\n  ' + s.snapshot
+           + '\n  (' + s.created_h + ')\n\n'
+           + 'Every change made to this dataset since then is DISCARDED.\n';
+  if (newer.length) {
+    warn += newer.length + ' newer snapshot' + (newer.length === 1 ? '' : 's')
+          + ' of this dataset will be destroyed.\n';
+  }
+  if (checkpoints) {
+    warn += checkpoints + ' of them ' + (checkpoints === 1 ? 'is a replication checkpoint' : 'are replication checkpoints')
+          + ' - those jobs will need a full send afterwards.\n';
+  }
+  if (heldNewer) {
+    warn += heldNewer + ' of them ' + (heldNewer === 1 ? 'is held' : 'are held')
+          + ', so ZFS will refuse the rollback until the hold is released.\n';
+  }
+  warn += '\nStop any container or VM using this dataset first.\n\nRoll back now?';
+  if (!confirm(warn)) return;
 
   mgrResult('Rolling back…');
   postForm(_base + '/snapshot_admin.php',

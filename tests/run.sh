@@ -477,6 +477,24 @@ else
     skip "node not installed - cannot run the page script"
 fi
 
+group "Destructive actions ask once, clearly"
+
+# Rollback used to demand the snapshot name be typed out after the warning. Two
+# gates, and the second carried no information the first had not already given.
+# What matters is that the one dialog names what gets destroyed.
+zdc_rb=$(awk '/^function mgrRollback\(/,/^}/' src/ZFSToolkitPage.php)
+zdc_rb_bad=""
+printf '%s' "$zdc_rb" | grep -q 'prompt(' && zdc_rb_bad="$zdc_rb_bad type-the-name-again;"
+printf '%s' "$zdc_rb" | grep -q 'confirm(warn)' || zdc_rb_bad="$zdc_rb_bad no-confirm-dialog;"
+for zdc_w in DISCARDED 'will be destroyed' 'replication checkpoint' 'are held'; do
+    printf '%s' "$zdc_rb" | grep -q "$zdc_w" || zdc_rb_bad="$zdc_rb_bad missing:'$zdc_w';"
+done
+if [ -z "$zdc_rb_bad" ]; then
+    ok "rollback asks once and the dialog names what it destroys"
+else
+    bad "rollback asks once and the dialog names what it destroys" "$zdc_rb_bad"
+fi
+
 group "GUI references resolve"
 
 if out=$(python3 tests/js_checks.py src/ZFSToolkitPage.php 2>&1); then

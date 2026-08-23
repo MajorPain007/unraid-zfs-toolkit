@@ -185,6 +185,9 @@ if ($action === 'rollback') {
 
     if (!zdc_valid_snapshot($name)) zdc_fail('Invalid snapshot name');
 
+    // A guard against a partial or malformed request reaching a destructive
+    // operation, not a confirmation the user types: the page fills it in and
+    // asks once in a dialog that spells out what gets destroyed.
     if ($confirm !== $name) {
         zdc_fail('Confirmation does not match the snapshot name');
     }
