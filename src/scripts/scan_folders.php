@@ -24,14 +24,14 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $sources = [];
 
 if (($_POST['should_process_containers'] ?? 'no') === 'yes') {
-    $pool    = preg_replace('/[^a-zA-Z0-9_\-.]/', '', $_POST['appdata_pool']    ?? 'cache');
-    $dataset = preg_replace('/[^a-zA-Z0-9_\-.]/', '', $_POST['appdata_dataset'] ?? 'appdata');
+    $pool    = preg_replace('#[^A-Za-z0-9_.: /-]#', '', $_POST['appdata_pool']    ?? 'cache');
+    $dataset = preg_replace('#[^A-Za-z0-9_.: /-]#', '', $_POST['appdata_dataset'] ?? 'appdata');
     if ($pool && $dataset) $sources[] = "$pool/$dataset";
 }
 
 if (($_POST['should_process_vms'] ?? 'no') === 'yes') {
-    $pool    = preg_replace('/[^a-zA-Z0-9_\-.]/', '', $_POST['vm_pool']    ?? 'cache');
-    $dataset = preg_replace('/[^a-zA-Z0-9_\-.]/', '', $_POST['vm_dataset'] ?? 'domains');
+    $pool    = preg_replace('#[^A-Za-z0-9_.: /-]#', '', $_POST['vm_pool']    ?? 'cache');
+    $dataset = preg_replace('#[^A-Za-z0-9_.: /-]#', '', $_POST['vm_dataset'] ?? 'domains');
     if ($pool && $dataset) $sources[] = "$pool/$dataset";
 }
 
@@ -47,6 +47,30 @@ $sources = array_unique(array_filter($sources));
 $zfsList = [];
 exec('zfs list -H -o name 2>/dev/null', $zfsList);
 $zfsSet  = array_flip($zfsList);
+
+// Where datasets are mounted. A folder counts as converted when a dataset is
+// mounted at its path, whatever that dataset is called: one whose name ZFS
+// cannot take is converted under another name and mounted where it was.
+$mounted = [];
+$mountLines = [];
+exec('zfs list -H -o mounted,mountpoint 2>/dev/null', $mountLines);
+foreach ($mountLines as $line) {
+    $f = explode("\t", $line, 2);
+    if (count($f) === 2 && $f[0] === 'yes') $mounted[$f[1]] = true;
+}
+
+$replaceSpaces = ($_POST['replace_spaces'] ?? 'no') === 'yes';
+
+/** The dataset name zfs_converter.sh gives a folder - see dataset_name_for there. */
+function zdcDatasetName(string $name, bool $replaceSpaces): string {
+    if ($replaceSpaces) $name = str_replace(' ', '_', $name);
+    if ($name !== '.' && $name !== '..' && strlen($name) <= 200
+        && preg_match('/^[A-Za-z0-9_.: -]+$/', $name)) {
+        return $name;
+    }
+    $name = strtr($name, ['ä' => 'ae', 'ö' => 'oe', 'ü' => 'ue', 'Ä' => 'Ae', 'Ö' => 'Oe', 'Ü' => 'Ue', 'ß' => 'ss']);
+    return preg_replace('/[^A-Za-z0-9_.: -]/', '_', $name);
+}
 
 function humanSize(string $path): string {
     $out = [];
@@ -71,15 +95,34 @@ foreach ($sources as $sourcePath) {
         continue;
     }
 
+    // The same decisions the converter makes when it plans a run.
     foreach (glob($fullPath . '/*', GLOB_ONLYDIR) ?: [] as $dir) {
+        if (is_link($dir)) continue;
         $name = basename($dir);
-        if (substr($name, -5) === '_temp') continue;
-        $type = isset($zfsSet[$sourcePath . '/' . $name]) ? 'dataset' : 'folder';
-        $entry['entries'][] = ['name' => $name, 'type' => $type, 'size' => humanSize($dir)];
+        $row  = ['name' => $name, 'size' => humanSize($dir), 'as' => '', 'why' => ''];
+
+        if (isset($mounted[$dir])) {
+            $row['type'] = 'dataset';
+        } elseif (substr($name, -5) === '_temp' && isset($mounted[substr($dir, 0, -5)])) {
+            $row['type'] = 'kept';
+            $row['why']  = 'Next to the dataset of the same name without _temp: a copy kept with'
+                         . ' Cleanup off, or an original an older version left behind. Left alone.';
+        } else {
+            $ds = zdcDatasetName($name, $replaceSpaces);
+            if (isset($zfsSet[$sourcePath . '/' . $ds])) {
+                $row['type'] = 'kept';
+                $row['why']  = 'The dataset ' . $sourcePath . '/' . $ds . ' exists but is not mounted here.';
+            } else {
+                $row['type'] = 'folder';
+                if ($ds !== $name) $row['as'] = $ds;
+            }
+        }
+        $entry['entries'][] = $row;
     }
 
-    usort($entry['entries'], function($a, $b) {
-        if ($a['type'] !== $b['type']) return $a['type'] === 'folder' ? -1 : 1;
+    $order = ['folder' => 0, 'kept' => 1, 'dataset' => 2];
+    usort($entry['entries'], function($a, $b) use ($order) {
+        if ($a['type'] !== $b['type']) return $order[$a['type']] - $order[$b['type']];
         return strcasecmp($a['name'], $b['name']);
     });
 

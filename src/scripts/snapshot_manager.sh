@@ -315,19 +315,29 @@ free_space_prune() {
         return 0
     fi
 
-    local deleted=0 row sname screat sused srefs
+    # A destroyed snapshot's space shows in the pool's free space only once the
+    # transaction group is written, 3-5 seconds later. Reading free right after
+    # each destroy therefore saw no change, and the loop went on destroying -
+    # up to 500 snapshots when one would have done. zpool sync writes the
+    # transaction group out; the snapshots' own "used", which is what destroying
+    # each one frees, keeps the count honest where that is not available.
+    local deleted=0 row sname screat sused srefs measured
+    local expected="$free"
     for row in "${candidates[@]}"; do
         [ -n "$row" ] || continue
         IFS=$'\t' read -r sname screat sused srefs <<< "$row"
 
         destroy_snapshot "$sname" "0" "$sused" || continue
         (( deleted++ ))
+        zdc_valid_int "$sused" && (( expected += sused ))
 
         if (( DRY_RUN )); then
-            free=$(( free + sused ))
+            free="$expected"
         else
-            free=$(zdc_pool_free_bytes "$pool")
-            zdc_valid_int "$free" || break
+            zpool sync "$pool" >/dev/null 2>&1
+            measured=$(zdc_pool_free_bytes "$pool")
+            zdc_valid_int "$measured" || break
+            free=$(( measured > expected ? measured : expected ))
         fi
         (( free >= target )) && break
 

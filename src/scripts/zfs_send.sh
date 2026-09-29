@@ -68,12 +68,59 @@ build_ssh() {
     SSH_CMD+=("$host")
 }
 
+# ssh hands the remote shell one command line, joined with spaces, and that
+# shell splits it again - "tank/TV Shows" would arrive as two arguments. Quote
+# each word for it. The names are validated to letters, digits, space and
+# _ . : - / @, for which %q produces plain backslash escapes any sh accepts.
+remote_cmd() {
+    printf '%q ' "$@"
+}
+
 remote_zfs() {
     if [ "${#SSH_CMD[@]}" -gt 0 ]; then
-        "${SSH_CMD[@]}" zfs "$@"
+        "${SSH_CMD[@]}" "$(remote_cmd zfs "$@")"
     else
         zfs "$@"
     fi
+}
+
+# Keep the newest $keep checkpoints of a job and destroy the rest, on one side.
+# By name across the whole tree, not by destroying the parent's snapshot: a
+# recursive job snapshots every child too, and destroying only the parent's
+# left the children's copies behind - one more on each child with every run.
+# The stamp in the name sorts in time order.
+prune_checkpoints() {
+    local side="$1" ds="$2" id="$3" keep="$4" recursive="$5"
+    local list_args=(list -H -t snapshot -o name)
+    [ "$recursive" = "1" ] && list_args+=(-r)
+
+    local rows names old
+    if [ "$side" = "remote" ]; then
+        rows=$(remote_zfs "${list_args[@]}" "$ds" 2>/dev/null)
+    else
+        rows=$(zfs "${list_args[@]}" "$ds" 2>/dev/null)
+    fi
+    rows=$(printf '%s\n' "$rows" | grep -F "@zdc-send-${id}-")
+    [ -n "$rows" ] || return 0
+
+    names=$(printf '%s\n' "$rows" | sed 's/.*@//' | sort -u)
+    old=$(printf '%s\n' "$names" | head -n "-${keep}")
+    [ -n "$old" ] || return 0
+
+    local s
+    while IFS= read -r s; do
+        [ -n "$s" ] || continue
+        printf '%s\n' "$old" | grep -Fxq -- "${s#*@}" || continue
+        if [ "$side" = "remote" ]; then
+            remote_zfs destroy "$s" 2>/dev/null \
+                && log "Pruned destination checkpoint ${s}" \
+                || log_warn "Could not prune destination checkpoint ${s}"
+        else
+            zfs destroy "$s" 2>/dev/null \
+                && log "Pruned old checkpoint ${s}" \
+                || log_warn "Could not prune checkpoint ${s}"
+        fi
+    done <<< "$rows"
 }
 
 local_snap_names() {
@@ -173,7 +220,10 @@ run_job() {
     fi
     send_args+=("${source}@${checkpoint}")
 
-    local recv_args=(-u)                       # do not mount the received dataset
+    # -u: do not mount what arrives. -x mountpoint: a source with its own
+    # mountpoint - a pool's root dataset has one - would otherwise hand it to
+    # the copy, and at the next import the copy mounts over the original.
+    local recv_args=(-u -x mountpoint)
     [ "$allow_rollback" = "1" ] && recv_args+=(-F)
     recv_args+=("$dest")
 
@@ -190,12 +240,14 @@ run_job() {
     log "Sending..."
     local rc=0
     if [ "${#SSH_CMD[@]}" -gt 0 ]; then
+        local remote_recv
+        remote_recv=$(remote_cmd zfs recv "${recv_args[@]}")
         if command -v pv >/dev/null 2>&1 && [ -n "$est" ]; then
             zfs send "${send_args[@]}" \
                 | pv -f -i 10 -b -t -r -e -s "$est" \
-                | "${SSH_CMD[@]}" zfs recv "${recv_args[@]}"
+                | "${SSH_CMD[@]}" "$remote_recv"
         else
-            zfs send -v "${send_args[@]}" | "${SSH_CMD[@]}" zfs recv "${recv_args[@]}"
+            zfs send -v "${send_args[@]}" | "${SSH_CMD[@]}" "$remote_recv"
         fi
     else
         if command -v pv >/dev/null 2>&1 && [ -n "$est" ]; then
@@ -217,32 +269,11 @@ run_job() {
 
     log_ok "Job '${name}': replicated ${source} -> ${dest}"
 
-    local old
-    old=$(zfs list -H -t snapshot -o name -s creation "$source" 2>/dev/null \
-          | grep -F "@zdc-send-${id}-" | head -n -2)
-    if [ -n "$old" ]; then
-        while read -r s; do
-            [ -n "$s" ] || continue
-            if zfs destroy "$s" 2>/dev/null; then
-                log "Pruned old checkpoint ${s}"
-            else
-                log_warn "Could not prune checkpoint ${s}"
-            fi
-        done <<< "$old"
-    fi
-
+    # The newest two stay: the one just sent is the base of the next run, the
+    # one before it covers a run that fails halfway.
+    prune_checkpoints local "$source" "$id" 2 "$recursive"
     if zdc_valid_int "$keep_dest" && (( keep_dest > 0 )); then
-        local dold
-        dold=$(remote_zfs list -H -t snapshot -o name -s creation "$dest" 2>/dev/null \
-               | grep -F "@zdc-send-${id}-" | head -n "-${keep_dest}")
-        if [ -n "$dold" ]; then
-            while read -r s; do
-                [ -n "$s" ] || continue
-                remote_zfs destroy "$s" 2>/dev/null \
-                    && log "Pruned destination checkpoint ${s}" \
-                    || log_warn "Could not prune destination checkpoint ${s}"
-            done <<< "$dold"
-        fi
+        prune_checkpoints remote "$dest" "$id" "$keep_dest" "$recursive"
     fi
 
     return 0
@@ -265,8 +296,9 @@ if ! command -v php >/dev/null 2>&1; then
     exit 1
 fi
 
-while IFS=$'\t' read -r id enabled name source dest recursive transport \
-                        ssh_host ssh_port ssh_key raw compressed allow_rollback keep_dest; do
+# \x1f, not a tab - see send_jobs_tsv.php for why.
+while IFS=$'\x1f' read -r id enabled name source dest recursive transport \
+                          ssh_host ssh_port ssh_key raw compressed allow_rollback keep_dest; do
     [ -n "$id" ] || continue
 
     if [ -n "$ONLY_JOB" ]; then

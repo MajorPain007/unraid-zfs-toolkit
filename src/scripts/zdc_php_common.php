@@ -7,7 +7,6 @@ if (!defined('ZDC_COMMON_LOADED')) {
     define('ZDC_PLUGIN_DIR', '/usr/local/emhttp/plugins/' . ZDC_NAME);
     define('ZDC_CONFIG_DIR', '/boot/config/plugins/' . ZDC_NAME);
     define('ZDC_TMP_DIR',    '/tmp/' . ZDC_NAME);
-    define('ZDC_RSYNC',      '-a -H -A -X --numeric-ids');
     define('ZDC_CRON_SPOOL', '/etc/cron.d');
 
     while (ob_get_level() > 0) ob_end_clean();
@@ -23,8 +22,10 @@ if (!defined('ZDC_COMMON_LOADED')) {
         }
     });
 
+    // JSON_INVALID_UTF8_SUBSTITUTE: one name that is not valid UTF-8 would
+    // otherwise make json_encode fail and the whole answer arrive empty.
     function zdc_out($data) {
-        echo json_encode($data);
+        echo json_encode($data, JSON_INVALID_UTF8_SUBSTITUTE);
         exit;
     }
 
@@ -90,8 +91,10 @@ if (!defined('ZDC_COMMON_LOADED')) {
         );
     }
 
+    // Same rule as zdc_valid_dataset in zdc_common.sh: the pool name, then
+    // components of letters, digits, space and _ . : - (what ZFS takes).
     function zdc_valid_dataset($name) {
-        return (bool)preg_match('#^[A-Za-z0-9][A-Za-z0-9_.:-]*(/[A-Za-z0-9_.:-]+)*$#', $name);
+        return (bool)preg_match('#^[A-Za-z0-9][A-Za-z0-9_.:-]*(/[A-Za-z0-9_.: -]+)*$#', $name);
     }
 
     function zdc_valid_snapshot($snap) {

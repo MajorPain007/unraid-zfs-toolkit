@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.toolkit">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.08.08.33">
-<!ENTITY md5       "b5bf2ad913f3d0142806dd3c3afff7c3">
+<!ENTITY version   "2026.09.29.01">
+<!ENTITY md5       "bba19149859758c7973c0997237e3cc8">
 <!ENTITY launch    "Settings/ZFSToolkit">
 <!ENTITY github    "MajorPain007/unraid-zfs-toolkit">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,89 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.09.29.01 — Conversion could overwrite a dataset; replication and pruning did less than they said
+
+The conversion, pruning and replication faults that could cost data were
+reproduced in a test pool on real ZFS before they were fixed;
+tests/zfs_integration.sh repeats those checks.
+
+Conversion:
+
+- A folder ending in _temp next to a converted folder of the same name without
+  it - tdarr_temp next to tdarr, say - was taken for the leftover of an
+  interrupted conversion. The next run with anything to convert synced it into
+  the dataset with rsync --delete and then deleted it, replacing the dataset's
+  contents. The copy kept with Cleanup off met the same end one run later. Such
+  folders are now left alone.
+- When the copy or its check failed, the original stayed renamed to _temp and
+  the half-filled dataset stayed mounted in its place, and the container was
+  started again on the half copy. The dataset is now removed and the folder put
+  back before anything is restarted. Stop does the same, and at once: it used to
+  wait for the running rsync, which can take hours.
+- A journal on the flash drive records the folder being converted. A run cut
+  off hard, by a power cut say, is settled by the next one: undone if the copy
+  never started, finished if the copy is complete, and otherwise left untouched
+  with instructions in the log.
+- A folder keeps its path. A name ZFS cannot take - an umlaut, brackets - used
+  to be rewritten, which moved the folder and left its container with an empty
+  directory or its VM without a disk. The dataset now gets the rewritten name
+  and is mounted where the folder was. Replace spaces works the same way.
+- Names with spaces convert as they are, since ZFS accepts them, and so do names
+  starting with an underscore, which used to lose it.
+- Containers and VMs are stopped only for folders converted in this run. One
+  whose folder was skipped, for lack of space or a name clash, was stopped and
+  started again on every run.
+- VM images stay sparse, and the space check counts what a folder occupies
+  rather than its nominal size.
+- A manual run accepts a nested appdata dataset, as a scheduled one already did.
+
+Snapshots:
+
+- Free-space pruning deleted more than it needed to. ZFS shows the space of a
+  destroyed snapshot a few seconds later, so after each destroy the free space
+  looked unchanged and the loop went on - on the test pool 4 snapshots where 2
+  were enough. It now has the pool write the change out before it looks.
+- The dataset list could be saved empty. Every autosave wrote it back, also
+  when it had failed to load, and all datasets then dropped out of the schedule.
+  It is now written only once it was read and has been changed.
+- Datasets with a space in the name - on a ZFS pool, every share with one -
+  could not be added, browsed, compared or replicated.
+- The rollback dialog counted only the snapshots on screen, and the list shows
+  plugin snapshots by default: the replication checkpoints and manual snapshots
+  a rollback also destroys went unmentioned.
+
+Replication:
+
+- The job list was split on tabs, and bash merges a run of tabs into one, so an
+  empty field shifted every later one. Local jobs ignored Force and the
+  checkpoint limit and sent raw streams; SSH jobs without a key path failed
+  every time.
+- Recursive jobs pruned old checkpoints on the top dataset only, and every child
+  kept one more with each run. Now pruned across the tree, on both ends.
+- Replicating a whole pool handed the copy the pool's mountpoint, so at the
+  next import it would have mounted over the original. zfs recv now keeps the
+  source's mountpoint out.
+- Dataset names are quoted for the remote shell.
+- Saving a local job whose destination sits directly below its pool, like
+  backup/appdata, warns: Unraid counts every top-level folder on a pool as part
+  of the share of that name.
+
+Elsewhere:
+
+- File and folder names were pasted into click handlers with only single quotes
+  escaped, so a name containing a double quote could run script in the admin's
+  browser session. They are passed as data now.
+- The snapshot browser no longer switches snapdir to visible - .zfs can be
+  reached while hidden - and one file name that is not valid UTF-8 no longer
+  empties a whole folder listing.
+- Show changes displays names as they are, not as octal escapes.
+- The hourly conversion schedule installs the 0 * * * * it shows, rather than a
+  minute left over from another preset, and every-6-hours no longer offers an
+  hour that did nothing.
+- Diagnostics reads the crontab from both spools and lists the plugin's cron
+  files; it reported none for schedules that were running.
+- An unused synchronous restore endpoint is gone.
+
 ## Version 2026.08.08.33 — Rollback asks once instead of twice
 
 Rolling a dataset back made you type the snapshot name out after the warning
@@ -873,6 +956,7 @@ fi
 # Apply cron jobs from saved settings
 /usr/local/emhttp/plugins/zfs.toolkit/scripts/setup_cron.sh &gt;/tmp/zfs.toolkit/setup_cron.log 2&gt;&amp;1
 /usr/local/emhttp/plugins/zfs.toolkit/scripts/setup_snapshots.sh &gt;/tmp/zfs.toolkit/setup_snapshots.log 2&gt;&amp;1
+/usr/local/emhttp/plugins/zfs.toolkit/scripts/setup_send.sh &gt;/tmp/zfs.toolkit/setup_send.log 2&gt;&amp;1
 </INLINE>
 </FILE>
 

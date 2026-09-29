@@ -112,7 +112,15 @@ if ZDC_TMP_DIR="$(mktemp -d)" . src/scripts/zdc_common.sh 2>/dev/null; then
     ds_case 'cache/appdata'      valid
     ds_case 'tank/a/b/c'         valid
     ds_case 'cache'              valid
-    ds_case 'cache/my data'      reject
+    # What ZFS itself takes, checked on a real pool: space, leading _ and ., and
+    # : are fine; umlauts, brackets and the like are refused. Unraid makes a
+    # dataset of every share on a ZFS pool, so "cache/TV Shows" is ordinary.
+    ds_case 'cache/TV Shows'     valid
+    ds_case 'cache/_backup'      valid
+    ds_case 'cache/a:b'          valid
+    ds_case 'cache/Büro'         reject
+    ds_case 'cache/a(b)'         reject
+    ds_case 'TV Shows/x'         reject
     ds_case 'cache/appdata;rm'   reject
     ds_case '/cache/appdata'     reject
     ds_case 'cache/app@data'     reject
@@ -482,10 +490,13 @@ group "Destructive actions ask once, clearly"
 # Rollback used to demand the snapshot name be typed out after the warning. Two
 # gates, and the second carried no information the first had not already given.
 # What matters is that the one dialog names what gets destroyed.
-zdc_rb=$(awk '/^function mgrRollback\(/,/^}/' src/ZFSToolkitPage.php)
+zdc_rb=$(awk '/^function mgrRollback(Confirm)?\(/,/^}/' src/ZFSToolkitPage.php)
 zdc_rb_bad=""
 printf '%s' "$zdc_rb" | grep -q 'prompt(' && zdc_rb_bad="$zdc_rb_bad type-the-name-again;"
 printf '%s' "$zdc_rb" | grep -q 'confirm(warn)' || zdc_rb_bad="$zdc_rb_bad no-confirm-dialog;"
+# Counted from all of the dataset's snapshots: the list on screen shows only
+# plugin snapshots by default, and the rollback destroys the others too.
+printf '%s' "$zdc_rb" | grep -q "only_auto: '0'" || zdc_rb_bad="$zdc_rb_bad counts-only-the-filtered-rows;"
 for zdc_w in DISCARDED 'will be destroyed' 'replication checkpoint' 'are held'; do
     printf '%s' "$zdc_rb" | grep -q "$zdc_w" || zdc_rb_bad="$zdc_rb_bad missing:'$zdc_w';"
 done
@@ -541,6 +552,160 @@ if [ -f "$PAGE" ]; then
 else
     bad "$PAGE exists"
 fi
+
+group "Replication jobs keep empty fields in place"
+
+# The worker used to split its job list on tabs. bash counts a tab as IFS
+# whitespace, and a run of whitespace as one separator, so an empty field - the
+# SSH host of a local job, the key of an SSH job using the default one - made
+# every later field move left: Force and keep-on-destination were lost, and an
+# SSH job without a key path failed with "ssh key '0' is not readable".
+if command -v php >/dev/null 2>&1; then
+    zdc_t=$(mktemp -d)
+    cat > "$zdc_t/send_jobs.json" <<'EOF'
+{"jobs":[
+ {"id":"a","enabled":true,"name":"local","source":"cache/appdata","dest":"backup/replica/appdata","recursive":true,"transport":"local","ssh_host":"","ssh_port":22,"ssh_key":"","raw":false,"compressed":true,"allow_rollback":true,"keep_dest":5},
+ {"id":"b","enabled":true,"name":"ssh","source":"cache/TV Shows","dest":"tank/replica/TV Shows","recursive":false,"transport":"ssh","ssh_host":"root@nas2","ssh_port":2222,"ssh_key":"","raw":false,"compressed":true,"allow_rollback":false,"keep_dest":3}
+]}
+EOF
+    zdc_rows=$(ZDC_CONFIG_DIR="$zdc_t" php src/scripts/send_jobs_tsv.php | bash -c '
+        while IFS=$'"'"'\x1f'"'"' read -r id enabled name source dest recursive transport ssh_host ssh_port ssh_key raw compressed allow_rollback keep_dest; do
+            echo "$id|$source|$transport|$ssh_host|$ssh_port|$ssh_key|$raw|$compressed|$allow_rollback|$keep_dest"
+        done')
+    rm -rf "$zdc_t"
+    zdc_want='a|cache/appdata|local||22||0|1|1|5
+b|cache/TV Shows|ssh|root@nas2|2222||0|1|0|3'
+    if [ "$zdc_rows" = "$zdc_want" ]; then
+        ok "every field of a job arrives in its own place, empty ones included"
+    else
+        bad "every field of a job arrives in its own place" "got: $(printf '%s' "$zdc_rows" | tr '\n' ' ')"
+    fi
+    grep -q "IFS=\$'\\\\x1f' read -r id enabled name" src/scripts/zfs_send.sh \
+        && ok "zfs_send.sh reads the separator send_jobs_tsv.php writes" \
+        || bad "zfs_send.sh reads the separator send_jobs_tsv.php writes"
+else
+    skip "php not installed"
+fi
+
+group "Replication keeps the chain tidy"
+
+# A recursive job snapshots every child. Destroying only the parent's old
+# checkpoint left one more on each child with every run.
+grep -q 'prune_checkpoints local "$source"' src/scripts/zfs_send.sh \
+    && grep -q 'list_args+=(-r)' src/scripts/zfs_send.sh \
+    && ok "old checkpoints are pruned across the whole tree of a recursive job" \
+    || bad "old checkpoints are pruned across the whole tree of a recursive job"
+# A source with its own mountpoint - a pool root - handed it to the copy, which
+# then mounted over the original at the next import.
+grep -q 'recv_args=(-u -x mountpoint)' src/scripts/zfs_send.sh \
+    && ok "zfs recv does not take the source's mountpoint" \
+    || bad "zfs recv does not take the source's mountpoint"
+# ssh joins its arguments into one line for the remote shell, which splits
+# "tank/TV Shows" in two.
+grep -q '"${SSH_CMD\[@\]}" "$(remote_cmd zfs "$@")"' src/scripts/zfs_send.sh \
+    && ok "commands for the remote end are quoted for its shell" \
+    || bad "commands for the remote end are quoted for its shell"
+
+group "Conversion never renames a folder or overwrites one"
+
+zdc_conv=src/scripts/zfs_converter.sh
+# The destructive resume: any <name>_temp next to a dataset <name> was synced
+# into it with --delete and then removed - a user folder tdarr_temp next to the
+# tdarr dataset replaced tdarr's contents.
+if grep -v '^[[:space:]]*#' "$zdc_conv" | grep -q -- '--delete'; then
+    bad "no rsync --delete in the converter" "$(grep -n -- '--delete' "$zdc_conv" | grep -v ':[[:space:]]*#')"
+else
+    ok "no rsync --delete in the converter"
+fi
+zdc_jw=$(grep -n '^    journal_write$' "$zdc_conv" | head -1 | cut -d: -f1)
+zdc_mv=$(grep -n 'mv "$path" "$temp_path"' "$zdc_conv" | head -1 | cut -d: -f1)
+if [ -n "$zdc_jw" ] && [ -n "$zdc_mv" ] && [ "$zdc_jw" -lt "$zdc_mv" ]; then
+    ok "the journal is written before the folder is renamed"
+else
+    bad "the journal is written before the folder is renamed" "journal_write line ${zdc_jw:-?}, mv line ${zdc_mv:-?}"
+fi
+grep -q 'create_opts=(-o "mountpoint=${path}")' "$zdc_conv" \
+    && ok "a dataset named differently from its folder is mounted at the folder's path" \
+    || bad "a dataset named differently from its folder is mounted at the folder's path"
+[ "$(grep -c 'abandon "$entry"' "$zdc_conv")" -ge 4 ] \
+    && ok "every failure after the rename puts the folder back" \
+    || bad "every failure after the rename puts the folder back" "$(grep -c 'abandon "$entry"' "$zdc_conv") abandon calls"
+grep -q 'shell_exec(.pkill -TERM -P . . $pid' src/scripts/get_status.php \
+    && ok "Stop ends the command the converter waits on, not only the script" \
+    || bad "Stop ends the command the converter waits on, not only the script"
+
+# The dataset name for a folder has to come out the same in the converter and
+# in the scan the page shows, or the page announces one name and gets another.
+if command -v php >/dev/null 2>&1; then
+    zdc_names=$(awk '/^valid_zfs_name\(\) \{/,/^}/; /^dataset_name_for\(\) \{/,/^}/' "$zdc_conv")
+    zdc_name_bad=""
+    for zdc_rs in no yes; do
+        while IFS='|' read -r zdc_in zdc_want_no zdc_want_yes; do
+            [ -n "$zdc_in" ] || continue
+            zdc_want=$zdc_want_no; [ "$zdc_rs" = yes ] && zdc_want=$zdc_want_yes
+            zdc_got=$(replace_spaces=$zdc_rs bash -c "$zdc_names"'
+                dataset_name_for "$1"' _ "$zdc_in")
+            zdc_php=$(php -r "$(awk '/^function zdcDatasetName/,/^}/' src/scripts/scan_folders.php)"'
+                echo zdcDatasetName($argv[1], $argv[2] === "yes");' "$zdc_in" "$zdc_rs")
+            [ "$zdc_got" = "$zdc_want" ] || zdc_name_bad="$zdc_name_bad sh[$zdc_in,$zdc_rs]=$zdc_got;"
+            [ "$zdc_php" = "$zdc_want" ] || zdc_name_bad="$zdc_name_bad php[$zdc_in,$zdc_rs]=$zdc_php;"
+        done <<'EOF'
+plex|plex|plex
+TV Shows|TV Shows|TV_Shows
+_backup|_backup|_backup
+Büro (alt)|Buero _alt_|Buero__alt_
+x+y|x_y|x_y
+EOF
+    done
+    if [ -z "$zdc_name_bad" ]; then
+        ok "converter and scan give a folder the same dataset name"
+    else
+        bad "converter and scan give a folder the same dataset name" "$zdc_name_bad"
+    fi
+else
+    skip "php not installed"
+fi
+
+group "Snapshots"
+
+# A destroyed snapshot's space shows in zpool list 3-5 seconds later. Read
+# straight after each destroy, free space looked unchanged and the loop went on
+# destroying - on a test pool 4 snapshots where 2 were needed.
+awk '/^free_space_prune\(\) \{/,/^}/' src/scripts/snapshot_manager.sh | grep -q 'zpool sync "$pool"' \
+    && ok "free-space pruning waits for the freed space to show" \
+    || bad "free-space pruning waits for the freed space to show"
+# .zfs is reachable with snapdir=hidden; setting it visible changed a property
+# of the user's dataset for nothing.
+if grep -q 'snapdir=visible' src/scripts/snapshot_browse.php | grep -v '^\s*//' 2>/dev/null; then
+    bad "the snapshot browser leaves snapdir alone"
+elif grep -n 'zfs set snapdir' src/scripts/snapshot_browse.php >/dev/null; then
+    bad "the snapshot browser leaves snapdir alone" "$(grep -n 'zfs set snapdir' src/scripts/snapshot_browse.php)"
+else
+    ok "the snapshot browser leaves snapdir alone"
+fi
+if command -v php >/dev/null 2>&1; then
+    zdc_unesc=$(php -r "$(awk '/^function zdc_diff_unescape/,/^}/' src/scripts/snapshot_diff.php)"'
+        echo zdc_diff_unescape($argv[1]);' 'Mein\0040Ordner/Br\0303\0274cke.txt')
+    [ "$zdc_unesc" = "Mein Ordner/Brücke.txt" ] \
+        && ok "zfs diff names are shown as they are, not as octal escapes" \
+        || bad "zfs diff names are shown as they are" "got: $zdc_unesc"
+fi
+
+group "Page safety"
+
+# A file or folder name went into onclick="...('<name>')" with only single
+# quotes escaped. A name with a double quote in it could close the attribute
+# and add a handler of its own - JavaScript run in the admin's session.
+if grep -n "replace(/'/g" "$PAGE" >/dev/null; then
+    bad "no path is pasted into handler code" "$(grep -n "replace(/'/g" "$PAGE" | head -3)"
+else
+    ok "no path is pasted into handler code"
+fi
+# Every autosave wrote the dataset list back, so one that had failed to load
+# was saved as empty and all datasets left the snapshot schedule.
+grep -q 'if (!_snapLoaded || !_snapDirty) return {ok: true};' "$PAGE" \
+    && ok "the snapshot dataset list is only written back once read and changed" \
+    || bad "the snapshot dataset list is only written back once read and changed"
 
 printf '\n\033[1mResult:\033[0m %d passed, %d failed, %d skipped\n' "$PASS" "$FAIL" "$SKIP"
 [ "$FAIL" -eq 0 ]

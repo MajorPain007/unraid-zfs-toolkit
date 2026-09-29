@@ -27,8 +27,10 @@ zdc_valid_int "$HOUR"    && (( HOUR    >= 0 && HOUR    <= 23 )) || HOUR=2
 zdc_valid_int "$MINUTE"  && (( MINUTE  >= 0 && MINUTE  <= 59 )) || MINUTE=0
 zdc_valid_int "$WEEKDAY" && (( WEEKDAY >= 0 && WEEKDAY <= 7  )) || WEEKDAY=0
 
+# hourly runs at :00 - the page hides the minute for this preset and shows
+# "0 * * * *", so a minute left over from another preset must not sneak in.
 case "$PRESET" in
-    hourly)   EXPR="${MINUTE} * * * *" ;;
+    hourly)   EXPR="0 * * * *" ;;
     6hourly)  EXPR="${MINUTE} */6 * * *" ;;
     daily)    EXPR="${MINUTE} ${HOUR} * * *" ;;
     weekly)   EXPR="${MINUTE} ${HOUR} * * ${WEEKDAY}" ;;

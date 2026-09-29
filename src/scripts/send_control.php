@@ -68,6 +68,18 @@ if ($action === 'save_jobs') {
         if ($why !== '') {
             $data['jobs'][$i]['enabled'] = false;
             if ($why !== 'incomplete') $warnings[] = 'Job ' . $label . ': ' . $why . ' - disabled';
+        } elseif ($transport === 'local') {
+            // Unraid makes every top-level folder on every pool part of the user
+            // share of that name. A copy received as backup/appdata is mounted at
+            // /mnt/backup/appdata from the next boot on, and is then part of the
+            // appdata share next to the real one.
+            $parts = explode('/', $dst);
+            if (count($parts) >= 2 && is_dir('/mnt/user/' . $parts[1])) {
+                $warnings[] = 'Job ' . $label . ': ' . $parts[0] . '/' . $parts[1] . ' will be mounted at /mnt/'
+                            . $parts[0] . '/' . $parts[1] . ', which makes it part of the share "' . $parts[1]
+                            . '". Put the copy one level down, e.g. ' . $parts[0] . '/replica/'
+                            . implode('/', array_slice($parts, 1)) . '.';
+            }
         }
     }
     $data['jobs'] = array_values($data['jobs']);

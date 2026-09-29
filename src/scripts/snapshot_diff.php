@@ -62,6 +62,15 @@ $changeNames = array(
     '-' => 'removed', '+' => 'added', 'M' => 'modified', 'R' => 'renamed',
 );
 
+// zfs diff writes every byte outside printable ASCII, and the space, as a
+// backslash and four octal digits: "My File" comes out as My\0040File and an
+// umlaut as two escapes. Turn them back into the name.
+function zdc_diff_unescape($s) {
+    return preg_replace_callback('/\\\\([0-7]{4})/', function ($m) {
+        return chr(octdec($m[1]) & 0xff);
+    }, $s);
+}
+
 $entries   = array();
 $truncated = false;
 $counts    = array('added' => 0, 'removed' => 0, 'modified' => 0, 'renamed' => 0);
@@ -75,8 +84,8 @@ foreach ($out as $line) {
 
     $change = $f[0];
     $ftype  = $f[1];
-    $path   = $f[2];
-    $newpath = isset($f[3]) ? $f[3] : '';
+    $path   = zdc_diff_unescape($f[2]);
+    $newpath = isset($f[3]) ? zdc_diff_unescape($f[3]) : '';
 
     $kind = isset($changeNames[$change]) ? $changeNames[$change] : $change;
     if (isset($counts[$kind])) $counts[$kind]++;

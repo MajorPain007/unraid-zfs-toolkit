@@ -327,6 +327,7 @@ select.snap-sel {
 .zdc-table tr:last-child td { border-bottom:none; }
 .tag-folder  { color:var(--zdc-warn); font-size:12px; }
 .tag-dataset { color:var(--zdc-ok); font-size:12px; }
+.tag-kept    { color:var(--zdc-dim); font-size:12px; cursor:help; }
 
 .btn-primary   { background:#238636; color:#fff; border:none; padding:7px 18px; border-radius:5px; font-size:13px; font-weight:600; cursor:pointer; }
 .btn-primary:hover { background:#2ea043; }
@@ -402,6 +403,7 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
   <div class="zdc-row">
     <label class="row-label">Replace spaces with underscores</label>
     <label class="zdc-toggle"><input type="checkbox" name="replace_spaces" id="replace_spaces" <?= cfgBool('replace_spaces')?'checked':'' ?>><span class="zdc-slider"></span></label>
+    <span class="zdc-note">In dataset names only &mdash; the folder keeps its path either way</span>
   </div>
   <div class="zdc-row">
     <label class="row-label">Send Unraid notifications</label>
@@ -438,7 +440,7 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
     </div>
     <div id="cron-time-row" class="zdc-row" style="margin-left:20px">
       <label class="row-label">Time</label>
-      <input type="number" name="cron_hour"   id="cron_hour"   value="<?= cfg('cron_hour','2') ?>"  min="0" max="23" class="w80" style="width:60px" oninput="updateCronPreview()"> h &nbsp;
+      <span id="cron-hour-wrap"><input type="number" name="cron_hour"   id="cron_hour"   value="<?= cfg('cron_hour','2') ?>"  min="0" max="23" class="w80" style="width:60px" oninput="updateCronPreview()"> h &nbsp;</span>
       <input type="number" name="cron_minute" id="cron_minute" value="<?= cfg('cron_minute','0') ?>" min="0" max="59" class="w80" style="width:60px" oninput="updateCronPreview()"> min
     </div>
     <div id="cron-weekday-row" class="zdc-row" style="margin-left:20px;display:none">
@@ -904,8 +906,12 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
         Typed rather than picked, because it usually does not exist yet; for a local target the
         existing datasets are offered as suggestions.
         With <i>over SSH</i> it lives on the remote host, written the way ZFS does it:
-        <code>root@10.0.0.5 : tank/backup/appdata</code>. It is created on first run; the pool has to
+        <code>root@10.0.0.5 : tank/replica/appdata</code>. It is created on first run; the pool has to
         exist already.<br>
+        <b style="color:var(--zdc-text);">Not directly below the pool on this server.</b> Unraid counts
+        every top-level folder on every pool as part of the share of that name, so a copy received as
+        <code>backup/appdata</code> becomes part of the <code>appdata</code> share from the next boot on.
+        One level further down, like <code>backup/replica/appdata</code>, it stays apart.<br>
 
         <b style="color:var(--zdc-text);">SSH</b> &mdash; key-based authentication only, this plugin
         never handles passwords. Create a key, copy it to the destination, then enter its path above:<br>
@@ -1004,9 +1010,19 @@ function renderFolderTable(res) {
     if (!src.entries || !src.entries.length) { html += '<p style="color:var(--zdc-dim);font-size:13px;margin:0 0 8px 8px;">No entries.</p>'; return; }
     html += '<table class="zdc-table"><thead><tr><th>Name</th><th>Type</th><th>Size</th></tr></thead><tbody>';
     src.entries.forEach(function(e) {
-      var cls = e.type === 'dataset' ? 'tag-dataset' : 'tag-folder';
-      var lbl = e.type === 'dataset' ? '✓ Dataset' : '→ Will convert';
-      html += '<tr><td>' + esc(e.name) + '</td><td class="'+cls+'">' + lbl + '</td><td>' + esc(e.size) + '</td></tr>';
+      var cls, lbl, title = '';
+      if (e.type === 'dataset') {
+        cls = 'tag-dataset'; lbl = '✓ Dataset';
+      } else if (e.type === 'kept') {
+        cls = 'tag-kept'; lbl = '— Left alone'; title = e.why || '';
+      } else {
+        cls = 'tag-folder';
+        lbl = e.as ? '→ Will convert as ' + e.as : '→ Will convert';
+        if (e.as) title = 'ZFS does not take this folder name as it is, so the dataset is called "'
+                        + e.as + '". It is mounted at the folder\'s own path, so nothing that points at the folder changes.';
+      }
+      html += '<tr><td>' + esc(e.name) + '</td><td class="' + cls + '" title="' + esc(title) + '">'
+            + esc(lbl) + '</td><td>' + esc(e.size) + '</td></tr>';
     });
     html += '</tbody></table>';
   });
@@ -1134,6 +1150,8 @@ function updateCronPreview() {
   var weekRow    = document.getElementById('cron-weekday-row');
   var customRow  = document.getElementById('cron-custom-row');
   timeRow.style.display   = (preset === 'custom' || preset === 'hourly') ? 'none' : '';
+  // Every 6 hours runs at 0, 6, 12 and 18 - an hour typed in would change nothing.
+  document.getElementById('cron-hour-wrap').style.display = preset === '6hourly' ? 'none' : '';
   weekRow.style.display   = preset === 'weekly'  ? '' : 'none';
   customRow.style.display = preset === 'custom'  ? '' : 'none';
 
@@ -1219,6 +1237,12 @@ fetch(_base + '/get_status.php').then(function(r){ return r.json(); })
 });
 
 var _snapDatasets = [];  // in-memory dataset list
+// The list is written back only when it was read successfully and has been
+// changed here. Every autosave used to send it, so a list that had failed to
+// load - or not loaded yet - was saved as empty, and every dataset dropped out
+// of the snapshot schedule without a word.
+var _snapLoaded = false;
+var _snapDirty  = false;
 
 var _autoSaveTimer = null;
 
@@ -1266,13 +1290,19 @@ function _doAutoSave() {
     setTimeout(loadCronStatus, 500);
     setTimeout(zdcRefreshStatus, 700);
     if (document.getElementById('snapshots_enabled').checked) setTimeout(loadSnapshotStatus, 500);
-    var params = new URLSearchParams({datasets_json: JSON.stringify({datasets: _snapDatasets})});
+    if (!_snapLoaded || !_snapDirty) return {ok: true};
+    var sent = JSON.stringify({datasets: _snapDatasets});
+    var params = new URLSearchParams({datasets_json: sent});
     if (typeof csrf_token !== 'undefined') params.append('csrf_token', csrf_token);
     return fetch(_base + '/save_snapshot_config.php', {
       method: 'POST',
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
       body: params
-    }).then(function(r) { return r.json(); });
+    }).then(function(r) { return r.json(); }).then(function(res) {
+      // Still dirty if it changed again while this request was on its way.
+      if (res.ok && JSON.stringify({datasets: _snapDatasets}) === sent) _snapDirty = false;
+      return res;
+    });
   })
   .then(function(res2) {
     if (res2.ok) {
@@ -1622,15 +1652,20 @@ function loadSnapDatasetConfig() {
   fetch(_base + '/get_snap_datasets.php')
   .then(function(r){ return r.json(); })
   .then(function(data) {
-    _snapDatasets = (data && data.datasets) ? data.datasets : [];
+    if (!data || !Array.isArray(data.datasets)) throw new Error('unexpected answer');
+    _snapDatasets = data.datasets;
+    _snapLoaded = true;
     renderSnapTable();
-  }).catch(function() {
-    _snapDatasets = [];
-    renderSnapTable();
+  }).catch(function(e) {
+    _snapLoaded = false;
+    document.getElementById('snap-ds-tbody').innerHTML =
+      '<tr><td colspan="9" style="color:var(--zdc-err);padding:10px;">Could not read the dataset list ('
+      + esc(String(e)) + '). Reload the page - nothing is saved over the list until it has been read.</td></tr>';
   });
 }
 
 function addSnapDataset() {
+  if (!_snapLoaded) return;
   var picker = document.getElementById('snap-ds-picker');
   var name = picker.value;
   if (!name) return;
@@ -1640,12 +1675,15 @@ function addSnapDataset() {
   _snapDatasets.push({name:name, recursive:false, use_template:true,
                        hourly:'', daily:'', weekly:'', monthly:'', yearly:''});
   picker.value = '';
+  _snapDirty = true;
   renderSnapTable();
   _triggerAutoSave();
 }
 
 function removeSnapDataset(idx) {
+  if (!_snapLoaded) return;
   _snapDatasets.splice(idx, 1);
+  _snapDirty = true;
   renderSnapTable();
   _triggerAutoSave();
 }
@@ -1691,12 +1729,16 @@ function renderSnapTable() {
 }
 
 function snapDsField(idx, field, val) {
+  if (!_snapLoaded) return;
   _snapDatasets[idx][field] = val;
+  _snapDirty = true;
   _triggerAutoSave();
 }
 
 function snapToggleTpl(idx, checked) {
+  if (!_snapLoaded) return;
   _snapDatasets[idx].use_template = checked;
+  _snapDirty = true;
   renderSnapTable();
   _triggerAutoSave();
 }
@@ -1947,7 +1989,7 @@ function renderBreadcrumb(crumbs) {
   var html = '';
   crumbs.forEach(function(c, i) {
     if (i > 0) html += '<span class="snap-crumb-sep">›</span>';
-    html += '<span class="snap-crumb" onclick="browserBrowse(\''+c.path.replace(/'/g,"\\'")+'\')">' + esc(c.label) + '</span>';
+    html += '<span class="snap-crumb" data-path="' + esc(c.path) + '" onclick="browserBrowse(this.dataset.path)">' + esc(c.label) + '</span>';
   });
   el.innerHTML = html;
 }
@@ -1964,7 +2006,7 @@ function renderFileList(entries, dataset, snapshot, currentPath) {
   if (currentPath && currentPath !== '/') {
     var parent = currentPath.replace(/\/[^\/]*$/, '') || '/';
     html += '<tr><td></td><td colspan="4" style="padding:4px 8px;">'
-          + '<span class="snap-dir" onclick="browserBrowse(\'' + parent.replace(/'/g, "\\'") + '\')"'
+          + '<span class="snap-dir" data-path="' + esc(parent) + '" onclick="browserBrowse(this.dataset.path)"'
           + ' title="Up to ' + esc(parent) + '">\u21b0 ..</span></td></tr>';
   }
 
@@ -1980,7 +2022,7 @@ function renderFileList(entries, dataset, snapshot, currentPath) {
     var nameCell;
     if (isDir) {
       var subPath = (currentPath === '/' ? '' : currentPath) + '/' + e.name;
-      nameCell = '<span class="snap-dir" onclick="browserBrowse(\''+subPath.replace(/'/g,"\\'")+'\')">'
+      nameCell = '<span class="snap-dir" data-path="' + esc(subPath) + '" onclick="browserBrowse(this.dataset.path)">'
                + '📁 ' + esc(e.name) + '</span>';
     } else {
       nameCell = '<span class="snap-file">📄 ' + esc(e.name) + '</span>';
@@ -1991,10 +2033,9 @@ function renderFileList(entries, dataset, snapshot, currentPath) {
       + '<td>' + nameCell + '</td>'
       + '<td style="color:var(--zdc-dim)">' + esc(e.size) + '</td>'
       + '<td style="color:var(--zdc-dim);font-size:11px">' + esc(e.mtime) + '</td>'
-      + '<td><button class="snap-restore-btn" onclick="restoreEntry(\''
-        + dataset.replace(/'/g,"\\'") + '\',\''
-        + snapshot.replace(/'/g,"\\'") + '\',\''
-        + srcPath.replace(/'/g,"\\'") + '\')">Restore</button></td>'
+      + '<td><button class="snap-restore-btn" data-dataset="' + esc(dataset) + '" data-snapshot="' + esc(snapshot)
+        + '" data-src="' + esc(srcPath) + '"'
+        + ' onclick="restoreEntry(this.dataset.dataset, this.dataset.snapshot, this.dataset.src)">Restore</button></td>'
       + '</tr>';
   });
 
@@ -2131,7 +2172,7 @@ function destBrowse(path) {
     var cr = '';
     res.crumbs.forEach(function(c, i) {
       if (i > 0) cr += '<span style="color:#555;"> \u203a </span>';
-      cr += '<span class="snap-crumb" onclick="destBrowse(\'' + c.path.replace(/'/g, "\\'") + '\')">'
+      cr += '<span class="snap-crumb" data-path="' + esc(c.path) + '" onclick="destBrowse(this.dataset.path)">'
           + esc(c.label) + '</span>';
     });
     document.getElementById('dest-crumbs').innerHTML = cr;
@@ -2139,16 +2180,14 @@ function destBrowse(path) {
     var html = '';
     if (res.path && res.path !== '/mnt') {
       var up = res.path.replace(/\/[^\/]*$/, '') || '/mnt';
-      html += '<div class="snap-dir" style="padding:2px 0;" onclick="destBrowse(\''
-            + up.replace(/'/g, "\\'") + '\')">\u21b0 ..</div>';
+      html += '<div class="snap-dir" style="padding:2px 0;" data-path="' + esc(up) + '" onclick="destBrowse(this.dataset.path)">\u21b0 ..</div>';
     }
     if (!res.dirs.length) {
       listEl.innerHTML = html + '<span style="color:var(--zdc-dim);">No subfolders here.</span>';
       return;
     }
     res.dirs.forEach(function(d) {
-      html += '<div class="snap-dir" style="padding:2px 0;" onclick="destBrowse(\''
-            + d.path.replace(/'/g, "\\'") + '\')">\ud83d\udcc1 ' + esc(d.name) + '</div>';
+      html += '<div class="snap-dir" style="padding:2px 0;" data-path="' + esc(d.path) + '" onclick="destBrowse(this.dataset.path)">\ud83d\udcc1 ' + esc(d.name) + '</div>';
     });
     listEl.innerHTML = html;
   }).catch(function(e) {
@@ -2498,10 +2537,21 @@ function mgrRollback(i) {
   var s = _mgrSnaps[i];
   if (!s) return;
 
-  var newer = _mgrSnaps.filter(function(x) {
-    return x.dataset === s.dataset && x.creation > s.creation;
-  });
+  // Counted from every snapshot of the dataset, not from the rows on screen:
+  // "only plugin snapshots" is on by default and hides replication checkpoints
+  // and manual snapshots - which the rollback destroys just the same.
+  mgrResult('Checking what a rollback would destroy…');
+  postForm(_base + '/snapshot_admin.php', {action: 'list', dataset: s.dataset, only_auto: '0'})
+  .then(function(res) {
+    if (!res.ok) { mgrResult(res.error || 'Could not list the snapshots', 'var(--zdc-err)'); return; }
+    mgrResult('');
+    mgrRollbackConfirm(s, (res.snapshots || []).filter(function(x) {
+      return x.dataset === s.dataset && x.creation > s.creation;
+    }));
+  }).catch(function(e) { mgrResult('Error: ' + e, 'var(--zdc-err)'); });
+}
 
+function mgrRollbackConfirm(s, newer) {
   // One dialog, and it has to earn that by saying exactly what will be lost.
   // Typing the name out was a second gate that added no information - anyone who
   // got this far had already read the warning and meant it.
@@ -2674,8 +2724,8 @@ function renderSendTable() {
               + '<span style="color:var(--zdc-dim);">:</span>'
             : '')
         + (isSsh
-            ? sendField(i, 'dest', j.dest, '145px', 'tank/backup/appdata')
-            : sendField(i, 'dest', j.dest, '145px', 'backup/appdata').replace(
+            ? sendField(i, 'dest', j.dest, '145px', 'tank/replica/appdata')
+            : sendField(i, 'dest', j.dest, '145px', 'backup/replica/appdata').replace(
                 '<input ', '<input list="zdc-dataset-list" '))
         + '</div>'
         + (isSsh

@@ -13,13 +13,21 @@ register_shutdown_function(function() {
     }
 });
 
-define('ZDC_RSYNC',  '-a -H -A -X --numeric-ids');
 define('ZDC_TMP',    '/tmp/zfs.toolkit');
 define('ZDC_PLUGIN', '/usr/local/emhttp/plugins/zfs.toolkit');
 
+// A file name that is not valid UTF-8 - common for names written by old
+// Windows clients over SMB - made json_encode return false, and the whole
+// folder listing arrived empty. Such a name now shows with a replacement mark.
 function zdc_out($data) {
-    echo json_encode($data);
+    echo json_encode($data, JSON_INVALID_UTF8_SUBSTITUTE);
     exit;
+}
+
+// The dataset rule of zdc_php_common.php, repeated here because this endpoint
+// stands on its own. Letters, digits, space and _ . : - as ZFS takes them.
+function zdc_browse_dataset_ok($name) {
+    return (bool)preg_match('#^[A-Za-z0-9][A-Za-z0-9_.:-]*(/[A-Za-z0-9_.: -]+)*$#', $name);
 }
 
 function zdc_get_mountpoint($dataset) {
@@ -70,13 +78,9 @@ $action = '';
 if (isset($_POST['action'])) $action = trim($_POST['action']);
 elseif (isset($_GET['action'])) $action = trim($_GET['action']);
 
-if ($action === 'test') {
-    zdc_out(array('ok' => true, 'php' => PHP_VERSION, 'time' => date('Y-m-d H:i:s')));
-}
-
 if ($action === 'list_snapshots') {
     $dataset = isset($_POST['dataset']) ? $_POST['dataset'] : (isset($_GET['dataset']) ? $_GET['dataset'] : '');
-    if ($dataset === '' || preg_match('/[^a-zA-Z0-9\/_.-]/', $dataset)) {
+    if (!zdc_browse_dataset_ok($dataset)) {
         zdc_out(array('ok' => false, 'error' => 'Invalid dataset name'));
     }
     $lines = array();
@@ -97,7 +101,7 @@ if ($action === 'browse') {
     $snapshot = isset($_POST['snapshot']) ? $_POST['snapshot'] : (isset($_GET['snapshot']) ? $_GET['snapshot'] : '');
     $path     = isset($_POST['path'])     ? $_POST['path']     : (isset($_GET['path'])     ? $_GET['path']     : '/');
 
-    if ($dataset === '' || preg_match('/[^a-zA-Z0-9\/_.-]/', $dataset)) {
+    if (!zdc_browse_dataset_ok($dataset)) {
         zdc_out(array('ok' => false, 'error' => 'Invalid dataset name'));
     }
 
@@ -108,11 +112,6 @@ if ($action === 'browse') {
     $mountpoint = zdc_get_mountpoint($dataset);
     if ($mountpoint === '') {
         zdc_out(array('ok' => false, 'error' => 'Dataset not found or not mounted: ' . $dataset));
-    }
-
-    $snap_dir = $mountpoint . '/.zfs/snapshot';
-    if (!is_dir($snap_dir)) {
-        exec('zfs set snapdir=visible ' . escapeshellarg($dataset) . ' 2>/dev/null');
     }
 
     // A snapshot that was just destroyed can still leave a stale directory
@@ -147,11 +146,14 @@ if ($action === 'browse') {
         exec('ls -A -- ' . escapeshellarg($snap_base) . ' >/dev/null 2>&1');
         clearstatcache(true, $snap_base);
     }
+    // .zfs is there whether snapdir is hidden or visible - hidden only keeps it
+    // out of directory listings - so a snapshot that cannot be reached here is
+    // not a snapdir question. The dataset is usually not mounted.
     if (!is_dir($snap_base)) {
         zdc_out(array(
             'ok'    => false,
             'error' => 'Snapshot not accessible at ' . $snap_base
-                     . '. Run: zfs set snapdir=visible ' . $dataset,
+                     . '. Is ' . $dataset . ' mounted at ' . $mountpoint . '?',
         ));
     }
 
@@ -276,7 +278,7 @@ if ($action === 'restore_start') {
     if (!$items) zdc_out(array('ok' => false, 'error' => 'Nothing selected'));
     if (count($items) > 1000) zdc_out(array('ok' => false, 'error' => 'Too many items (max 1000)'));
 
-    if ($dataset === '' || preg_match('/[^a-zA-Z0-9\/_.-]/', $dataset)) {
+    if (!zdc_browse_dataset_ok($dataset)) {
         zdc_out(array('ok' => false, 'error' => 'Invalid dataset'));
     }
     if ($snapshot === '' || preg_match('/[^a-zA-Z0-9_.:\-]/', $snapshot)) {
@@ -290,6 +292,10 @@ if ($action === 'restore_start') {
 
     $dst_dir_fixed = null;
     if ($dst_rel !== '') {
+        // The job file separates its fields with tabs.
+        if (strpbrk($dst_rel, "\t\n\r\0") !== false) {
+            zdc_out(array('ok' => false, 'error' => 'Unsupported character in the destination path'));
+        }
         $dst_dir_fixed = (isset($dst_rel[0]) && $dst_rel[0] === '/')
             ? zdc_safe_abs_path($dst_rel)
             : zdc_safe_path($mountpoint, $dst_rel);
@@ -387,106 +393,6 @@ if ($action === 'restore_status') {
     $st['ok']  = true;
     $st['log'] = $log;
     zdc_out($st);
-}
-
-if ($action === 'restore') {
-    $dataset  = isset($_POST['dataset'])  ? $_POST['dataset']  : '';
-    $snapshot = isset($_POST['snapshot']) ? $_POST['snapshot'] : '';
-    $src_rel  = isset($_POST['src_path']) ? $_POST['src_path'] : '';
-    $dst_rel  = isset($_POST['dst_path']) ? $_POST['dst_path'] : '';
-
-    if ($dataset === '' || preg_match('/[^a-zA-Z0-9\/_.-]/', $dataset)) {
-        zdc_out(array('ok' => false, 'error' => 'Invalid dataset'));
-    }
-    if ($snapshot === '' || preg_match('/[^a-zA-Z0-9_.:\-]/', $snapshot)) {
-        zdc_out(array('ok' => false, 'error' => 'Invalid snapshot'));
-    }
-
-    $mountpoint = zdc_get_mountpoint($dataset);
-    if ($mountpoint === '') {
-        zdc_out(array('ok' => false, 'error' => 'Dataset not mounted'));
-    }
-
-    @set_time_limit(0);
-    @ignore_user_abort(true);
-
-    $snap_base = $mountpoint . '/.zfs/snapshot/' . $snapshot;
-    $live_base = $mountpoint;
-
-    $src = zdc_safe_path($snap_base, $src_rel);
-    if ($src === false || !file_exists($src)) {
-        zdc_out(array('ok' => false, 'error' => 'Source not found in snapshot: ' . $src_rel));
-    }
-
-    if ($dst_rel === '') {
-
-        $dst = zdc_safe_path($live_base, $src_rel);
-        if ($dst === false) {
-            zdc_out(array('ok' => false, 'error' => 'Invalid source path'));
-        }
-    } elseif (isset($dst_rel[0]) && $dst_rel[0] === '/') {
-
-        $dst = zdc_safe_abs_path($dst_rel);
-        if ($dst === false) {
-            zdc_out(array('ok' => false, 'error' => 'Invalid destination path'));
-        }
-    } else {
-
-        $dst = zdc_safe_path($live_base, $dst_rel);
-        if ($dst === false) {
-            zdc_out(array('ok' => false, 'error' => 'Invalid destination path'));
-        }
-    }
-
-    if (strpos($dst, '/.zfs/') !== false) {
-        zdc_out(array('ok' => false, 'error' => 'Destination is inside a snapshot (read-only): ' . $dst));
-    }
-
-    if (is_dir($src) && (rtrim($dst, '/') === rtrim($src, '/')
-        || strpos(rtrim($dst, '/') . '/', rtrim($src, '/') . '/') === 0)) {
-        zdc_out(array('ok' => false, 'error' => 'Destination is inside the source folder'));
-    }
-
-    if ($dst_rel === '') {
-
-        if (is_dir($src)) {
-            if (!is_dir($dst) && !mkdir($dst, 0755, true)) {
-                zdc_out(array('ok' => false, 'error' => 'Cannot create directory: ' . $dst));
-            }
-            $cmd   = 'rsync ' . ZDC_RSYNC . ' ' . escapeshellarg($src . '/') . ' ' . escapeshellarg($dst . '/') . ' 2>&1';
-            $check = $dst;
-        } else {
-            $dst_dir = dirname($dst);
-            if (!is_dir($dst_dir) && !mkdir($dst_dir, 0755, true)) {
-                zdc_out(array('ok' => false, 'error' => 'Cannot create directory: ' . $dst_dir));
-            }
-            $cmd   = 'cp -a ' . escapeshellarg($src) . ' ' . escapeshellarg($dst) . ' 2>&1';
-            $check = $dst;
-        }
-    } else {
-
-        if (!is_dir($dst) && !mkdir($dst, 0755, true)) {
-            zdc_out(array('ok' => false, 'error' => 'Cannot create directory: ' . $dst));
-        }
-        if (is_dir($src)) {
-
-            $dst_named = $dst . '/' . basename($src);
-            if (!is_dir($dst_named) && !mkdir($dst_named, 0755, true)) {
-                zdc_out(array('ok' => false, 'error' => 'Cannot create directory: ' . $dst_named));
-            }
-            $cmd   = 'rsync ' . ZDC_RSYNC . ' ' . escapeshellarg($src . '/') . ' ' . escapeshellarg($dst_named . '/') . ' 2>&1';
-            $check = $dst_named;
-        } else {
-            $cmd   = 'cp -a ' . escapeshellarg($src) . ' ' . escapeshellarg($dst . '/') . ' 2>&1';
-            $check = $dst . '/' . basename($src);
-        }
-    }
-    $output = shell_exec($cmd);
-
-    if (!file_exists($check)) {
-        zdc_out(array('ok' => false, 'error' => 'Restore failed: ' . trim($output)));
-    }
-    zdc_out(array('ok' => true, 'dst' => $check, 'message' => 'Restored successfully.'));
 }
 
 zdc_out(array('ok' => false, 'error' => 'Unknown action: ' . htmlspecialchars($action)));

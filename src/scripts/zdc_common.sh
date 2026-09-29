@@ -92,10 +92,13 @@ zdc_valid_cron() {
     return 0
 }
 
+# What ZFS takes, checked against a real pool: the pool name, then components
+# of letters, digits, space and _ . : -. Space matters on Unraid, which makes a
+# dataset of every share on a ZFS pool - "cache/TV Shows" is an ordinary name.
 zdc_valid_dataset() {
     local name="$1"
     [ -n "$name" ] || return 1
-    [[ "$name" =~ ^[A-Za-z0-9][A-Za-z0-9_.:-]*(/[A-Za-z0-9_.:-]+)*$ ]] || return 1
+    [[ "$name" =~ ^[A-Za-z0-9][A-Za-z0-9_.:-]*(/[A-Za-z0-9_.:\ -]+)*$ ]] || return 1
     return 0
 }
 

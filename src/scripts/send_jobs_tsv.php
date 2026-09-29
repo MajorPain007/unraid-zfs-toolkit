@@ -1,6 +1,15 @@
 <?php
 
-$file = '/boot/config/plugins/zfs.toolkit/send_jobs.json';
+// One line per job, fields separated by \x1f (the ASCII unit separator), read
+// by zfs_send.sh. Not tabs: bash counts a tab as whitespace in IFS, and runs of
+// whitespace count as one separator - so an empty field, like the SSH host of
+// a local job or the key of an SSH job that uses the default one, vanished and
+// every field after it moved one place left. \x1f is not whitespace, so empty
+// fields stay where they are.
+define('ZDC_SEP', "\x1f");
+
+$dir  = getenv('ZDC_CONFIG_DIR') ?: '/boot/config/plugins/zfs.toolkit';
+$file = $dir . '/send_jobs.json';
 if (!file_exists($file)) exit(0);
 
 $data = json_decode(file_get_contents($file), true);
@@ -14,8 +23,7 @@ function b($v, $default = false) {
 }
 
 function s($v) {
-
-    return str_replace(array("\t", "\n", "\r"), ' ', trim((string)(isset($v) ? $v : '')));
+    return str_replace(array(ZDC_SEP, "\t", "\n", "\r"), ' ', trim((string)(isset($v) ? $v : '')));
 }
 
 foreach ($data['jobs'] as $i => $j) {
@@ -27,7 +35,7 @@ foreach ($data['jobs'] as $i => $j) {
     $port = isset($j['ssh_port']) ? (int)$j['ssh_port'] : 22;
     if ($port < 1 || $port > 65535) $port = 22;
 
-    echo implode("\t", array(
+    echo implode(ZDC_SEP, array(
         $id,
         b(isset($j['enabled']) ? $j['enabled'] : true, true),
         s(isset($j['name']) ? $j['name'] : $id),

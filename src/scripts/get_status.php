@@ -32,7 +32,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'stop'
         $st  = json_decode(file_get_contents($statusFile), true);
         $pid = (int)($st['pid'] ?? 0);
         if ($pid > 0 && file_exists('/proc/' . $pid)) {
+            // bash acts on the signal only once the command it waits for has
+            // returned, and a folder's rsync can run for hours. So the script
+            // gets the signal first and its running command second; it then
+            // puts the half-converted folder back and restarts what it stopped.
             shell_exec('kill ' . $pid . ' 2>/dev/null');
+            shell_exec('pkill -TERM -P ' . $pid . ' 2>/dev/null');
         }
         $st['status'] = 'stopped';
         file_put_contents($statusFile, json_encode($st));

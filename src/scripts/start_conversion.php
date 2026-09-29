@@ -40,8 +40,10 @@ if (!is_dir($tmpDir) && !mkdir($tmpDir, 0755, true)) {
 function sanitizeBool(string $key, string $default = 'no'): string {
     return in_array(strtolower($_POST[$key] ?? $default), ['yes','true','1'], true) ? 'yes' : 'no';
 }
+// What ZFS allows in a dataset name, plus "/" for a nested one - run_auto.sh
+// takes the same, so a manual run and a scheduled one read these alike.
 function sanitizePath(string $key, string $default = ''): string {
-    return preg_replace('/[^a-zA-Z0-9_\-. ]/', '', $_POST[$key] ?? $default);
+    return preg_replace('#[^A-Za-z0-9_.: /-]#', '', $_POST[$key] ?? $default);
 }
 function sanitizeInt(string $key, int $default, int $min, int $max): int {
     return max($min, min($max, (int)($_POST[$key] ?? $default)));
