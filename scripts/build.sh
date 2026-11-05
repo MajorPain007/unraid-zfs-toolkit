@@ -72,6 +72,7 @@ if [ -f "$PLG" ] && [ "${ZDC_SKIP_PLG:-0}" != "1" ]; then
         "$PLG" > "$tmp"
     mv "$tmp" "$PLG"
     echo "  Updated ${PLG#"$ROOT_DIR"/}"
+    find "${OUT_DIR}" -maxdepth 1 -name "${PLUGIN}-*-x86_64-1.txz" ! -name "${PKG}" -delete
 fi
 
 rm -rf "$(dirname "$STAGE")"
