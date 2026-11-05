@@ -22,8 +22,6 @@ if (!defined('ZDC_COMMON_LOADED')) {
         }
     });
 
-    // JSON_INVALID_UTF8_SUBSTITUTE: one name that is not valid UTF-8 would
-    // otherwise make json_encode fail and the whole answer arrive empty.
     function zdc_out($data) {
         echo json_encode($data, JSON_INVALID_UTF8_SUBSTITUTE);
         exit;
@@ -41,16 +39,6 @@ if (!defined('ZDC_COMMON_LOADED')) {
         return isset($_POST[$key]) ? $_POST[$key] : $default;
     }
 
-    /**
-     * State of one of our cron entries, the way zdc_common.sh installs it.
-     *
-     * The schedule lives as <config dir>/<base>.cron - that is what Unraid's
-     * update_cron reads - and lands in the crontab it installs with
-     * `crontab -c /etc/cron.d -`. A bare `crontab -l` reads whatever spool the
-     * binary defaults to, and on Unraid 7 that is a different directory, so
-     * asking only that reports "not installed" for a schedule that is running.
-     * Ask both.
-     */
     function zdc_cron_state($base, $pattern) {
         $entry = '';
         $file  = ZDC_CONFIG_DIR . '/' . $base . '.cron';
@@ -85,14 +73,10 @@ if (!defined('ZDC_COMMON_LOADED')) {
             'entry'  => $entry,
             'live'   => $live,
             'source' => $where !== '' ? $where : ($entry !== '' ? 'file' : ''),
-            // Whether it runs is the question. The managed file is how it gets
-            // there; a schedule present in the live crontab is doing its job.
             'healthy' => $live,
         );
     }
 
-    // Same rule as zdc_valid_dataset in zdc_common.sh: the pool name, then
-    // components of letters, digits, space and _ . : - (what ZFS takes).
     function zdc_valid_dataset($name) {
         return (bool)preg_match('#^[A-Za-z0-9][A-Za-z0-9_.:-]*(/[A-Za-z0-9_.: -]+)*$#', $name);
     }

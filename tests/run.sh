@@ -84,7 +84,7 @@ if ZDC_TMP_DIR="$(mktemp -d)" . src/scripts/zdc_common.sh 2>/dev/null; then
     cron_case '*/15 * * * *'        valid
     cron_case '0 2 * * *'           valid
     cron_case '0 */6 * * 1-5'       valid
-    cron_case '0 */6 * * MON-FRI'   reject   # names are out, numbers only
+    cron_case '0 */6 * * MON-FRI'   reject
     cron_case '70 * * * *'          reject
     cron_case '0 25 * * *'          reject
     cron_case '0 0 32 * *'          reject
@@ -112,9 +112,6 @@ if ZDC_TMP_DIR="$(mktemp -d)" . src/scripts/zdc_common.sh 2>/dev/null; then
     ds_case 'cache/appdata'      valid
     ds_case 'tank/a/b/c'         valid
     ds_case 'cache'              valid
-    # What ZFS itself takes, checked on a real pool: space, leading _ and ., and
-    # : are fine; umlauts, brackets and the like are refused. Unraid makes a
-    # dataset of every share on a ZFS pool, so "cache/TV Shows" is ordinary.
     ds_case 'cache/TV Shows'     valid
     ds_case 'cache/_backup'      valid
     ds_case 'cache/a:b'          valid
@@ -210,10 +207,6 @@ fi
 
 group "Preview limits match the setup scripts"
 
-# The setup scripts clamp hour, minute and weekday before building the
-# expression, so a preset schedule is valid whatever is typed into those boxes.
-# The page has to clamp identically, or it shows one schedule while another gets
-# installed.
 zdc_clamp_bad=""
 grep -q 'zdcClamp(document.getElementById(.cron_hour.).value,    0, 23, 2)'   src/ZFSToolkitPage.php || zdc_clamp_bad="$zdc_clamp_bad cron_hour"
 grep -q 'zdcClamp(document.getElementById(.cron_minute.).value,  0, 59, 0)'   src/ZFSToolkitPage.php || zdc_clamp_bad="$zdc_clamp_bad cron_minute"
@@ -230,9 +223,6 @@ fi
 
 group "Cron validators agree with each other"
 
-# Three implementations - shell, PHP, JavaScript - decide whether a schedule is
-# installed, saved and shown as valid. They have to give the same answer, or the
-# UI accepts something the backend refuses, or the other way round.
 zdc_cron_cases='*/15 * * * *:valid
 0 2 * * *:valid
 0 */6 * * 1-5:valid
@@ -360,10 +350,6 @@ else
         "not cleaned up:$zdc_missing_cron - cron would keep calling a deleted script"
 fi
 
-# Unraid's update_cron concatenates /boot/config/plugins/<plugin>/*.cron and
-# writes the result with `crontab -c /etc/cron.d -`. So /etc/cron.d is the
-# crontab spool directory, not a drop-in dir: a file placed there is read as the
-# crontab of a user by that name and silently ignored.
 if grep -q 'ZDC_CRON_DIR="${ZDC_CRON_DIR:-$ZDC_CONFIG_DIR}"' src/scripts/zdc_common.sh \
    && grep -q '\${ZDC_CRON_DIR}/\${base}\.cron' src/scripts/zdc_common.sh; then
     ok "cron entries go to the plugin's .cron files, which update_cron actually reads"
@@ -385,10 +371,6 @@ fi
 
 group "Per-dataset snapshot settings"
 
-# A row with the template switched off and every field left blank must produce
-# no snapshots. It used to: an empty value stayed empty and failed the > 0 test.
-# The rewrite turned empty into "use the template", so such a dataset silently
-# started following the global retention.
 zdc_tmp_json=$(mktemp)
 cat > "$zdc_tmp_json" <<'JSON'
 {"datasets":[
@@ -436,10 +418,6 @@ rm -f "$zdc_tmp_json" "$zdc_tmp_json.pl"
 
 group "Cron status is read where cron actually lives"
 
-# The schedules moved out of /etc/cron.d in 2026.08.08.25, but the status
-# endpoints kept looking for a file there and probing the live crontab without
-# -c. Both conditions had to hold, so the UI said "Not installed" while the
-# snapshots were running on time.
 zdc_cron_stale=""
 for f in src/scripts/get_snapshot_status.php src/scripts/get_cron_status.php src/scripts/send_control.php; do
     [ -f "$f" ] || continue
@@ -462,13 +440,6 @@ fi
 
 group "The page's JavaScript actually runs"
 
-# Syntax checks and name resolution both pass on a script that dies on its first
-# statement, which is exactly what happened once: node --check was happy, every
-# call resolved, and the page was dead - no tabs, no layout, no datasets.
-# Running it against a stubbed DOM is the only check that sees that.
-#
-# Several times with different form values: with an empty one most switch
-# statements fall to their default and half the code never executes.
 if command -v node >/dev/null 2>&1; then
     zdc_smoke_bad=""
     for zdc_v in "" custom daily weekly hourly 15min 30min 5min 6hourly; do
@@ -487,15 +458,10 @@ fi
 
 group "Destructive actions ask once, clearly"
 
-# Rollback used to demand the snapshot name be typed out after the warning. Two
-# gates, and the second carried no information the first had not already given.
-# What matters is that the one dialog names what gets destroyed.
 zdc_rb=$(awk '/^function mgrRollback(Confirm)?\(/,/^}/' src/ZFSToolkitPage.php)
 zdc_rb_bad=""
 printf '%s' "$zdc_rb" | grep -q 'prompt(' && zdc_rb_bad="$zdc_rb_bad type-the-name-again;"
 printf '%s' "$zdc_rb" | grep -q 'confirm(warn)' || zdc_rb_bad="$zdc_rb_bad no-confirm-dialog;"
-# Counted from all of the dataset's snapshots: the list on screen shows only
-# plugin snapshots by default, and the rollback destroys the others too.
 printf '%s' "$zdc_rb" | grep -q "only_auto: '0'" || zdc_rb_bad="$zdc_rb_bad counts-only-the-filtered-rows;"
 for zdc_w in DISCARDED 'will be destroyed' 'replication checkpoint' 'are held'; do
     printf '%s' "$zdc_rb" | grep -q "$zdc_w" || zdc_rb_bad="$zdc_rb_bad missing:'$zdc_w';"
@@ -555,11 +521,6 @@ fi
 
 group "Replication jobs keep empty fields in place"
 
-# The worker used to split its job list on tabs. bash counts a tab as IFS
-# whitespace, and a run of whitespace as one separator, so an empty field - the
-# SSH host of a local job, the key of an SSH job using the default one - made
-# every later field move left: Force and keep-on-destination were lost, and an
-# SSH job without a key path failed with "ssh key '0' is not readable".
 if command -v php >/dev/null 2>&1; then
     zdc_t=$(mktemp -d)
     cat > "$zdc_t/send_jobs.json" <<'EOF'
@@ -589,19 +550,13 @@ fi
 
 group "Replication keeps the chain tidy"
 
-# A recursive job snapshots every child. Destroying only the parent's old
-# checkpoint left one more on each child with every run.
 grep -q 'prune_checkpoints local "$source"' src/scripts/zfs_send.sh \
     && grep -q 'list_args+=(-r)' src/scripts/zfs_send.sh \
     && ok "old checkpoints are pruned across the whole tree of a recursive job" \
     || bad "old checkpoints are pruned across the whole tree of a recursive job"
-# A source with its own mountpoint - a pool root - handed it to the copy, which
-# then mounted over the original at the next import.
 grep -q 'recv_args=(-u -x mountpoint)' src/scripts/zfs_send.sh \
     && ok "zfs recv does not take the source's mountpoint" \
     || bad "zfs recv does not take the source's mountpoint"
-# ssh joins its arguments into one line for the remote shell, which splits
-# "tank/TV Shows" in two.
 grep -q '"${SSH_CMD\[@\]}" "$(remote_cmd zfs "$@")"' src/scripts/zfs_send.sh \
     && ok "commands for the remote end are quoted for its shell" \
     || bad "commands for the remote end are quoted for its shell"
@@ -609,9 +564,6 @@ grep -q '"${SSH_CMD\[@\]}" "$(remote_cmd zfs "$@")"' src/scripts/zfs_send.sh \
 group "Conversion never renames a folder or overwrites one"
 
 zdc_conv=src/scripts/zfs_converter.sh
-# The destructive resume: any <name>_temp next to a dataset <name> was synced
-# into it with --delete and then removed - a user folder tdarr_temp next to the
-# tdarr dataset replaced tdarr's contents.
 if grep -v '^[[:space:]]*#' "$zdc_conv" | grep -q -- '--delete'; then
     bad "no rsync --delete in the converter" "$(grep -n -- '--delete' "$zdc_conv" | grep -v ':[[:space:]]*#')"
 else
@@ -634,8 +586,6 @@ grep -q 'shell_exec(.pkill -TERM -P . . $pid' src/scripts/get_status.php \
     && ok "Stop ends the command the converter waits on, not only the script" \
     || bad "Stop ends the command the converter waits on, not only the script"
 
-# The dataset name for a folder has to come out the same in the converter and
-# in the scan the page shows, or the page announces one name and gets another.
 if command -v php >/dev/null 2>&1; then
     zdc_names=$(awk '/^valid_zfs_name\(\) \{/,/^}/; /^dataset_name_for\(\) \{/,/^}/' "$zdc_conv")
     zdc_name_bad=""
@@ -668,14 +618,9 @@ fi
 
 group "Snapshots"
 
-# A destroyed snapshot's space shows in zpool list 3-5 seconds later. Read
-# straight after each destroy, free space looked unchanged and the loop went on
-# destroying - on a test pool 4 snapshots where 2 were needed.
 awk '/^free_space_prune\(\) \{/,/^}/' src/scripts/snapshot_manager.sh | grep -q 'zpool sync "$pool"' \
     && ok "free-space pruning waits for the freed space to show" \
     || bad "free-space pruning waits for the freed space to show"
-# .zfs is reachable with snapdir=hidden; setting it visible changed a property
-# of the user's dataset for nothing.
 if grep -q 'snapdir=visible' src/scripts/snapshot_browse.php | grep -v '^\s*//' 2>/dev/null; then
     bad "the snapshot browser leaves snapdir alone"
 elif grep -n 'zfs set snapdir' src/scripts/snapshot_browse.php >/dev/null; then
@@ -693,16 +638,11 @@ fi
 
 group "Page safety"
 
-# A file or folder name went into onclick="...('<name>')" with only single
-# quotes escaped. A name with a double quote in it could close the attribute
-# and add a handler of its own - JavaScript run in the admin's session.
 if grep -n "replace(/'/g" "$PAGE" >/dev/null; then
     bad "no path is pasted into handler code" "$(grep -n "replace(/'/g" "$PAGE" | head -3)"
 else
     ok "no path is pasted into handler code"
 fi
-# Every autosave wrote the dataset list back, so one that had failed to load
-# was saved as empty and all datasets left the snapshot schedule.
 grep -q 'if (!_snapLoaded || !_snapDirty) return {ok: true};' "$PAGE" \
     && ok "the snapshot dataset list is only written back once read and changed" \
     || bad "the snapshot dataset list is only written back once read and changed"

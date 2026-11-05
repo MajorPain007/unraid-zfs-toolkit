@@ -68,10 +68,6 @@ build_ssh() {
     SSH_CMD+=("$host")
 }
 
-# ssh hands the remote shell one command line, joined with spaces, and that
-# shell splits it again - "tank/TV Shows" would arrive as two arguments. Quote
-# each word for it. The names are validated to letters, digits, space and
-# _ . : - / @, for which %q produces plain backslash escapes any sh accepts.
 remote_cmd() {
     printf '%q ' "$@"
 }
@@ -84,11 +80,6 @@ remote_zfs() {
     fi
 }
 
-# Keep the newest $keep checkpoints of a job and destroy the rest, on one side.
-# By name across the whole tree, not by destroying the parent's snapshot: a
-# recursive job snapshots every child too, and destroying only the parent's
-# left the children's copies behind - one more on each child with every run.
-# The stamp in the name sorts in time order.
 prune_checkpoints() {
     local side="$1" ds="$2" id="$3" keep="$4" recursive="$5"
     local list_args=(list -H -t snapshot -o name)
@@ -220,9 +211,6 @@ run_job() {
     fi
     send_args+=("${source}@${checkpoint}")
 
-    # -u: do not mount what arrives. -x mountpoint: a source with its own
-    # mountpoint - a pool's root dataset has one - would otherwise hand it to
-    # the copy, and at the next import the copy mounts over the original.
     local recv_args=(-u -x mountpoint)
     [ "$allow_rollback" = "1" ] && recv_args+=(-F)
     recv_args+=("$dest")
@@ -269,8 +257,6 @@ run_job() {
 
     log_ok "Job '${name}': replicated ${source} -> ${dest}"
 
-    # The newest two stay: the one just sent is the base of the next run, the
-    # one before it covers a run that fails halfway.
     prune_checkpoints local "$source" "$id" 2 "$recursive"
     if zdc_valid_int "$keep_dest" && (( keep_dest > 0 )); then
         prune_checkpoints remote "$dest" "$id" "$keep_dest" "$recursive"
@@ -296,7 +282,6 @@ if ! command -v php >/dev/null 2>&1; then
     exit 1
 fi
 
-# \x1f, not a tab - see send_jobs_tsv.php for why.
 while IFS=$'\x1f' read -r id enabled name source dest recursive transport \
                           ssh_host ssh_port ssh_key raw compressed allow_rollback keep_dest; do
     [ -n "$id" ] || continue

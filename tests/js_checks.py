@@ -17,22 +17,18 @@ import sys
 from pathlib import Path
 
 BUILTINS = {
-    # globals and constructors
     'Array', 'Boolean', 'Date', 'Error', 'JSON', 'Math', 'Number', 'Object',
     'Option', 'Promise', 'RegExp', 'String', 'URLSearchParams', 'Set', 'Map',
     'FormData', 'Blob', 'Image', 'Event',
-    # functions
     'alert', 'confirm', 'prompt', 'fetch', 'parseInt', 'parseFloat', 'isNaN',
     'isFinite', 'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval',
     'encodeURIComponent', 'decodeURIComponent', 'encodeURI', 'decodeURI',
     'requestAnimationFrame', 'structuredClone', 'queueMicrotask',
     'getComputedStyle', 'ResizeObserver', 'MutationObserver', 'IntersectionObserver',
     'KeyboardEvent', 'CustomEvent', 'Response', 'Headers', 'Request',
-    # control flow keywords that the naive regex would otherwise pick up
     'if', 'for', 'while', 'switch', 'catch', 'return', 'typeof', 'function',
     'new', 'do', 'else', 'delete', 'void', 'in', 'of', 'instanceof', 'await',
     'yield', 'throw', 'case', 'const', 'let', 'var',
-    # provided by the Unraid page shell
     'csrf_token', 'jQuery', '$', 'swal', 'autov', 'addRemoveTab',
 }
 
@@ -78,7 +74,6 @@ def handler_names(text):
 def element_ids(text):
     ids = set(re.findall(r'\bid\s*=\s*"([A-Za-z0-9_-]+)"', text))
     ids |= set(re.findall(r"\bid\s*=\s*'([A-Za-z0-9_-]+)'", text))
-    # ids assembled inside JS string concatenation, e.g. 'id="row-' + i + '"'
     ids |= set(re.findall(r'\bid="([A-Za-z0-9_-]+)\'', text))
     return ids
 

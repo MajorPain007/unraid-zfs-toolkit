@@ -26,9 +26,6 @@ if ($action === 'save_jobs') {
     if ($data === null) zdc_fail('Invalid JSON: ' . json_last_error_msg());
     if (!isset($data['jobs']) || !is_array($data['jobs'])) $data = array('jobs' => array());
 
-    // Everything the user typed is stored, including half-finished rows -
-    // otherwise clearing a field to retype it would delete the job. A row that
-    // is not runnable is stored disabled, so the worker never sees it.
     $warnings = array();
     $seen = array();
 
@@ -69,10 +66,6 @@ if ($action === 'save_jobs') {
             $data['jobs'][$i]['enabled'] = false;
             if ($why !== 'incomplete') $warnings[] = 'Job ' . $label . ': ' . $why . ' - disabled';
         } elseif ($transport === 'local') {
-            // Unraid makes every top-level folder on every pool part of the user
-            // share of that name. A copy received as backup/appdata is mounted at
-            // /mnt/backup/appdata from the next boot on, and is then part of the
-            // appdata share next to the real one.
             $parts = explode('/', $dst);
             if (count($parts) >= 2 && is_dir('/mnt/user/' . $parts[1])) {
                 $warnings[] = 'Job ' . $label . ': ' . $parts[0] . '/' . $parts[1] . ' will be mounted at /mnt/'

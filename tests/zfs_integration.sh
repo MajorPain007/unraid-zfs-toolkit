@@ -1,14 +1,4 @@
 #!/usr/bin/env bash
-#
-# Runs the plugin's scripts against real ZFS: conversion, its failure and
-# recovery paths, free-space pruning and replication.
-#
-# Needs root, zfs and php on Linux - not the CI runners, which have no ZFS.
-# Creates two small pools backed by files in /var/tmp, mounted at
-# /mnt/zdctest_cache and /mnt/zdctest_backup, and destroys them again at the
-# end. Pools of any other name are not touched.
-#
-#   sudo bash tests/zfs_integration.sh
 
 set -uo pipefail
 
@@ -40,8 +30,6 @@ truncate -s 2G "$WORK/c.img" "$WORK/b.img"
 zpool create -f -m "/mnt/$C" "$C" "$WORK/c.img" && zpool create -f -m "/mnt/$B" "$B" "$WORK/b.img" \
     || { echo "cannot create the test pools" >&2; exit 2; }
 
-# rsync as the converter sees it: the real one, or on request one that fails,
-# drops a file, or takes its time.
 cat > "$WORK/bin/rsync" <<'EOF'
 #!/bin/bash
 src="${@: -2:1}"; dst="${@: -1}"
@@ -65,8 +53,6 @@ convert() {
 }
 lastlog() { cat "$(ls -t "$ZDC_TMP_DIR"/auto_*.log | head -1)"; }
 fresh_appdata() {
-    # compression off: with it, ZFS would shrink the zeros of a sparse image
-    # away by itself and the sparse check below would prove nothing.
     zfs destroy -r "$C/appdata" 2>/dev/null; rm -rf "/mnt/$C/appdata"; zfs create -o compression=off "$C/appdata"
     rm -f "$ZDC_CONVERSION_JOURNAL"
 }
@@ -108,7 +94,6 @@ done
 group "Stop puts the folder back at once"
 fresh_appdata; mkdir -p "$A/app"; echo a > "$A/app/a.txt"; echo b > "$A/app/b.txt"
 rsync_mode slow; pid=$(convert no nowait); sleep 2
-# shellcheck disable=SC2034  # read inside the check below, through eval
 t0=$SECONDS; kill "$pid"; pkill -TERM -P "$pid"; while kill -0 "$pid" 2>/dev/null; do sleep 0.2; done
 check "the converter ends within seconds" '[ $((SECONDS - t0)) -le 5 ]'
 check "the folder is back and the dataset gone" \

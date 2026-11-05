@@ -1,11 +1,5 @@
 <?php
 
-// One line per job, fields separated by \x1f (the ASCII unit separator), read
-// by zfs_send.sh. Not tabs: bash counts a tab as whitespace in IFS, and runs of
-// whitespace count as one separator - so an empty field, like the SSH host of
-// a local job or the key of an SSH job that uses the default one, vanished and
-// every field after it moved one place left. \x1f is not whitespace, so empty
-// fields stay where they are.
 define('ZDC_SEP', "\x1f");
 
 $dir  = getenv('ZDC_CONFIG_DIR') ?: '/boot/config/plugins/zfs.toolkit';

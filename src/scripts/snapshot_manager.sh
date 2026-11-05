@@ -101,7 +101,7 @@ sub unescape {
     my ($s) = @_;
     $s =~ s/\\u([0-9a-fA-F]{4})/chr(hex($1))/ge;
     $s =~ s/\\n/\n/g; $s =~ s/\\t/\t/g; $s =~ s/\\r//g;
-    $s =~ s/\\(["\/\\])/$1/g;   # \" -> "   \/ -> /   \\ -> \
+    $s =~ s/\\(["\/\\])/$1/g;
     return $s;
 }
 
@@ -115,31 +115,16 @@ while ($json =~ /\{([^{}]*)\}/g) {
     next unless defined $ds{name} && length $ds{name};
     my $rec = (defined($ds{recursive}) && $ds{recursive} eq "true") ? "1" : "0";
     my $tpl = (!defined($ds{use_template}) || $ds{use_template} eq "true") ? "1" : "0";
-    # A missing key means the config predates per-dataset overrides and should
-    # follow the template. An empty field means the user cleared it, and "keep
-    # none" is already spelled 0 - no separate marker needed, and a number
-    # cannot make the columns shift the way an empty one would.
     my @r = map { my $v = $ds{$_};
                   !defined($v) ? "t" : ($v eq "" ? 0 : $v) }
             qw(hourly daily weekly monthly yearly);
     @r = ("t") x 5 if $tpl eq "1";
-    # frequent has no per-dataset field, so it follows the template switch: on
-    # means the global value, off means off. Without this a row switched fully
-    # off still took frequent snapshots as soon as the global was raised.
     my $freq = $tpl eq "1" ? "t" : 0;
     print join("\t", $ds{name}, $rec, @r, $freq), "\n";
 }
 ' "$DATASETS_JSON" 2>/dev/null
 }
 
-# Turn a configured retention into a number of snapshots to keep: "t" follows
-# the global template, a number is that number, and 0 - which is what an empty
-# field becomes - means none, i.e. no snapshots of that type.
-#
-# Anything else is nonsense and counts as off rather than quietly falling back
-# to the global, which is how a dataset switched off ended up following it.
-# The warning goes to stderr: this runs inside $(...) and stdout would land in
-# the value.
 resolve() {
     local val="$1" global="$2" what="$3"
     [ "$val" = "t" ] && { echo "$global"; return; }
@@ -194,7 +179,7 @@ create_snapshot() {
     local dataset="$1" type="$2" key="$3" recursive="$4"
     local snap_name="${dataset}@auto-${type}-${key}"
 
-    snap_exists "$snap_name" && return 0   # already taken for this period
+    snap_exists "$snap_name" && return 0
 
     if (( DRY_RUN )); then
         log "Would create ${snap_name}"
@@ -298,7 +283,7 @@ free_space_prune() {
                 line[n] = $0;
                 grp[n]  = key;
                 held[n] = ($4 != "-" && $4 + 0 > 0);
-                newest[key] = n;       # rows are creation-ascending
+                newest[key] = n;
             }
             END {
                 for (i = 1; i <= n; i++) {
@@ -315,12 +300,6 @@ free_space_prune() {
         return 0
     fi
 
-    # A destroyed snapshot's space shows in the pool's free space only once the
-    # transaction group is written, 3-5 seconds later. Reading free right after
-    # each destroy therefore saw no change, and the loop went on destroying -
-    # up to 500 snapshots when one would have done. zpool sync writes the
-    # transaction group out; the snapshots' own "used", which is what destroying
-    # each one frees, keeps the count honest where that is not available.
     local deleted=0 row sname screat sused srefs measured
     local expected="$free"
     for row in "${candidates[@]}"; do

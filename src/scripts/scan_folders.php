@@ -48,9 +48,6 @@ $zfsList = [];
 exec('zfs list -H -o name 2>/dev/null', $zfsList);
 $zfsSet  = array_flip($zfsList);
 
-// Where datasets are mounted. A folder counts as converted when a dataset is
-// mounted at its path, whatever that dataset is called: one whose name ZFS
-// cannot take is converted under another name and mounted where it was.
 $mounted = [];
 $mountLines = [];
 exec('zfs list -H -o mounted,mountpoint 2>/dev/null', $mountLines);
@@ -61,7 +58,6 @@ foreach ($mountLines as $line) {
 
 $replaceSpaces = ($_POST['replace_spaces'] ?? 'no') === 'yes';
 
-/** The dataset name zfs_converter.sh gives a folder - see dataset_name_for there. */
 function zdcDatasetName(string $name, bool $replaceSpaces): string {
     if ($replaceSpaces) $name = str_replace(' ', '_', $name);
     if ($name !== '.' && $name !== '..' && strlen($name) <= 200
@@ -95,7 +91,6 @@ foreach ($sources as $sourcePath) {
         continue;
     }
 
-    // The same decisions the converter makes when it plans a run.
     foreach (glob($fullPath . '/*', GLOB_ONLYDIR) ?: [] as $dir) {
         if (is_link($dir)) continue;
         $name = basename($dir);

@@ -7,9 +7,6 @@ on:
   workflow_dispatch:
 
 jobs:
-  # Unraid builds in the wild still ship PHP 7, so every endpoint has to parse
-  # there as well. setup-php is cached; adding ondrej/php via apt took minutes
-  # on every push and depended on an external repository staying up.
   php-lint:
     runs-on: ubuntu-latest
     strategy:

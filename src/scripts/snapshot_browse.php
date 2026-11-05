@@ -16,16 +16,11 @@ register_shutdown_function(function() {
 define('ZDC_TMP',    '/tmp/zfs.toolkit');
 define('ZDC_PLUGIN', '/usr/local/emhttp/plugins/zfs.toolkit');
 
-// A file name that is not valid UTF-8 - common for names written by old
-// Windows clients over SMB - made json_encode return false, and the whole
-// folder listing arrived empty. Such a name now shows with a replacement mark.
 function zdc_out($data) {
     echo json_encode($data, JSON_INVALID_UTF8_SUBSTITUTE);
     exit;
 }
 
-// The dataset rule of zdc_php_common.php, repeated here because this endpoint
-// stands on its own. Letters, digits, space and _ . : - as ZFS takes them.
 function zdc_browse_dataset_ok($name) {
     return (bool)preg_match('#^[A-Za-z0-9][A-Za-z0-9_.:-]*(/[A-Za-z0-9_.: -]+)*$#', $name);
 }
@@ -114,8 +109,6 @@ if ($action === 'browse') {
         zdc_out(array('ok' => false, 'error' => 'Dataset not found or not mounted: ' . $dataset));
     }
 
-    // A snapshot that was just destroyed can still leave a stale directory
-    // entry behind, which then fails to mount. Check with zfs, not the path.
     $exists = array();
     exec('zfs list -Hp -o name,defer_destroy,userrefs -t snapshot '
          . escapeshellarg($dataset . '@' . $snapshot) . ' 2>&1', $exists, $rc_exists);
@@ -126,9 +119,6 @@ if ($action === 'browse') {
                      . 'It was probably destroyed since the list was loaded - reload the snapshot list.',
         ));
     }
-    // defer_destroy=on means "destroy once the last hold or clone goes away".
-    // Such a snapshot is still readable, so it is worth stating rather than
-    // leaving it as a suspicion.
     $snap_note = '';
     if (isset($exists[0])) {
         $f = explode("\t", $exists[0]);
@@ -141,14 +131,9 @@ if ($action === 'browse') {
 
     $snap_base = $mountpoint . '/.zfs/snapshot/' . $snapshot;
     if (!is_dir($snap_base)) {
-        // Accessing the path is what makes ZFS mount the snapshot; a plain
-        // stat from PHP does not always trigger it.
         exec('ls -A -- ' . escapeshellarg($snap_base) . ' >/dev/null 2>&1');
         clearstatcache(true, $snap_base);
     }
-    // .zfs is there whether snapdir is hidden or visible - hidden only keeps it
-    // out of directory listings - so a snapshot that cannot be reached here is
-    // not a snapdir question. The dataset is usually not mounted.
     if (!is_dir($snap_base)) {
         zdc_out(array(
             'ok'    => false,
@@ -167,10 +152,6 @@ if ($action === 'browse') {
 
     $items = @scandir($full_path);
     if ($items === false) {
-        // scandir returns false for any failure. Saying "permission denied"
-        // was a guess; ask the system what actually went wrong. Running ls in
-        // a fresh process also forces the snapshot automount, which is the
-        // usual reason a directory inside .zfs cannot be read on first touch.
         $probe = array();
         exec('ls -A -- ' . escapeshellarg($full_path) . ' 2>&1', $probe, $rc_probe);
         clearstatcache(true, $full_path);
@@ -292,7 +273,6 @@ if ($action === 'restore_start') {
 
     $dst_dir_fixed = null;
     if ($dst_rel !== '') {
-        // The job file separates its fields with tabs.
         if (strpbrk($dst_rel, "\t\n\r\0") !== false) {
             zdc_out(array('ok' => false, 'error' => 'Unsupported character in the destination path'));
         }

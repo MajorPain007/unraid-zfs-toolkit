@@ -62,9 +62,6 @@ $report .= section('Auto snapshots (newest 40)',
     run('zfs list -H -t snapshot -o name,used,creation -s creation | grep "@auto-" | tail -40'));
 $report .= section('Holds', run("zfs list -H -t snapshot -o name 2>/dev/null | head -200 | tr '\\n' '\\0' | xargs -0 -r zfs holds 2>/dev/null | head -50"));
 
-// Both spools: update_cron installs into /etc/cron.d, and a bare crontab -l
-// reads another directory on Unraid 7 - asking only that one reported "(none)"
-// for schedules that were running.
 $report .= section('Live crontab (plugin entries)',
     run('for spool in "-c /etc/cron.d" ""; do echo "--- crontab $spool -l"; crontab $spool -l 2>/dev/null | grep -E "run_auto|snapshot_manager|zfs_send" || echo "(none)"; done'));
 $report .= section('Plugin cron files (read by update_cron)',

@@ -39,17 +39,6 @@ $allowed = [
     'send_enabled', 'send_schedule_preset', 'send_schedule_hour', 'send_schedule_custom',
 ];
 
-/**
- * Says what is wrong with a cron expression, or '' when nothing is.
- *
- * Digits and the four operators only - no month or weekday names. Numbers are
- * unambiguous, and refusing names is what makes it possible to check each field
- * against its own range rather than only its shape: "70 * * * *" has five
- * fields and legal characters, and never runs.
- *
- * Kept in step with zdc_valid_cron in zdc_common.sh and cronProblem in the page;
- * tests/run.sh compares all three against the same table.
- */
 function cronProblem($expr) {
     $expr = trim($expr);
     if ($expr === '') return 'No cron expression entered.';

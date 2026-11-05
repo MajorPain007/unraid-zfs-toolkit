@@ -45,8 +45,6 @@ if ($action === 'list') {
         $auto = (strpos($sn, 'auto-') === 0);
         if ($onlyAuto && !$auto) continue;
 
-        // Replication checkpoints are the base of the incremental chain.
-        // Automatic pruning never touches them, but a manual delete would.
         $checkpoint = (strpos($sn, 'zdc-send-') === 0);
 
         $type = '';
@@ -115,8 +113,6 @@ if ($action === 'destroy') {
             }
         }
 
-        // Deleting the base of an incremental chain forces a full re-send, or
-        // leaves the job unable to run at all. Require it to be spelled out.
         if (strpos($name, '@zdc-send-') !== false && zdc_post('force_checkpoint', '0') !== '1') {
             $results[] = array('name' => $name, 'ok' => false,
                                'error' => 'replication checkpoint - deleting it breaks the incremental chain');
@@ -185,9 +181,6 @@ if ($action === 'rollback') {
 
     if (!zdc_valid_snapshot($name)) zdc_fail('Invalid snapshot name');
 
-    // A guard against a partial or malformed request reaching a destructive
-    // operation, not a confirmation the user types: the page fills it in and
-    // asks once in a dialog that spells out what gets destroyed.
     if ($confirm !== $name) {
         zdc_fail('Confirmation does not match the snapshot name');
     }

@@ -62,9 +62,6 @@ $changeNames = array(
     '-' => 'removed', '+' => 'added', 'M' => 'modified', 'R' => 'renamed',
 );
 
-// zfs diff writes every byte outside printable ASCII, and the space, as a
-// backslash and four octal digits: "My File" comes out as My\0040File and an
-// umlaut as two escapes. Turn them back into the name.
 function zdc_diff_unescape($s) {
     return preg_replace_callback('/\\\\([0-7]{4})/', function ($m) {
         return chr(octdec($m[1]) & 0xff);

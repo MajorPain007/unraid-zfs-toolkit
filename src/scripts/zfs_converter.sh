@@ -18,10 +18,6 @@ source_datasets_array=(__EXTRA_DATASETS__)
 
 mount_point="/mnt"
 
-# Which folder is being converted and where its original went. On the flash
-# drive on purpose: after a power cut this is what tells the next run that a
-# folder was half converted - a leftover <name>_temp by itself says nothing,
-# since a folder of that name can just as well be the user's own.
 journal_file="${ZDC_CONVERSION_JOURNAL:-/boot/config/plugins/zfs.toolkit/conversion_in_progress}"
 
 stopped_containers=()
@@ -31,29 +27,21 @@ failed_folders=()
 skipped_folders=()
 services_restarted=0
 
-# Which folder each stopped container or VM was stopped for, and the folders
-# that could not be put back after a failed conversion. Whatever uses one of
-# those stays stopped: started again, it would run on a half-made copy.
 declare -A stopped_for=()
 declare -A unsafe_paths=()
 
-# The conversion in progress, so an error or a Stop can put it back.
 cur_source=""
 cur_entry=""
 cur_name=""
 cur_temp=""
 cur_created=0
 
-# What this run converts, worked out before anything is stopped.
 plan_source=()
 plan_entry=()
 plan_name=()
 
 shopt -s nullglob
 
-# --sparse: a VM image is mostly holes. Without it the copy writes every one of
-# them out, and on a dataset without compression the image then takes up its
-# full nominal size.
 RSYNC_OPTS=(-a -H -A -X --numeric-ids --sparse)
 
 _zfs_datasets_cache=""
@@ -75,9 +63,6 @@ dataset_exists() {
     printf '%s\n' "$_zfs_datasets_cache" | grep -qxF -- "$1"
 }
 
-# A path a dataset is mounted at is converted, whatever the dataset is called:
-# a folder whose name ZFS cannot use is converted under another name and
-# mounted where it was.
 is_zfs_dataset() {
     printf '%s\n' "$_zfs_mounts_cache" | grep -qxF -- "$1"
 }
@@ -109,9 +94,6 @@ find_real_location() {
     return 2
 }
 
-# What ZFS accepts in a dataset name, checked against a real pool: letters,
-# digits, space and _ . : -. Umlauts, brackets, commas, plus signs and the like
-# it refuses.
 valid_zfs_name() {
     local name="$1"
     [ -n "$name" ] || return 1
@@ -120,14 +102,6 @@ valid_zfs_name() {
     [[ "$name" =~ ^[A-Za-z0-9_.:\ -]+$ ]]
 }
 
-# The dataset name for a folder: its own name when ZFS accepts that, otherwise
-# the nearest thing it does - umlauts spelled out, every other refused character
-# turned into "_". Spaces become "_" only with Replace spaces on.
-#
-# Only the dataset is named this way. The folder keeps its path either way
-# (convert_one mounts the dataset where the folder was), so a container or VM
-# pointing at it keeps working. Renaming the folder instead, as this used to,
-# left the container with an empty directory and the VM without its disk.
 dataset_name_for() {
     local name="$1"
     if [[ "$replace_spaces" =~ ^[Yy]es$ ]]; then
@@ -144,7 +118,7 @@ dataset_name_for() {
 send_notification() {
     local subject="$1"
     local message="$2"
-    local importance="${3:-normal}"   # normal | warning | alert
+    local importance="${3:-normal}"
 
     if [[ "$send_notifications" =~ ^[Yy]es$ ]]; then
         /usr/local/emhttp/webGui/scripts/notify \
@@ -155,10 +129,6 @@ send_notification() {
     fi
 }
 
-# Whether a path is one of the folders this run converts. Containers and VMs
-# are stopped for those only: a folder that is skipped - a name clash, too
-# little room - used to have its container stopped and started again on every
-# run, for nothing.
 planned_path() {
     local p="$1" i
     for i in "${!plan_entry[@]}"; do
@@ -167,8 +137,6 @@ planned_path() {
     return 1
 }
 
-# A container or VM whose folder could not be put back after a failed
-# conversion. $1 is its key in stopped_for.
 held_back() {
     local p="${stopped_for[$1]:-}"
     [ -n "$p" ] && [ -n "${unsafe_paths[$p]:-}" ]
@@ -370,8 +338,6 @@ restore_services() {
     return 0
 }
 
-# One field per line: folder names are free text, and a tab in one would shift
-# the fields of a tab-separated line.
 journal_write() {
     mkdir -p "$(dirname "$journal_file")" 2>/dev/null
     printf '%s\n' "$cur_source" "$cur_entry" "$cur_name" "$cur_temp" > "$journal_file"
@@ -381,17 +347,12 @@ journal_clear() {
     rm -f "$journal_file"
 }
 
-# Put the folder being converted back as it was: the copy goes, the original
-# returns under its own name. Without this an error left the original renamed
-# to <name>_temp and the half-filled dataset mounted in its place - and the
-# container was then started again on the half copy.
 rollback_current() {
     [ -n "$cur_temp" ] || return 0
     local path="${mount_point}/${cur_source}/${cur_entry}"
     local dataset="${cur_source}/${cur_name}"
     local err
 
-    # Stopped before the rename happened: there is nothing to put back.
     if (( ! cur_created )) && [ ! -e "$cur_temp" ] && [ -e "$path" ]; then
         journal_clear
         cur_temp=""
@@ -405,7 +366,7 @@ rollback_current() {
             return 1
         fi
         cur_created=0
-        rmdir "$path" 2>/dev/null   # the mountpoint directory outlives the dataset
+        rmdir "$path" 2>/dev/null
     fi
 
     if [ -e "$path" ]; then
@@ -429,7 +390,7 @@ abandon() {
         log_warn "Put '${entry}' back the way it was."
     else
         unsafe_paths["$path"]=1
-        cur_temp=""   # the journal stays: the next run takes it from there
+        cur_temp=""
         send_notification "ZFS conversion needs attention" \
             "The conversion of '${entry}' failed and could not be undone. See the conversion log." "alert"
     fi
@@ -482,9 +443,6 @@ check_space() {
     return 0
 }
 
-# Space the folder takes on disk, not its apparent size. A sparse VM image
-# can be a few gigabytes of data in a file that claims a hundred, and the copy
-# (rsync --sparse) takes the few.
 folder_bytes() {
     du -sB1 "$1" 2>/dev/null | cut -f1
 }
@@ -525,10 +483,6 @@ perform_validation() {
     return 0
 }
 
-# A run that was cut off hard - power cut, kill -9 - leaves the journal behind.
-# Settle that conversion first: undo it if the copy never started, finish it if
-# the copy is complete, and otherwise stop and say so. With both an original and
-# a copy that do not match, only a person can tell which one is right.
 recover_interrupted() {
     [ -f "$journal_file" ] || return 0
 
@@ -547,9 +501,6 @@ recover_interrupted() {
     fi
 
     if ! dataset_exists "$dataset"; then
-        # Renamed, never copied: the original just goes back. Docker creates an
-        # empty directory for a bind mount whose source is missing, so an empty
-        # one in the way is not data.
         if [ -d "$path" ] && [ -z "$(ls -A "$path" 2>/dev/null)" ]; then
             rmdir "$path" 2>/dev/null
         fi
@@ -576,7 +527,6 @@ recover_interrupted() {
     return 1
 }
 
-# Everything this run is going to convert, decided before anything is stopped.
 plan_conversions() {
     step "Planning"
     refresh_zfs_cache
@@ -585,8 +535,8 @@ plan_conversions() {
     for source_path in "${source_datasets_array[@]}"; do
         for path in "${mount_point}/${source_path}"/*; do
             [ -d "$path" ] || continue
-            [ -L "$path" ] && continue          # points somewhere else - not ours to move
-            is_zfs_dataset "$path" && continue  # converted already
+            [ -L "$path" ] && continue
+            is_zfs_dataset "$path" && continue
             base=$(basename "$path")
 
             if [[ "$base" == *$'\n'* ]]; then
@@ -595,11 +545,6 @@ plan_conversions() {
                 continue
             fi
 
-            # Next to a converted folder of the same name without _temp this is
-            # a copy kept with Cleanup off, or an original that an older version
-            # left behind. Either way it is left alone. Older versions resumed
-            # into it with rsync --delete, which also wiped a converted folder
-            # whenever the user happened to have one called <name>_temp.
             if [[ "$base" == *_temp ]] && is_zfs_dataset "${path%_temp}"; then
                 log_warn "Leaving '${base}' alone: next to the dataset at ${path%_temp} it is a copy kept with Cleanup off, or an original an older version left behind. Delete it once you are sure it is not needed."
                 skipped_folders+=("$base")
@@ -664,9 +609,6 @@ convert_one() {
         failed_folders+=("$entry")
         return
     fi
-    # Journal first, rename second: a run cut off between the two leaves an
-    # entry for a rename that did not happen, which the next run recognises,
-    # rather than a renamed folder nothing knows about.
     cur_source="$source_path"; cur_entry="$entry"; cur_name="$name"
     cur_temp="$temp_path"; cur_created=0
     journal_write
@@ -678,8 +620,6 @@ convert_one() {
         return
     fi
 
-    # A dataset named differently from its folder is mounted where the folder
-    # was, so no path that points at it changes.
     local create_opts=() err
     [ "$name" != "$entry" ] && create_opts=(-o "mountpoint=${path}")
     if ! err=$(zfs create "${create_opts[@]}" "$dataset" 2>&1); then

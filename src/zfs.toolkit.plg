@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.toolkit">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.09.29.01">
-<!ENTITY md5       "bba19149859758c7973c0997237e3cc8">
+<!ENTITY version   "2026.11.05.01">
+<!ENTITY md5       "99e393ebf9165651169c3b1d7b0d91b7">
 <!ENTITY launch    "Settings/ZFSToolkit">
 <!ENTITY github    "MajorPain007/unraid-zfs-toolkit">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,10 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.11.05.01 — Leaner source
+
+- Comments removed from the source. Nothing changes in how the plugin works.
+
 ## Version 2026.09.29.01 — Conversion could overwrite a dataset; replication and pruning did less than they said
 
 The conversion, pruning and replication faults that could cost data were
@@ -938,22 +942,16 @@ send_schedule_custom=0 4 * * *
 SETTINGS_EOF
 fi
 
-# The top-level ZFS menu entry is gated on this key. Add it to configs written
-# before it existed, so an upgrade shows the entry rather than hiding it.
 if ! grep -q '^show_in_menu=' &configDir;/settings.cfg 2>/dev/null; then
   echo 'show_in_menu=yes' &gt;&gt; &configDir;/settings.cfg
 fi
 
-# Migration: older versions wrote cron entries straight into the root crontab.
-# Those are now managed through /etc/cron.d, so drop the leftovers to avoid
-# every job running twice.
 ( crontab -l 2>/dev/null \
   | grep -v '^# zfs-toolkit' \
   | grep -v 'run_auto\.sh' \
   | grep -v 'snapshot_manager\.sh' \
 ) | crontab - 2&gt;/dev/null
 
-# Apply cron jobs from saved settings
 /usr/local/emhttp/plugins/zfs.toolkit/scripts/setup_cron.sh &gt;/tmp/zfs.toolkit/setup_cron.log 2&gt;&amp;1
 /usr/local/emhttp/plugins/zfs.toolkit/scripts/setup_snapshots.sh &gt;/tmp/zfs.toolkit/setup_snapshots.log 2&gt;&amp;1
 /usr/local/emhttp/plugins/zfs.toolkit/scripts/setup_send.sh &gt;/tmp/zfs.toolkit/setup_send.log 2&gt;&amp;1
@@ -962,8 +960,6 @@ fi
 
 <FILE Run="/bin/bash" Method="remove">
 <INLINE>
-# Remove cron entries: the .cron files update_cron reads, the inert files an
-# older version dropped into the crontab spool dir, then any direct entries.
 rm -f &configDir;/*.cron
 rm -f /etc/cron.d/&name; /etc/cron.d/&name;-snapshots /etc/cron.d/&name;-send
 ( crontab -l 2>/dev/null \
@@ -972,7 +968,7 @@ rm -f /etc/cron.d/&name; /etc/cron.d/&name;-snapshots /etc/cron.d/&name;-send
   | grep -v "snapshot_manager\.sh" \
   | grep -v "zfs_send\.sh" \
 ) | crontab - 2>/dev/null
-rm -f /etc/rc.d/rc.&name;   # left over from older versions
+rm -f /etc/rc.d/rc.&name;
 command -v update_cron &gt;/dev/null 2&gt;&amp;1 &amp;&amp; update_cron &gt;/dev/null 2&gt;&amp;1
 [ -f /var/run/crond.pid ] &amp;&amp; kill -HUP "$(cat /var/run/crond.pid)" 2&gt;/dev/null
 removepkg &name; 2&gt;/dev/null || rm -rf &pluginDir;

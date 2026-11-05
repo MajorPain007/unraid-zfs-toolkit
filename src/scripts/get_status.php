@@ -11,8 +11,6 @@ function zdc_classify_log($logFile) {
     $tail = array();
     exec('tail -80 ' . escapeshellarg($logFile) . ' 2>/dev/null', $tail);
     $c = implode("\n", $tail);
-    // Anchor on the log's own "ERROR:" prefix - a bare "ERROR" also matches
-    // folder names and rsync chatter.
     if (preg_match('/VALIDATION FAILED|\] ERROR:/m', $c)) return 'error';
     if (strpos($c, 'Script execution completed successfully') !== false) return 'completed';
     if (strpos($c, 'Nothing to convert') !== false) return 'completed';
@@ -32,10 +30,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'stop'
         $st  = json_decode(file_get_contents($statusFile), true);
         $pid = (int)($st['pid'] ?? 0);
         if ($pid > 0 && file_exists('/proc/' . $pid)) {
-            // bash acts on the signal only once the command it waits for has
-            // returned, and a folder's rsync can run for hours. So the script
-            // gets the signal first and its running command second; it then
-            // puts the half-converted folder back and restarts what it stopped.
             shell_exec('kill ' . $pid . ' 2>/dev/null');
             shell_exec('pkill -TERM -P ' . $pid . ' 2>/dev/null');
         }
@@ -46,8 +40,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'stop'
     exit;
 }
 
-// Even with nothing running, hand back the most recent run's log so the GUI
-// can show what happened instead of an empty box.
 function zdc_idle_response($tmpDir) {
     $last = zdc_newest_log($tmpDir);
     return array(
@@ -75,7 +67,6 @@ if ($status === 'running' && $pid > 0 && !file_exists('/proc/' . $pid)) {
     $st['status'] = $status;
     file_put_contents($statusFile, json_encode($st));
 } elseif ($status !== 'running' && !empty($logFile) && file_exists($logFile)) {
-    // Re-derive rather than trusting a verdict written by an older version.
     $status = zdc_classify_log($logFile);
 }
 

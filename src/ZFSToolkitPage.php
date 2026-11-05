@@ -24,8 +24,6 @@ function cfgBool($key, $default = 'no') {
 <style>
 .zdc-wrap {
   width: 100%;
-  /* Follow Unraid's theme where it has an equivalent. The hex is the fallback
-     for an Unraid old enough not to expose these variables. */
   --zdc-card:     var(--mild-background-color, #1e2329);
   --zdc-sunken:   var(--table-background-color, #0d1117);
   --zdc-border:   var(--border-color, #3a4049);
@@ -35,17 +33,12 @@ function cfgBool($key, $default = 'no') {
   --zdc-muted:    var(--disabled-text-color, #6e7681);
   --zdc-accent:   var(--link-text-color, #79c0ff);
 
-  /* Status colours stay ours - green, amber and red have to mean the same on
-     every theme - but they need darker shades on a light background. */
   --zdc-ok:       #56d364;
   --zdc-warn:     #e3b341;
   --zdc-err:      #f85149;
   --zdc-blue:     #1f6feb;
 }
 
-/* Unraid's --alt-text-color drops to about 3:1 on the white theme. Fine for a
-   hint, too weak for a form label, so labels take the normal text colour
-   there. The dark theme keeps the softer look. */
 .zdc-wrap.zdc-light .zdc-row label.row-label,
 .zdc-wrap.zdc-light .zdc-sub { color: var(--zdc-text); }
 
@@ -91,29 +84,19 @@ function cfgBool($key, $default = 'no') {
 }
 .zdc-panel[hidden] { display: none; }
 
-/* One rule instead of a fixed 54/46 split: one column on a phone, two on a
-   laptop, three on a wide monitor, without breakpoints to keep in sync. */
-/* Grid, so cards sit predictably side by side, with row spans computed in JS
-   so a short card does not leave a hole under it until the next row.
-   CSS multi-column was tried instead and made the cards overlap and stack
-   two-in-one-column when only two were present. */
 .zdc-cols {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
   gap: 0 16px;
   align-items: start;
   grid-auto-flow: row dense;
-  /* Fine rows keep the span rounding error small. */
   grid-auto-rows: 4px;
 }
-/* Three at most. Five columns of two-toggle cards read as scattered, and six
-   settings cards divide evenly by three. */
 @media (min-width: 1120px) {
   .zdc-cols { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 .zdc-cols .zdc-card {
   margin: 0 0 16px;
-  /* Until the script has measured, one card per row beats overlapping ones. */
   grid-row: span 40;
 }
 .zdc-cols.zdc-measured .zdc-card { grid-row: auto; }
@@ -186,7 +169,6 @@ function cfgBool($key, $default = 'no') {
 }
 .snap-table-scroll { overflow-x: auto; }
 .snap-table { width:100%; border-collapse:collapse; font-size:12px; margin-top:6px; min-width:540px; }
-/* Unraid's file tree, restyled to sit inside the cards */
 .zdc-wrap .fileTree {
   position: static !important;
   left: auto !important;
@@ -690,7 +672,7 @@ input[type=text]:focus, input[type=number]:focus { outline:none; border-color:#5
         </tr></thead>
         <tbody id="snap-ds-tbody"></tbody>
       </table>
-      </div><!-- /snap-table-scroll -->
+      </div>
       <div style="margin-top:8px;display:flex;gap:8px;align-items:center;">
         <select id="snap-ds-picker" class="snap-sel" style="width:260px">
           <option value="">— select dataset —</option>
@@ -1138,9 +1120,6 @@ function toggleCronDetails() {
 
 function updateCronPreview() {
   var preset  = document.getElementById('cron_preset').value;
-  // Same limits and same fallbacks as setup_cron.sh, which clamps before it
-  // builds the expression. Without them the preview shows "99 2 * * *" while
-  // "0 2 * * *" is what actually gets installed.
   var hour    = zdcClamp(document.getElementById('cron_hour').value,    0, 23, 2);
   var minute  = zdcClamp(document.getElementById('cron_minute').value,  0, 59, 0);
   var weekday = zdcClamp(document.getElementById('cron_weekday').value, 0,  7, 0);
@@ -1150,7 +1129,6 @@ function updateCronPreview() {
   var weekRow    = document.getElementById('cron-weekday-row');
   var customRow  = document.getElementById('cron-custom-row');
   timeRow.style.display   = (preset === 'custom' || preset === 'hourly') ? 'none' : '';
-  // Every 6 hours runs at 0, 6, 12 and 18 - an hour typed in would change nothing.
   document.getElementById('cron-hour-wrap').style.display = preset === '6hourly' ? 'none' : '';
   weekRow.style.display   = preset === 'weekly'  ? '' : 'none';
   customRow.style.display = preset === 'custom'  ? '' : 'none';
@@ -1212,8 +1190,6 @@ if (_snapPanelEl) {
 }
 fetch(_base + '/get_status.php').then(function(r){ return r.json(); })
 .then(function(res) {
-  // Show the last run's log on load. Without this the viewer only ever had
-  // content while a conversion happened to be running.
   if (res.log_file && res.status !== 'running') {
     _logFile = res.log_file;
     _logOffset = 0;
@@ -1236,11 +1212,7 @@ fetch(_base + '/get_status.php').then(function(r){ return r.json(); })
   }
 });
 
-var _snapDatasets = [];  // in-memory dataset list
-// The list is written back only when it was read successfully and has been
-// changed here. Every autosave used to send it, so a list that had failed to
-// load - or not loaded yet - was saved as empty, and every dataset dropped out
-// of the snapshot schedule without a word.
+var _snapDatasets = [];
 var _snapLoaded = false;
 var _snapDirty  = false;
 
@@ -1299,7 +1271,6 @@ function _doAutoSave() {
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
       body: params
     }).then(function(r) { return r.json(); }).then(function(res) {
-      // Still dirty if it changed again while this request was on its way.
       if (res.ok && JSON.stringify({datasets: _snapDatasets}) === sent) _snapDirty = false;
       return res;
     });
@@ -1332,17 +1303,11 @@ function zdcTab(name) {
   });
   try { localStorage.setItem('zdc-tab', name); } catch (e) {}
 
-  // Load what a tab needs when it becomes visible, instead of leaving the
-  // user to find a Refresh button.
   if (name === 'snapshots' && !_mgrLast) loadSnapManager();
   if (name === 'replicate') loadSendStatus();
   zdcLayout();
 }
 
-/* Unraid's theme is a server setting, not an OS preference, so
-   prefers-color-scheme is the wrong signal. Read the background Unraid
-   actually renders and decide from its luminance - that also covers the
-   azure and gray themes. */
 function zdcApplyTheme() {
   var wrap = document.querySelector('.zdc-wrap');
   if (!wrap) return;
@@ -1408,9 +1373,6 @@ function zdcRefreshStatus() {
     .then(function(res) { _zdcConv = res; zdcRenderStatus(); }).catch(function() {});
 }
 
-/* The menu entry is rendered server-side from the page header, so the change
-   only becomes visible after a reload. Say so instead of leaving the user
-   wondering why nothing happened. */
 function onMenuToggle() {
   var on = document.getElementById('show_in_menu').checked;
   var el = document.getElementById('menu-hint');
@@ -1422,9 +1384,6 @@ function onMenuToggle() {
   window._menuHintTimer = setTimeout(function() { el.textContent = ''; }, 8000);
 }
 
-/* Masonry: each card spans as many 8px rows as its own height needs, so the
-   next card in that column starts right below it. Re-run whenever a card
-   changes size (a toggle opening a section) or the window resizes. */
 var _zdcRO = null;
 
 function zdcLayout() {
@@ -1476,27 +1435,12 @@ function updateSnapPreview() {
   zdcCronPreview('snap-cron-preview', 'snap-cron-hint', expr, custom);
 }
 
-// Says what is wrong with a cron expression, or '' when nothing is. Digits and
-// the four operators only - no month or weekday names. Numbers are unambiguous,
-// and refusing names is what makes it possible to check each field against its
-// own range instead of only its shape: "70 * * * *" has five fields and legal
-// characters, and never runs.
-//
-// Kept in step with zdc_valid_cron in zdc_common.sh and cronProblem in
-// save_settings.php; tests/run.sh compares all three against one table.
-// A field value the way the setup scripts read it: a number inside the range,
-// or the same fallback they use. Keeping the two in step is what makes the
-// preview show the schedule that will actually be installed.
 function zdcClamp(value, lo, hi, fallback) {
   var n = parseInt(value, 10);
   return (isNaN(n) || n < lo || n > hi) ? fallback : n;
 }
 
 function cronProblem(expr) {
-  // Inside the function on purpose. As a top-level var it was hoisted but not
-  // yet assigned when updateCronPreview() runs during page setup further up the
-  // script, so the first call read CRON_FIELDS[0] off undefined and took the
-  // whole init with it - tabs, layout and the dataset list included.
   var CRON_FIELDS = [
     {name: 'Minute',       lo: 0, hi: 59},
     {name: 'Hour',         lo: 0, hi: 23},
@@ -1553,13 +1497,6 @@ function cronProblem(expr) {
 
 function validCronExpr(expr) { return cronProblem(expr) === ''; }
 
-// Puts a cron expression into words. Derived from the expression rather than
-// tracked alongside it, so the two cannot disagree - and it covers a
-// hand-written one as well, where the reading is least obvious.
-//
-// The first field is always the minute. "0 * * * *" is hourly and "*/15 * * * *"
-// is quarter-hourly; both start with a minute, which is what makes them hard to
-// tell apart at a glance.
 function cronExplain(expr) {
   var f = (expr || '').trim().split(/\s+/);
   if (f.length !== 5) return '';
@@ -1600,9 +1537,6 @@ function cronExplain(expr) {
 }
 
 function zdcCronPreview(previewId, hintId, expr, custom) {
-  // Only a hand-written expression is checked. The presets build theirs from
-  // fields the setup scripts clamp to their ranges anyway, so flagging one would
-  // be a false alarm about a schedule that installs correctly.
   var why = custom ? cronProblem(expr) : '';
   var el  = document.getElementById(previewId);
   if (el) {
@@ -1629,7 +1563,6 @@ function loadDatasetPickers() {
     var ds = res.datasets || [];
     _zfsDatasets = ds;
 
-    // shared suggestion list for the replication destination
     var dl = document.getElementById('zdc-dataset-list');
     if (dl) dl.innerHTML = ds.map(function(d) { return '<option value="' + esc(d) + '">'; }).join('');
     if (_sendJobs.length) renderSendTable();
@@ -1702,9 +1635,6 @@ function renderSnapTable() {
   var html = '';
   _snapDatasets.forEach(function(ds, i) {
     var tpl = ds.use_template !== false;
-    // One marker for the row rather than a placeholder in every field: with
-    // only Hourly filled in, "off" in the other four is true but reads as if
-    // the whole row were off.
     var rowOff = !tpl && ['hourly','daily','weekly','monthly','yearly']
       .every(function(f) { return !(parseInt(ds[f], 10) > 0); });
     html += '<tr>';
@@ -1851,10 +1781,6 @@ function runSnapshotNow(dry) {
   });
 }
 
-// The label says "Server time", so it has to move. It ticks from the server's
-// clock rather than the browser's: the epoch is rendered shifted by the
-// server's UTC offset, so formatting it as UTC yields the server's local time
-// and any difference between the two machines' clocks stays out of it.
 function startServerClock() {
   var el = document.getElementById('server-time');
   if (!el) return;
@@ -1876,7 +1802,7 @@ function toggleSnapLog() {
   sec.style.display = open ? 'none' : '';
   var btn = document.getElementById('snap-log-toggle-btn');
   if (btn) btn.textContent = open ? 'View Log' : 'Hide Log';
-  if (!open) loadSnapshotStatus();  // refresh log content when opening
+  if (!open) loadSnapshotStatus();
 }
 
 function clearSnapLog() {
@@ -2002,7 +1928,6 @@ function renderFileList(entries, dataset, snapshot, currentPath) {
     + '<th>Name</th><th>Size</th><th>Modified</th><th></th>'
     + '</tr></thead><tbody>';
 
-  // One level up, so you do not have to aim at the breadcrumb.
   if (currentPath && currentPath !== '/') {
     var parent = currentPath.replace(/\/[^\/]*$/, '') || '/';
     html += '<tr><td></td><td colspan="4" style="padding:4px 8px;">'
@@ -2010,8 +1935,6 @@ function renderFileList(entries, dataset, snapshot, currentPath) {
           + ' title="Up to ' + esc(parent) + '">\u21b0 ..</span></td></tr>';
   }
 
-  // Render the empty case inside the table, otherwise the ".." row above is
-  // skipped along with it and there is no way back out of an empty folder.
   if (!entries.length) {
     html += '<tr><td></td><td colspan="4" style="padding:6px 8px;color:var(--zdc-dim);">'
           + 'Empty directory.</td></tr>';
@@ -2052,8 +1975,6 @@ function snapSelectAll(cb) {
 function updateSelCount() {
   var boxes = document.querySelectorAll('.snap-sel-cb');
   var n = document.querySelectorAll('.snap-sel-cb:checked').length;
-  // Keep the header box honest: after moving to another folder the rows are
-  // rebuilt unchecked, and a box left ticked claims a selection that is gone.
   var all = document.getElementById('snap-sel-all');
   if (all) all.checked = (boxes.length > 0 && n === boxes.length);
   var el = document.getElementById('sel-count');
@@ -2092,9 +2013,6 @@ function destShowNativeAt(path) {
   $t.show();
 }
 
-/* Enter in the destination field: point the tree at what was typed, so you
-   can see where you are instead of guessing. A path that does not exist yet
-   opens its parent, which is what you want when creating a new folder. */
 function destGoTo() {
   var input = document.getElementById('restore-dst');
   var raw = input.value.trim();
@@ -2477,8 +2395,6 @@ function mgrResult(msg, color) {
 function mgrDeleteSelected() {
   var names = mgrSelectedNames();
   if (!names.length) { mgrResult('Nothing selected.', 'var(--zdc-warn)'); return; }
-  // The backend refuses replication checkpoints unless told otherwise; ask
-  // separately rather than letting the delete half-fail.
   var chk = names.filter(function(n) { return n.indexOf('@zdc-send-') !== -1; });
   var force = false;
   if (chk.length) {
@@ -2537,9 +2453,6 @@ function mgrRollback(i) {
   var s = _mgrSnaps[i];
   if (!s) return;
 
-  // Counted from every snapshot of the dataset, not from the rows on screen:
-  // "only plugin snapshots" is on by default and hides replication checkpoints
-  // and manual snapshots - which the rollback destroys just the same.
   mgrResult('Checking what a rollback would destroy…');
   postForm(_base + '/snapshot_admin.php', {action: 'list', dataset: s.dataset, only_auto: '0'})
   .then(function(res) {
@@ -2552,9 +2465,6 @@ function mgrRollback(i) {
 }
 
 function mgrRollbackConfirm(s, newer) {
-  // One dialog, and it has to earn that by saying exactly what will be lost.
-  // Typing the name out was a second gate that added no information - anyone who
-  // got this far had already read the warning and meant it.
   var checkpoints = newer.filter(function(x) { return x.checkpoint; }).length;
   var heldNewer   = newer.filter(function(x) { return x.held; }).length;
 
@@ -2685,7 +2595,7 @@ function sendField(i, field, val, width, ph) {
 
 function sendDatasetSelect(i, field, val) {
   var list = _zfsDatasets.slice();
-  if (val && list.indexOf(val) === -1) list.unshift(val);   // keep an unknown saved value
+  if (val && list.indexOf(val) === -1) list.unshift(val);
   var opts = '<option value="">' + (_zfsDatasets.length ? '— select —' : '— loading —') + '</option>';
   list.forEach(function(d) {
     opts += '<option value="' + esc(d) + '"' + (d === val ? ' selected' : '') + '>' + esc(d) + '</option>';
@@ -2773,9 +2683,6 @@ function saveSendJobs() {
   _sendSaveTimer = setTimeout(function() {
     var el = document.getElementById('send-result');
 
-    // Send the list as it stands, including an empty one. Filtering here used
-    // to mean that deleting the last job saved nothing at all, and that
-    // clearing a field to retype it dropped that job from the file.
     postForm(_base + '/send_control.php',
              {action: 'save_jobs', jobs_json: JSON.stringify({jobs: _sendJobs})})
     .then(function(res) {

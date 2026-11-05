@@ -1,14 +1,3 @@
-// Executes the page's JavaScript against a stubbed DOM and fails if it throws.
-//
-// Syntax checks and name resolution both pass on a script that dies on the
-// first statement. That is what happened with a top-level var read before its
-// assignment: node --check was happy, every call resolved, and the page was
-// dead - no tabs, no layout, no data. Running it is the only check that sees
-// that class of fault.
-//
-// The stub answers everything and throws nothing, so a failure here is the
-// page's, not the stub's.
-
 const fs = require('fs');
 const vm = require('vm');
 const path = require('path');
@@ -16,8 +5,6 @@ const path = require('path');
 const pagePath = process.argv[2] || path.join(__dirname, '..', 'src', 'ZFSToolkitPage.php');
 const source = fs.readFileSync(pagePath, 'utf8');
 
-// Take the script bodies out of the PHP page. Anything PHP prints into them is
-// left as-is; the point is the JavaScript around it.
 const blocks = [...source.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)]
   .map(m => m[1]);
 if (blocks.length === 0) {
@@ -31,10 +18,6 @@ function makeElement() {
     style: new Proxy({}, {get: () => '', set: () => true}),
     dataset: {},
     classList: {add() {}, remove() {}, toggle() {}, contains: () => false},
-    // Every form field reports the same value, and which value decides which
-    // branches run. One pass with an empty value leaves most switch statements
-    // on their default and proves almost nothing, so run.sh runs this several
-    // times with different values.
     value: process.env.ZDC_STUB_VALUE || '',
     textContent: '', innerHTML: '', checked: false,
     offsetHeight: 100, offsetWidth: 100, scrollHeight: 100, scrollTop: 0,

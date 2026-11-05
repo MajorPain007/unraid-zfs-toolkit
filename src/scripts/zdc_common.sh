@@ -36,14 +36,9 @@ zdc_cfg() {
     fi
 }
 
-# One field of a cron expression against its own range: a bare number, a range,
-# a list, or any of those with a /step. Checking the range matters - "70 * * * *"
-# has five fields and only legal characters, and never runs.
 zdc_valid_cron_field() {
     local spec="$1" lo="$2" hi="$3" part step a b
     local -a parts
-    # read -ra, not "for part in $spec": an unquoted expansion is glob-expanded,
-    # and a field containing * would be replaced by the directory listing.
     IFS=',' read -ra parts <<< "$spec"
     for part in "${parts[@]}"; do
         [ -n "$part" ] || return 1
@@ -71,9 +66,6 @@ zdc_valid_cron_field() {
     return 0
 }
 
-# Digits and the four cron operators only. Month and weekday names are not
-# accepted: numbers are unambiguous, and refusing names is what lets every field
-# be checked against its range instead of merely looking plausible.
 zdc_valid_cron() {
     local expr="$1" i=0 field
     local mins=(0 0 1 1 0) maxs=(59 23 31 12 7)
@@ -92,9 +84,6 @@ zdc_valid_cron() {
     return 0
 }
 
-# What ZFS takes, checked against a real pool: the pool name, then components
-# of letters, digits, space and _ . : -. Space matters on Unraid, which makes a
-# dataset of every share on a ZFS pool - "cache/TV Shows" is an ordinary name.
 zdc_valid_dataset() {
     local name="$1"
     [ -n "$name" ] || return 1
@@ -106,11 +95,6 @@ zdc_valid_int() {
     [[ "$1" =~ ^[0-9]+$ ]]
 }
 
-# update_cron installs the crontab with `crontab -c /etc/cron.d -`, while a bare
-# `crontab -l` reads whatever spool directory the binary defaults to. On a system
-# where those differ, checking only the default one reports failure for an entry
-# that is in fact live, and the caller then adds a pointless duplicate. Look in
-# both. /etc/cron.d is where Unraid's own jobs land, so an entry there runs.
 zdc_crontab_has() {
     local pattern="$1"
     crontab -c "$ZDC_CRON_LEGACY_DIR" -l 2>/dev/null | grep -q -- "$pattern" && return 0
