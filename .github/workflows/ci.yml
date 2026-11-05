@@ -7,68 +7,65 @@ on:
   workflow_dispatch:
 
 jobs:
-  php-lint:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        php: ['7.4', '8.3']
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: shivammathur/setup-php@v2
-        with:
-          php-version: ${{ matrix.php }}
-          coverage: none
-          tools: none
-
-      - name: Syntax check on PHP ${{ matrix.php }}
-        run: |
-          fail=0
-          for f in src/scripts/*.php src/*.page src/ZFSToolkitPage.php; do
-            [ -f "$f" ] || continue
-            if ! out=$(php -l "$f" 2>&1); then
-              echo "::error file=$f::$out"
-              fail=1
-            fi
-          done
-          exit $fail
-
   checks:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
           coverage: none
           tools: none
-
-      - name: Test suite
+      - name: Unit tests, static checks, syntax
         run: bash tests/run.sh
 
-      - name: shellcheck (errors are fatal)
+  zfs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+      - name: Install ZFS
         run: |
-          shellcheck --severity=error --shell=bash \
-            src/scripts/*.sh src/event/* scripts/*.sh tests/*.sh
+          sudo apt-get update -q >/dev/null
+          sudo apt-get install -y -q zfsutils-linux rsync >/dev/null
+          sudo modprobe zfs
+      - name: Conversion
+        run: sudo -E env "PATH=$PATH" bash tests/integration/conversion.sh
+      - name: Snapshots
+        run: sudo -E env "PATH=$PATH" bash tests/integration/snapshots.sh
+      - name: Browse and restore
+        run: sudo -E env "PATH=$PATH" bash tests/integration/browse.sh
+      - name: Replication
+        run: sudo -E env "PATH=$PATH" bash tests/integration/replication.sh
 
-      - name: shellcheck (warnings, informational)
-        continue-on-error: true
-        run: |
-          shellcheck --severity=warning --shell=bash \
-            src/scripts/*.sh src/event/* scripts/*.sh tests/*.sh
-
-      - name: Build package
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Build
         run: |
           ZDC_OUT_DIR=dist ZDC_SKIP_PLG=1 ./scripts/build.sh 2026.01.01.01
-          tar -tJf dist/*.txz
-          test -s dist/zfs.toolkit-2026.01.01.01-x86_64-1.txz
-
-      - name: Working tree must be clean after a test build
-        run: |
-          if ! git diff --quiet; then
-            echo "::error::build.sh modified tracked files during a test build"
-            git --no-pager diff --stat
-            exit 1
-          fi
+          tar -tJf dist/zfs.toolkit-2026.01.01.01-x86_64-1.txz | grep -q 'usr/local/emhttp/plugins/zfs.toolkit/bin/zfs-toolkit'
+          tar -tJf dist/zfs.toolkit-2026.01.01.01-x86_64-1.txz | grep -q 'usr/local/emhttp/plugins/zfs.toolkit/assets/app.js'
+          mkdir x && tar -C x -xJf dist/zfs.toolkit-2026.01.01.01-x86_64-1.txz && file x/usr/local/emhttp/plugins/zfs.toolkit/bin/zfs-toolkit | grep -q 'x86-64.*statically linked'
+          rm -rf x
+      - name: A test build changes nothing tracked
+        run: git diff --exit-code

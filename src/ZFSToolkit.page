@@ -1,9 +1,7 @@
 Menu="Utilities"
 Title="ZFS Toolkit"
 Icon="database"
-Tag="exchange-alt"
+Tag="database"
 Markdown="false"
 ---
-<?php
-include '/usr/local/emhttp/plugins/zfs.toolkit/ZFSToolkitPage.php';
-?>
+<?php include '/usr/local/emhttp/plugins/zfs.toolkit/include/page.php'; ?>

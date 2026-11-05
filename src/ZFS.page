@@ -5,6 +5,4 @@ Tag="database"
 Markdown="false"
 Cond="exec(\"grep -o '^show_in_menu=yes' /boot/config/plugins/zfs.toolkit/settings.cfg 2>/dev/null\")"
 ---
-<?php
-include '/usr/local/emhttp/plugins/zfs.toolkit/ZFSToolkitPage.php';
-?>
+<?php include '/usr/local/emhttp/plugins/zfs.toolkit/include/page.php'; ?>

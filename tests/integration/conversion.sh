@@ -1,34 +1,7 @@
 #!/usr/bin/env bash
 
-set -uo pipefail
-
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+. "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 SRC="$ROOT/src/scripts"
-
-[ "$(id -u)" = 0 ] || { echo "run as root" >&2; exit 2; }
-command -v zfs >/dev/null && command -v php >/dev/null || { echo "needs zfs and php" >&2; exit 2; }
-
-PASS=0; FAIL=0
-ok()  { printf '  \033[32mPASS\033[0m %s\n' "$1"; PASS=$((PASS + 1)); }
-bad() { printf '  \033[31mFAIL\033[0m %s\n' "$1"; [ -n "${2:-}" ] && printf '       %s\n' "$2"; FAIL=$((FAIL + 1)); }
-group() { printf '\n\033[1m%s\033[0m\n' "$1"; }
-check() { if eval "$2"; then ok "$1"; else bad "$1" "${3:-}"; fi; }
-
-C=zdctest_cache; B=zdctest_backup
-WORK=$(mktemp -d /var/tmp/zdctest.XXXXXX)
-export ZDC_CONFIG_DIR="$WORK/config" ZDC_TMP_DIR="$WORK/tmp"
-export ZDC_CONVERSION_JOURNAL="$ZDC_CONFIG_DIR/conversion_in_progress"
-mkdir -p "$ZDC_CONFIG_DIR" "$ZDC_TMP_DIR" "$WORK/bin"
-
-cleanup() {
-    zpool destroy -f "$C" 2>/dev/null; zpool destroy -f "$B" 2>/dev/null
-    rm -rf "$WORK"; rmdir "/mnt/$C" "/mnt/$B" 2>/dev/null
-}
-trap cleanup EXIT
-
-truncate -s 2G "$WORK/c.img" "$WORK/b.img"
-zpool create -f -m "/mnt/$C" "$C" "$WORK/c.img" && zpool create -f -m "/mnt/$B" "$B" "$WORK/b.img" \
-    || { echo "cannot create the test pools" >&2; exit 2; }
 
 cat > "$WORK/bin/rsync" <<'EOF'
 #!/bin/bash
@@ -121,44 +94,4 @@ check "copy and original differ: nothing is touched and nothing else converted" 
       '[ -f "$A/app_temp/b.txt" ] && [ "$(cat "$A/app/a.txt")" = other ] && [ -f "$ZDC_CONVERSION_JOURNAL" ] && ! mounted_at "$A/plex"'
 check "and the log says what to do" 'lastlog | grep -q "Keep one of them"'
 
-group "Free-space pruning"
-zfs create "$C/fill"
-for i in 01 02 03 04 05 06; do
-    dd if=/dev/urandom of="/mnt/$C/fill/data" bs=1M count=100 status=none; sync
-    zfs snapshot "$C/fill@auto-hourly-2026-01-01_$i-00"
-done
-rm "/mnt/$C/fill/data"; sync; sleep 6
-free=$(zpool list -Hp -o free "$C")
-printf 'snapshots_enabled=yes\nsnap_hourly=50\nsnap_daily=0\nsnap_weekly=0\nsnap_monthly=0\nsnap_free_target=%sM\n' \
-    $(( (free + 150 * 1048576) / 1048576 )) > "$ZDC_CONFIG_DIR/settings.cfg"
-echo "{\"datasets\":[{\"name\":\"$C/fill\",\"recursive\":false,\"use_template\":true}]}" > "$ZDC_CONFIG_DIR/snap_datasets.json"
-bash "$SRC/snapshot_manager.sh" >/dev/null 2>&1
-pruned=$(grep -o '"pruned":[0-9]*' "$ZDC_TMP_DIR/snapshot_status.json" | cut -d: -f2)
-check "exactly as many snapshots go as the target needs (2 of 100 MB for 150 MB)" '[ "$pruned" = 2 ]' "pruned $pruned"
-
-group "Replication"
-zfs create "$C/appdata/plex" 2>/dev/null; zfs create "$C/appdata/Home Assistant" 2>/dev/null
-cat > "$ZDC_CONFIG_DIR/send_jobs.json" <<EOF
-{"jobs":[{"id":"t1","enabled":true,"name":"t","source":"$C/appdata","dest":"$B/replica/appdata","recursive":true,"transport":"local","ssh_host":"","ssh_port":22,"ssh_key":"","raw":false,"compressed":true,"allow_rollback":true,"keep_dest":2}]}
-EOF
-zfs create "$B/replica"
-for _ in 1 2 3 4; do bash "$SRC/zfs_send.sh" >"$WORK/send.log" 2>&1; sleep 1.1; done
-check "four runs replicate" 'grep -q "replicated $C/appdata" "$WORK/send.log"' "$(tail -3 "$WORK/send.log")"
-for side in "$C/appdata" "$B/replica/appdata"; do
-    counts=$(zfs list -H -t snapshot -o name -r "$side" | grep zdc-send | sed 's/@.*//' | sort | uniq -c | awk '{print $1}' | sort -u)
-    check "two checkpoints on every dataset under $side" '[ "$counts" = 2 ]' "counts: $(echo $counts)"
-done
-bash "$SRC/zfs_send.sh" --dry-run >"$WORK/send.log" 2>&1
-check "Force reaches zfs recv, raw stays off" 'grep -q "zfs recv -u -x mountpoint -F" "$WORK/send.log" && ! grep -q "send -R -w" "$WORK/send.log"'
-
-zfs snapshot -r "$C@root1"
-cat > "$ZDC_CONFIG_DIR/send_jobs.json" <<EOF
-{"jobs":[{"id":"t2","enabled":true,"name":"pool","source":"$C","dest":"$B/replica/pool","recursive":true,"transport":"local"}]}
-EOF
-bash "$SRC/zfs_send.sh" >"$WORK/send.log" 2>&1
-check "a whole pool's copy does not take the pool's mountpoint" \
-      '[ "$(zfs get -H -o value mountpoint "$B/replica/pool")" = "/mnt/$B/replica/pool" ]' \
-      "$(zfs get -H -o value,source mountpoint "$B/replica/pool" 2>&1)"
-
-printf '\n\033[1mResult:\033[0m %d passed, %d failed\n' "$PASS" "$FAIL"
-[ "$FAIL" -eq 0 ]
+finish
