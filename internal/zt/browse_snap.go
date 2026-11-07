@@ -229,6 +229,8 @@ type brEntry struct {
 	Mode   string `json:"mode"`
 	Target string `json:"target,omitempty"`
 	Live   string `json:"live,omitempty"`
+	Child  string `json:"child,omitempty"`
+	Same   bool   `json:"child_snap,omitempty"`
 }
 
 func brType(m os.FileMode) string {
@@ -281,6 +283,7 @@ func apiBrowseList(p M) (M, error) {
 	if li, err := os.Lstat(liveDir); err != nil || li.Mode()&os.ModeSymlink != 0 {
 		liveOK = false
 	}
+	children := brChildren(b, rel)
 	entries := make([]brEntry, 0, len(names))
 	seen := map[string]bool{}
 	for _, n := range names {
@@ -306,7 +309,9 @@ func apiBrowseList(p M) (M, error) {
 		if e.Type == "symlink" {
 			e.Target, _ = os.Readlink(path)
 		}
-		if liveOK {
+		if c, ok := children[e.Path]; ok && e.Type == "dir" {
+			e.Child, e.Same = c.name, c.snap
+		} else if liveOK {
 			e.Live = brCompareLive(fi, e.Target, liveDir+"/"+n)
 		}
 		entries = append(entries, e)
@@ -336,6 +341,46 @@ func apiBrowseList(p M) (M, error) {
 		"live":       liveOK,
 		"live_added": added,
 	}, nil
+}
+
+type brChild struct {
+	name string
+	snap bool
+}
+
+func brChildren(b *brSnap, rel string) map[string]brChild {
+	out := map[string]brChild{}
+	r := zfs("list", "-H", "-o", "name,mountpoint", "-t", "filesystem", "-r", b.Dataset)
+	if !r.OK() {
+		return out
+	}
+	mount := strings.TrimRight(b.Mount, "/")
+	for _, l := range r.Lines() {
+		name, mp, ok := strings.Cut(l, "\t")
+		if !ok || name == b.Dataset || !strings.HasPrefix(mp, mount+"/") {
+			continue
+		}
+		p := mp[len(mount):]
+		if brParent(p) == rel {
+			out[p] = brChild{name: name}
+		}
+	}
+	if len(out) == 0 {
+		return out
+	}
+	if s := zfs("list", "-H", "-o", "name", "-t", "snapshot", "-r", b.Dataset); s.OK() {
+		has := map[string]bool{}
+		for _, l := range s.Lines() {
+			if ds, sn, ok := strings.Cut(l, "@"); ok && sn == b.Snap {
+				has[ds] = true
+			}
+		}
+		for p, c := range out {
+			c.snap = has[c.name]
+			out[p] = c
+		}
+	}
+	return out
 }
 
 func brCompareLive(fi os.FileInfo, target, live string) string {

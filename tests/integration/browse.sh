@@ -176,6 +176,10 @@ check "dismissing it clears the warning" '[ "$(api overview | j .browse.status.l
 fake="20200101-000000-abcd"
 printf '{"id":"%s","state":"running","pid":999999,"created":1,"items":[]}' "$fake" > "$ZDC_TMP_DIR/restores/$fake.json"
 check "a restore whose process died is reported as failed" '[ "$(api restore_status "{\"id\":\"$fake\"}" | j .restore.state)" = error ]'
+fake2="20200101-000001-abcd"
+printf '{"id":"%s","state":"running","pid":%d,"created":1,"items":[]}' "$fake2" "$$" > "$ZDC_TMP_DIR/restores/$fake2.json"
+out=$(api restore_stop "{\"id\":\"$fake2\"}")
+check "stop does not signal a live process that is not the restore worker" '[ "$(echo "$out" | j .restore.state)" = error ]' "$out"
 check "an invalid restore id is refused" '[ "$(api restore_status "{\"id\":\"../../etc/passwd\"}" | ok_of)" = false ]'
 
 group "Diff"

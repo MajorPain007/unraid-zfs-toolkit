@@ -49,6 +49,7 @@ type restoreJob struct {
 	Delete    bool          `json:"delete"`
 	Items     []restoreItem `json:"items"`
 	Created   int64         `json:"created"`
+	Nano      int64         `json:"nano"`
 	State     string        `json:"state"`
 	PID       int           `json:"pid"`
 	Started   int64         `json:"started"`
@@ -90,6 +91,17 @@ func restoreUpdate(id string, fn func(j *restoreJob) bool) (*restoreJob, bool) {
 	return j, true
 }
 
+func restoreWorkerAlive(j *restoreJob) bool {
+	if j.PID <= 1 || !pidAlive(j.PID) {
+		return false
+	}
+	b, err := os.ReadFile("/proc/" + strconv.Itoa(j.PID) + "/cmdline")
+	if err != nil {
+		return false
+	}
+	return bytes.Contains(b, []byte("restore-run\x00"+j.ID))
+}
+
 func restoreActive(j *restoreJob) bool {
 	return j.State == "queued" || j.State == "running"
 }
@@ -101,11 +113,11 @@ func restoreCheckAlive(j *restoreJob) *restoreJob {
 	if j.State == "queued" && now()-j.Created < 30 {
 		return j
 	}
-	if j.State == "running" && pidAlive(j.PID) {
+	if j.State == "running" && restoreWorkerAlive(j) {
 		return j
 	}
 	nj, ok := restoreUpdate(j.ID, func(x *restoreJob) bool {
-		if !restoreActive(x) || (x.State == "running" && pidAlive(x.PID)) {
+		if !restoreActive(x) || (x.State == "running" && restoreWorkerAlive(x)) {
 			return false
 		}
 		x.State = "error"
@@ -128,7 +140,12 @@ func restoreAll() []*restoreJob {
 			out = append(out, restoreCheckAlive(j))
 		}
 	}
-	sort.Slice(out, func(a, b int) bool { return out[a].ID > out[b].ID })
+	sort.Slice(out, func(a, b int) bool {
+		if out[a].Nano != out[b].Nano {
+			return out[a].Nano > out[b].Nano
+		}
+		return out[a].ID > out[b].ID
+	})
 	return out
 }
 
@@ -519,6 +536,7 @@ func apiRestoreStart(p M) (M, error) {
 	os.MkdirAll(restoreDir(), 0o755)
 	job.ID = time.Now().Format("20060102-150405") + "-" + randHex(2)
 	job.Created = now()
+	job.Nano = time.Now().UnixNano()
 	job.State = "queued"
 	if !jsonWrite(restorePath(job.ID, ".json"), job, 0o644) {
 		return nil, apiFail("Cannot write the restore job to " + restoreDir() + ".")
@@ -565,10 +583,11 @@ func apiRestoreStop(p M) (M, error) {
 	if !ok {
 		return nil, apiFail("That restore is not known (any more).")
 	}
+	j = restoreCheckAlive(j)
 	if !restoreActive(j) {
 		return M{"restore": restoreView(j)}, nil
 	}
-	if j.State == "running" && pidAlive(j.PID) {
+	if j.State == "running" && restoreWorkerAlive(j) {
 		syscall.Kill(-j.PID, syscall.SIGTERM)
 		return M{"restore": restoreView(j), "stopping": true}, nil
 	}
