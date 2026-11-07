@@ -3,7 +3,7 @@
   import Button from '../lib/ui/Button.svelte';
   import { copyText } from '../lib/state.svelte';
 
-  let { name, report, onclose }: { name: string; report: string; onclose: () => void } = $props();
+  let { name, report, close }: { name: string; report: string; close: (r?: unknown) => void } = $props();
 
   function save() {
     const url = URL.createObjectURL(new Blob([report], { type: 'text/plain' }));
@@ -17,7 +17,7 @@
   }
 </script>
 
-<Dialog title="Diagnostics" icon="terminal" wide {onclose}>
+<Dialog title="Diagnostics" icon="terminal" wide onclose={() => close()}>
   <p class="zt-hint" style="margin-top:0">
     Settings, cron entries, pools, snapshot counts and the last log lines. No passwords or SSH keys are included. Attach it when you report a problem.
   </p>
