@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import Icon from '../lib/ui/Icon.svelte';
   import Button from '../lib/ui/Button.svelte';
-  import JobCard from '../replication/JobCard.svelte';
+  import JobRow from '../replication/JobRow.svelte';
   import JobEditor from '../replication/JobEditor.svelte';
   import ScheduleCard from '../replication/ScheduleCard.svelte';
   import TestDialog from '../replication/TestDialog.svelte';
@@ -74,16 +74,16 @@
   <h2>Jobs</h2>
   {#if replication.jobs.length}
     <div class="zr-head-actions">
-    <Button icon="list" small kind="ghost" onclick={() => openDialog(LogDialog, { run: '', job: '' })}>Log</Button>
-    {#if running}
-      <Button icon="stop" small busy={stopping} onclick={stop}>Stop {replication.state?.dry_run ? 'dry run' : 'replication'}</Button>
-    {:else}
-      <Button icon="eye" small disabled={!enabled.length} title="Logs what every enabled job would do, without changing anything" onclick={() => runAll(true)}
-        >Dry run</Button
-      >
-      <Button icon="play" small disabled={!enabled.length || !arrayStarted} onclick={() => runAll(false)}>Run all</Button>
-    {/if}
-    <Button icon="plus" small kind="primary" onclick={() => edit()}>New job</Button>
+      <Button icon="list" small kind="ghost" onclick={() => openDialog(LogDialog, { run: '', job: '' })}>Log</Button>
+      {#if running}
+        <Button icon="stop" small busy={stopping} onclick={stop}>Stop {replication.state?.dry_run ? 'dry run' : 'replication'}</Button>
+      {:else}
+        <Button icon="eye" small disabled={!enabled.length} title="Logs what every enabled job would do, without changing anything" onclick={() => runAll(true)}
+          >Dry run</Button
+        >
+        <Button icon="play" small disabled={!enabled.length || !arrayStarted} onclick={() => runAll(false)}>Run all</Button>
+      {/if}
+      <Button icon="plus" small kind="primary" onclick={() => edit()}>New job</Button>
     </div>
   {/if}
 </div>
@@ -108,17 +108,41 @@
     <Button icon="plus" kind="primary" onclick={() => edit()}>New replication job</Button>
   </div>
 {:else}
-  <div class="zt-grid">
+  <div class="zt-table-wrap zr-list">
+    <div class="zr-list-head" aria-hidden="true">
+      <span></span><span>Job</span><span>Source → copy</span><span>Last run</span><span class="r">Sent</span><span>Last runs</span>
+    </div>
     {#each replication.jobs as job (job.id)}
-      <JobCard {job} />
+      <JobRow {job} />
     {/each}
-    <button type="button" class="zt-card add" onclick={() => edit()}>
-      <Icon name="plus" />New replication job
-    </button>
   </div>
 {/if}
 
 <style>
+  :global(#zt-app) .zr-list {
+    --zr-cols: 16px minmax(110px, 1fr) minmax(0, 1.5fr) 150px 72px 110px;
+  }
+  :global(#zt-app) .zr-list-head {
+    display: grid;
+    grid-template-columns: var(--zr-cols);
+    gap: 12px;
+    padding: 8px 142px 8px 12px;
+    border-bottom: 1px solid var(--zt-border);
+    background: var(--zt-surface-2);
+    color: var(--zt-dim);
+    font-size: 11.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  :global(#zt-app) .zr-list-head .r {
+    text-align: right;
+  }
+  @media (max-width: 760px) {
+    :global(#zt-app) .zr-list-head {
+      display: none;
+    }
+  }
   .zr-head-actions {
     display: flex;
     gap: 8px;

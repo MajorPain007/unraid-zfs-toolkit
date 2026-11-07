@@ -172,7 +172,7 @@
           </span>
         {/if}
       </div>
-      <pre class="zt-log zr-log" bind:this={pre} onscroll={onScroll}>{#if !loaded}<span class="zt-dim">Loading...</span>{:else if error}<span class="bad">{error}</span>{:else if !lines.length}<span class="zt-dim">Nothing logged yet.</span>{/if}{#each visible as l (l.i)}<span class={l.c === 'note' ? 'zt-dim' : l.c || null} class:hit={q && hits[hit] === l.i} data-i={l.i}>{#if q}{#each pieces(l.t) as [t, m], k (k)}{#if m}<mark>{t}</mark>{:else}{t}{/if}{/each}{:else}{l.t}{/if}{'\n'}</span>{/each}</pre>
+      <pre class="zt-log zr-log" bind:this={pre} onscroll={onScroll}>{#if !loaded}<span class="zt-dim">Loading...</span>{:else if error}<span class="zr-l-bad">{error}</span>{:else if !lines.length}<span class="zt-dim">Nothing logged yet.</span>{/if}{#each visible as l (l.i)}<span class={l.c === 'note' ? 'zt-dim' : l.c ? 'zr-l-' + l.c : null} class:hit={q && hits[hit] === l.i} data-i={l.i}>{#if q}{#each pieces(l.t) as [t, m], k (k)}{#if m}<mark>{t}</mark>{:else}{t}{/if}{/each}{:else}{l.t}{/if}{'\n'}</span>{/each}</pre>
       {#if running}<div class="zt-hint zr-log-live"><Icon name="loader" class="zt-spin" /> Running - new lines appear as they come.</div>{/if}
     </div>
   </div>
@@ -272,16 +272,16 @@
     word-break: break-word;
     position: relative;
   }
-  pre.zr-log .bad {
+  pre.zr-log .zr-l-bad {
     color: var(--zt-err);
   }
-  pre.zr-log .warn {
+  pre.zr-log .zr-l-warn {
     color: var(--zt-warn);
   }
-  pre.zr-log .good {
+  pre.zr-log .zr-l-good {
     color: var(--zt-ok);
   }
-  pre.zr-log .head {
+  pre.zr-log .zr-l-head {
     color: var(--zt-accent-text);
   }
   pre.zr-log mark {

@@ -1,3 +1,4 @@
+import { SvelteSet } from 'svelte/reactivity';
 import { api } from '../lib/api';
 import { confirm } from '../lib/dialogs';
 import { fail, refresh, toast } from '../lib/state.svelte';
@@ -107,6 +108,8 @@ export const replication = $state({
   loaded: false,
   error: ''
 });
+
+export const openJobs = new SvelteSet<string>();
 
 export async function loadJobs(): Promise<void> {
   try {
