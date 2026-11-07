@@ -106,7 +106,7 @@
     </div>
   {:else}
     {#if !list}
-      <div class="zt-grid">
+      <div class="zt-grid ss-cards">
         {#each snap.config as ds (ds.name)}
           <div
             class="ss-drag"
@@ -241,6 +241,9 @@
   }
   :global(#zt-app) details.ss-all[open] > summary::before {
     transform: rotate(45deg);
+  }
+  :global(#zt-app) .zt-grid.ss-cards {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 480px), 1fr));
   }
   :global(#zt-app) .ss-drag {
     display: flex;

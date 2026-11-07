@@ -80,7 +80,7 @@
       </div>
     </div>
     <div class="zt-card-actions">
-      <Button icon="list" small title="Show the snapshots of {ds.name}" onclick={() => focusManager(ds.name)}>Snapshots</Button>
+      <Button icon="list" small kind="ghost" title="Show the snapshots of {ds.name}" onclick={() => focusManager(ds.name)} />
       <Button icon="camera" small kind="ghost" title="Take a snapshot now" disabled={missing} onclick={() => openDialog(CreateDialog, { dataset: ds.name, recursive: ds.recursive })} />
       <Button icon="more" small kind="ghost" title="More" onclick={menu} />
     </div>
