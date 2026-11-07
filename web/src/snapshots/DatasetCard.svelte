@@ -11,7 +11,14 @@
   import CreateDialog from './CreateDialog.svelte';
   import PreviewDialog from './PreviewDialog.svelte';
 
-  let { ds, missing = false }: { ds: SnapDS; missing?: boolean } = $props();
+  let {
+    ds,
+    missing = false,
+    onarm,
+    onmove
+  }: { ds: SnapDS; missing?: boolean; onarm?: () => void; onmove?: (dir: -1 | 1) => void } = $props();
+
+  let idx = $derived(snap.config.findIndex((d) => d.name === ds.name));
 
   let s = $derived(settings());
   let keeps = $derived(keepsOf(ds, s));
@@ -48,6 +55,9 @@
       { label: 'Show snapshots', icon: 'list', onclick: () => focusManager(ds.name) },
       { label: 'What the next run does here', icon: 'eye', onclick: () => openDialog(PreviewDialog, { only: ds.name }) },
       '-',
+      idx > 0 && onmove && { label: 'Move forward', icon: 'up', onclick: () => onmove(-1) },
+      idx >= 0 && idx < snap.config.length - 1 && onmove && { label: 'Move back', icon: 'right', onclick: () => onmove(1) },
+      '-',
       { label: 'Remove from schedule', icon: 'trash', danger: true, onclick: remove }
     ]);
   }
@@ -55,6 +65,9 @@
 
 <div class="zt-card ss-ds" class:is-failed={missing} class:is-disabled={off && !missing}>
   <div class="zt-card-head">
+    {#if onarm}
+      <span class="ss-grip" title="Drag to reorder" role="presentation" onpointerdown={onarm}><Icon name="grip" /></span>
+    {/if}
     <div class="zt-tile"><Icon name={ds.recursive ? 'layers' : 'database'} /></div>
     <div class="zt-card-title">
       <h3 title={ds.name}><button type="button" class="ss-ds-name" onclick={edit}>{ds.name}</button></h3>
@@ -67,6 +80,7 @@
       </div>
     </div>
     <div class="zt-card-actions">
+      <Button icon="list" small title="Show the snapshots of {ds.name}" onclick={() => focusManager(ds.name)}>Snapshots</Button>
       <Button icon="camera" small kind="ghost" title="Take a snapshot now" disabled={missing} onclick={() => openDialog(CreateDialog, { dataset: ds.name, recursive: ds.recursive })} />
       <Button icon="more" small kind="ghost" title="More" onclick={menu} />
     </div>
@@ -108,11 +122,15 @@
 </div>
 
 <style>
+  :global(#zt-app) .ss-ds h3 {
+    white-space: normal;
+    overflow: visible;
+  }
   :global(#zt-app) .ss-ds-name {
     max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    text-align: left;
+    overflow-wrap: anywhere;
+    white-space: normal;
     font: inherit;
     color: inherit;
     padding: 0;
@@ -122,6 +140,18 @@
   }
   :global(#zt-app) .ss-ds-name:hover {
     color: var(--zt-accent-text);
+  }
+  :global(#zt-app) .ss-grip {
+    display: flex;
+    align-items: center;
+    margin: 0 -4px 0 -8px;
+    padding: 4px 0;
+    color: var(--zt-faint);
+    cursor: grab;
+    touch-action: none;
+  }
+  :global(#zt-app) .ss-grip:hover {
+    color: var(--zt-dim);
   }
   :global(#zt-app) .ss-ds-ret {
     overflow-wrap: anywhere;

@@ -2,7 +2,7 @@
   import Icon from '../lib/ui/Icon.svelte';
   import Button from '../lib/ui/Button.svelte';
   import { listLayout, onRefresh, openDialog } from '../lib/state.svelte';
-  import { focusManager, loadConfig, loadList, part, setEnabled, snap } from '../snapshots/store.svelte';
+  import { focusManager, loadConfig, loadList, part, saveConfig, setEnabled, snap } from '../snapshots/store.svelte';
   import StatusCard from '../snapshots/StatusCard.svelte';
   import DatasetRow from '../snapshots/DatasetRow.svelte';
   import DatasetCard from '../snapshots/DatasetCard.svelte';
@@ -47,12 +47,46 @@
   let list = $derived(listLayout());
   let allOpen = $derived(snap.allOpen || !enabled);
 
+  let armed = $state('');
+  let dragging = $state('');
+  let over = $state('');
+
+  function reorder(from: string, to: string) {
+    const list = [...snap.config];
+    const i = list.findIndex((d) => d.name === from);
+    const j = list.findIndex((d) => d.name === to);
+    if (i < 0 || j < 0 || i === j) return;
+    const [d] = list.splice(i, 1);
+    list.splice(j, 0, d);
+    snap.config = list;
+    saveConfig(list);
+  }
+
+  function move(name: string, dir: -1 | 1) {
+    const i = snap.config.findIndex((d) => d.name === name);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= snap.config.length) return;
+    reorder(name, snap.config[j].name);
+  }
+
+  function dragEnd() {
+    armed = '';
+    dragging = '';
+    over = '';
+  }
+
   async function turnOn() {
     turningOn = true;
     await setEnabled(true);
     turningOn = false;
   }
 </script>
+
+<svelte:window
+  onpointerup={() => {
+    if (!dragging) armed = '';
+  }}
+/>
 
 <StatusCard />
 
@@ -74,7 +108,34 @@
     {#if !list}
       <div class="zt-grid">
         {#each snap.config as ds (ds.name)}
-          <DatasetCard {ds} missing={missing.has(ds.name)} />
+          <div
+            class="ss-drag"
+            class:dragging={dragging === ds.name}
+            class:over={over === ds.name && dragging && dragging !== ds.name}
+            role="listitem"
+            draggable={armed === ds.name}
+            ondragstart={(e) => {
+              dragging = ds.name;
+              e.dataTransfer?.setData('text/plain', ds.name);
+              if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+            }}
+            ondragover={(e) => {
+              if (!dragging) return;
+              e.preventDefault();
+              over = ds.name;
+            }}
+            ondragleave={() => {
+              if (over === ds.name) over = '';
+            }}
+            ondrop={(e) => {
+              e.preventDefault();
+              if (dragging) reorder(dragging, ds.name);
+              dragEnd();
+            }}
+            ondragend={dragEnd}
+          >
+            <DatasetCard {ds} missing={missing.has(ds.name)} onarm={() => (armed = ds.name)} onmove={(d) => move(ds.name, d)} />
+          </div>
         {/each}
         {#if snap.configLoaded}
           <button type="button" class="zt-card add" onclick={() => openDialog(AddDialog, {})}>
@@ -180,6 +241,21 @@
   }
   :global(#zt-app) details.ss-all[open] > summary::before {
     transform: rotate(45deg);
+  }
+  :global(#zt-app) .ss-drag {
+    display: flex;
+    min-width: 0;
+    border-radius: var(--zt-radius);
+    transition: opacity 0.15s, box-shadow 0.15s;
+  }
+  :global(#zt-app) .ss-drag > :global(.zt-card) {
+    flex: 1;
+  }
+  :global(#zt-app) .ss-drag.dragging {
+    opacity: 0.45;
+  }
+  :global(#zt-app) .ss-drag.over {
+    box-shadow: 0 0 0 2px var(--zt-accent);
   }
   :global(#zt-app) .ss-add-hint {
     max-width: 260px;
