@@ -3,6 +3,7 @@
   import Icon from '../lib/ui/Icon.svelte';
   import Button from '../lib/ui/Button.svelte';
   import JobRow from '../replication/JobRow.svelte';
+  import JobCard from '../replication/JobCard.svelte';
   import JobEditor from '../replication/JobEditor.svelte';
   import ScheduleCard from '../replication/ScheduleCard.svelte';
   import TestDialog from '../replication/TestDialog.svelte';
@@ -13,7 +14,7 @@
   import ForceDialog from '../replication/ForceDialog.svelte';
   import { provide } from '../lib/actions';
   import { confirm } from '../lib/dialogs';
-  import { app, onRefresh, openDialog } from '../lib/state.svelte';
+  import { app, onRefresh, openDialog, listLayout } from '../lib/state.svelte';
   import { loadJobs, replication, runJobs, stopRun, type SendJob } from '../replication/send.svelte';
 
   let { opts = {} }: { opts?: Record<string, any> } = $props();
@@ -106,6 +107,15 @@
       <span><b>3</b>Test, then run or schedule</span>
     </div>
     <Button icon="plus" kind="primary" onclick={() => edit()}>New replication job</Button>
+  </div>
+{:else if !listLayout()}
+  <div class="zt-grid">
+    {#each replication.jobs as job (job.id)}
+      <JobCard {job} />
+    {/each}
+    <button type="button" class="zt-card add" onclick={() => edit()}>
+      <Icon name="plus" />New replication job
+    </button>
   </div>
 {:else}
   <div class="zt-table-wrap zr-list">

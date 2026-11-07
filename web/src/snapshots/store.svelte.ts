@@ -1,7 +1,7 @@
 import { SvelteSet } from 'svelte/reactivity';
 import { api } from '../lib/api';
 import { provide } from '../lib/actions';
-import { app, fail, refresh, show, toast } from '../lib/state.svelte';
+import { app, fail, refresh, show, toast, listLayout } from '../lib/state.svelte';
 import type { AvailDS, DSInfo, SnapDS, SnapInfo, SnapOverview } from './types';
 
 export const snap = $state({
@@ -28,7 +28,7 @@ export function rootOf(dataset: string): string {
 }
 
 export function focusManager(dataset: string): void {
-  const root = rootOf(dataset);
+  const root = listLayout() ? rootOf(dataset) : '';
   if (root) {
     openRows.add(root);
     setTimeout(() => document.getElementById('ss-row-' + root)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);

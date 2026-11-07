@@ -32,6 +32,10 @@ export const app = $state({
   viewKey: 0
 });
 
+export function listLayout(): boolean {
+  return app.overview?.settings?.ui_layout === 'list';
+}
+
 export function show(tab: Tab, opts: Record<string, any> = {}): void {
   app.tab = TABS.includes(tab) ? tab : 'snapshots';
   app.viewOpts = opts;

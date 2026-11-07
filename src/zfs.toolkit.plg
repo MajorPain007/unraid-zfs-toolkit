@@ -978,6 +978,7 @@ snap_age_yearly=0
 snap_schedule_preset=15min
 snap_schedule_custom=*/15 * * * *
 show_in_menu=yes
+ui_layout=cards
 send_enabled=no
 send_schedule_preset=daily
 send_schedule_hour=4
@@ -987,6 +988,9 @@ fi
 
 if ! grep -q '^show_in_menu=' &configDir;/settings.cfg 2>/dev/null; then
   echo 'show_in_menu=yes' &gt;&gt; &configDir;/settings.cfg
+fi
+if ! grep -q '^ui_layout=' &configDir;/settings.cfg 2>/dev/null; then
+  echo 'ui_layout=cards' &gt;&gt; &configDir;/settings.cfg
 fi
 
 ( crontab -l 2&gt;/dev/null \

@@ -2,9 +2,10 @@
   import Icon from '../lib/ui/Icon.svelte';
   import Button from '../lib/ui/Button.svelte';
   import Toggle from '../lib/ui/Toggle.svelte';
+  import Segmented from '../lib/ui/Segmented.svelte';
   import DiagnosticsDialog from '../settings/DiagnosticsDialog.svelte';
   import { api } from '../lib/api';
-  import { app, refresh, toast, fail, openDialog } from '../lib/state.svelte';
+  import { app, listLayout, refresh, toast, fail, openDialog } from '../lib/state.svelte';
   import type { CronState } from '../lib/types';
 
   let { opts = {} }: { opts?: Record<string, any> } = $props();
@@ -42,6 +43,20 @@
     }
   }
 
+  let list = $derived(listLayout());
+
+  async function setLayout(v: 'cards' | 'list') {
+    saving.ui_layout = true;
+    try {
+      await api('settings_save', { settings: { ui_layout: v } });
+      await refresh();
+    } catch (e) {
+      fail(e);
+    } finally {
+      saving.ui_layout = false;
+    }
+  }
+
   async function diagnostics() {
     diagBusy = true;
     try {
@@ -67,8 +82,8 @@
 </script>
 
 {#if o}
-  <div class="zt-card sv" data-focus={fromOpts}>
-    <section>
+  <div class={list ? 'zt-card sv stacked' : 'sv grid'} data-focus={fromOpts}>
+    <section class:zt-card={!list}>
       <div class="sv-head">
         <h3><Icon name="settings" />General</h3>
         <p>Applies to the whole plugin.</p>
@@ -82,10 +97,15 @@
           <Toggle checked={st.show_in_menu === 'yes'} label="Show ZFS in the top menu" disabled={saving.show_in_menu} onchange={(v) => setFlag('show_in_menu', v)} />
           <div class="zt-hint">Next to Docker and VMs. The page stays under Settings &gt; Utilities either way.</div>
         </div>
+        <div class="sv-row sv-layout">
+          <span class="sv-label">Layout</span>
+          <Segmented value={list ? 'list' : 'cards'} options={[['cards', 'Cards'], ['list', 'List']]} onchange={(v) => setLayout(v as 'cards' | 'list')} />
+          <div class="zt-hint">How datasets and replication jobs are shown: as cards, or as a compact list whose rows open in place.</div>
+        </div>
       </div>
     </section>
 
-    <section>
+    <section class:zt-card={!list}>
       <div class="sv-head">
         <h3><Icon name="clock" />Schedules</h3>
         <p>Entries live in /boot/config/plugins/zfs.toolkit/*.cron, which Unraid reads into its crontab, so they survive reboots.</p>
@@ -114,7 +134,7 @@
       </div>
     </section>
 
-    <section>
+    <section class:zt-card={!list}>
       <div class="sv-head">
         <h3><Icon name="info" />About</h3>
         <p>Versions and the tools the plugin can use.</p>
@@ -138,7 +158,7 @@
       </div>
     </section>
 
-    <section>
+    <section class:zt-card={!list}>
       <div class="sv-head">
         <h3><Icon name="terminal" />Diagnostics</h3>
         <p>Settings, cron entries, pools and recent logs in one report, to look at or attach to a bug report.</p>
@@ -151,17 +171,43 @@
 {/if}
 
 <style>
-  .sv {
+  .sv.stacked {
     padding: 0;
   }
-  section {
+  .sv.grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    align-items: stretch;
+  }
+  .sv.grid section {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 18px 20px;
+  }
+  .sv.grid section .sv-head p {
+    max-width: 60ch;
+  }
+  .sv.grid .sv-item b {
+    width: 92px;
+  }
+  .sv-label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .sv-layout :global(.zt-hint) {
+    margin-left: 0 !important;
+  }
+  .stacked section {
     display: grid;
     grid-template-columns: minmax(200px, 280px) minmax(0, 1fr);
     gap: 24px;
     padding: 20px 22px;
     border-top: 1px solid var(--zt-border);
   }
-  section:first-child {
+  .stacked section:first-child {
     border-top: 0;
   }
   .sv-head h3 {
@@ -226,7 +272,10 @@
     text-decoration: line-through;
   }
   @media (max-width: 760px) {
-    section {
+    .sv.grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .stacked section {
       grid-template-columns: minmax(0, 1fr);
       gap: 12px;
       padding: 16px;

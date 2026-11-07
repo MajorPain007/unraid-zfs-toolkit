@@ -8,7 +8,7 @@ import (
 )
 
 var settingKeys = []string{
-	"dry_run", "cleanup", "replace_spaces", "send_notifications", "show_in_menu",
+	"dry_run", "cleanup", "replace_spaces", "send_notifications", "show_in_menu", "ui_layout",
 	"should_process_containers", "appdata_pool", "appdata_dataset",
 	"should_process_vms", "vm_pool", "vm_dataset", "vm_forceshutdown_wait",
 	"buffer_zone", "validation_tolerance", "extra_datasets",
@@ -31,6 +31,7 @@ var settingDefaults = map[string]string{
 	"replace_spaces":            "no",
 	"send_notifications":        "yes",
 	"show_in_menu":              "yes",
+	"ui_layout":                 "cards",
 	"should_process_containers": "yes",
 	"appdata_pool":              "cache",
 	"appdata_dataset":           "appdata",

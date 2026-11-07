@@ -1,10 +1,11 @@
 <script lang="ts">
   import Icon from '../lib/ui/Icon.svelte';
   import Button from '../lib/ui/Button.svelte';
-  import { onRefresh, openDialog } from '../lib/state.svelte';
+  import { listLayout, onRefresh, openDialog } from '../lib/state.svelte';
   import { focusManager, loadConfig, loadList, part, setEnabled, snap } from '../snapshots/store.svelte';
   import StatusCard from '../snapshots/StatusCard.svelte';
   import DatasetRow from '../snapshots/DatasetRow.svelte';
+  import DatasetCard from '../snapshots/DatasetCard.svelte';
   import Manager from '../snapshots/Manager.svelte';
   import AddDialog from '../snapshots/AddDialog.svelte';
 
@@ -43,6 +44,7 @@
   let outsideCount = $derived(
     snap.list.filter((x) => !snap.config.some((d) => x.dataset === d.name || (d.recursive && x.dataset.startsWith(d.name + '/')))).length
   );
+  let list = $derived(listLayout());
   let allOpen = $derived(snap.allOpen || !enabled);
 
   async function turnOn() {
@@ -56,7 +58,7 @@
 
 {#if enabled}
   <div class="zt-section-head">
-    <h2>Scheduled datasets</h2>
+    <h2>{list ? 'Scheduled datasets' : 'Datasets'}</h2>
     <Button icon="plus" small disabled={!snap.configLoaded} onclick={() => openDialog(AddDialog, {})}>Add dataset</Button>
   </div>
   {#if snap.configError}
@@ -69,7 +71,20 @@
       </div>
     </div>
   {:else}
-    {#if snap.configLoaded && !snap.config.length}
+    {#if !list}
+      <div class="zt-grid">
+        {#each snap.config as ds (ds.name)}
+          <DatasetCard {ds} missing={missing.has(ds.name)} />
+        {/each}
+        {#if snap.configLoaded}
+          <button type="button" class="zt-card add" onclick={() => openDialog(AddDialog, {})}>
+            <Icon name="plus" />
+            {snap.config.length ? 'Add a dataset' : 'Add the first dataset to snapshot'}
+            {#if !snap.config.length}<span class="zt-hint ss-add-hint">appdata, domains or a share - recursive covers everything below it</span>{/if}
+          </button>
+        {/if}
+      </div>
+    {:else if snap.configLoaded && !snap.config.length}
       <div class="zt-empty">
         <Icon name="database" class="big" />
         <h3>No dataset is snapshotted yet</h3>
@@ -99,6 +114,12 @@
   </div>
 {/if}
 
+{#if !list}
+  <div class="zt-section-head" id="ss-manager">
+    <h2>Snapshot manager</h2>
+  </div>
+  <Manager dataset={opts.dataset || ''} />
+{:else}
 <details class="ss-all" id="ss-manager" open={allOpen} ontoggle={(e) => (snap.allOpen = (e.currentTarget as HTMLDetailsElement).open)}>
   <summary class="zt-section-head">
     <h2>{enabled ? 'All snapshots on this system' : 'Snapshots on this system'}</h2>
@@ -108,6 +129,7 @@
     <Manager outside={enabled} />
   {/if}
 </details>
+{/if}
 
 <style>
   :global(#zt-app) .ss-list {
@@ -158,6 +180,11 @@
   }
   :global(#zt-app) details.ss-all[open] > summary::before {
     transform: rotate(45deg);
+  }
+  :global(#zt-app) .ss-add-hint {
+    max-width: 260px;
+    text-align: center;
+    font-weight: 400;
   }
   :global(#zt-app) .ss-off {
     margin-top: 16px;
