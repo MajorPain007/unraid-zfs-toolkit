@@ -31,7 +31,7 @@ mkdir -p "${PDIR}/include" "${PDIR}/bin" "${PDIR}/assets" "${STAGE}/install"
 ( cd "${ROOT_DIR}/web" && { [ -d node_modules ] || npm ci --silent; } && npm run --silent build >/dev/null ) \
     || { echo "the web interface did not build" >&2; exit 1; }
 
-cp "${ROOT_DIR}/src/"*.page "${PDIR}/"
+cp "${ROOT_DIR}/src/"*.page "${ROOT_DIR}/src/README.md" "${PDIR}/"
 cp "${ROOT_DIR}/src/include/page.php" "${ROOT_DIR}/src/include/api.php" "${PDIR}/include/"
 cp "${ROOT_DIR}/web/dist/app.js" "${ROOT_DIR}/web/dist/app.css" "${PDIR}/assets/"
 cp -R "${ROOT_DIR}/src/event" "${PDIR}/"
@@ -45,7 +45,7 @@ if [ "$PLUGIN" != "zfs.toolkit" ]; then
         rm -f "$f.bak"
         mv "$f" "${f%.page}${SUFFIX}.page"
     done
-    for f in "${PDIR}/include/page.php" "${PDIR}/event/"*; do
+    for f in "${PDIR}/include/page.php" "${PDIR}/event/"* "${PDIR}/README.md"; do
         sed -i.bak "s|zfs\.toolkit|${PLUGIN}|g" "$f"
         rm -f "$f.bak"
     done
