@@ -19,7 +19,7 @@
   let taken = $derived(new Set(snap.config.map((d) => d.name)));
   let coveredBy = $derived((n: string) => snap.config.find((d) => d.recursive && n.startsWith(d.name + '/'))?.name ?? '');
   let shown = $derived(
-    snap.available.filter((a) => !taken.has(a.name) && (!query.trim() || a.name.toLowerCase().includes(query.trim().toLowerCase())))
+    snap.available.filter((a) => (!query.trim() || a.name.toLowerCase().includes(query.trim().toLowerCase())))
   );
   let hasChildren = $derived(!!picked && snap.available.some((a) => a.name.startsWith(picked + '/')));
 
@@ -47,7 +47,11 @@
         type="button"
         role="option"
         aria-selected={picked === a.name}
+        aria-disabled={taken.has(a.name)}
+        disabled={taken.has(a.name)}
         class:active={picked === a.name}
+        class:taken={taken.has(a.name)}
+        title={taken.has(a.name) ? a.name + ' is already in the schedule' : null}
         style:padding-left="{10 + Math.min(depth(a.name), 6) * 14}px"
         onclick={() => (picked = a.name)}
         ondblclick={() => {
@@ -57,11 +61,11 @@
       >
         <Icon name={a.type === 'volume' ? 'hdd' : depth(a.name) ? 'folder' : 'database'} />
         <span class="ss-pick-name">{a.name}</span>
-        {#if coveredBy(a.name)}<span class="zt-pill" title="Already included by the recursive {coveredBy(a.name)}">covered</span>{/if}
+        {#if taken.has(a.name)}<span class="zt-pill">scheduled</span>{:else if coveredBy(a.name)}<span class="zt-pill" title="Already included by the recursive {coveredBy(a.name)}">covered</span>{/if}
         <span class="ss-pick-size">{bytes(a.used)}</span>
       </button>
     {:else}
-      <div class="zt-hint ss-pick-empty">{snap.available.length ? 'No other dataset matches.' : 'Loading datasets…'}</div>
+      <div class="zt-hint ss-pick-empty">{snap.available.length ? 'No dataset matches.' : 'Loading datasets…'}</div>
     {/each}
   </div>
   <div class="ss-gap">
@@ -103,6 +107,13 @@
   }
   :global(#zt-app) .ss-pick button:hover {
     background: var(--zt-surface-2);
+  }
+  :global(#zt-app) .ss-pick button.taken {
+    opacity: 0.45;
+    cursor: default;
+  }
+  :global(#zt-app) .ss-pick button.taken:hover {
+    background: transparent;
   }
   :global(#zt-app) .ss-pick button.active {
     background: var(--zt-select);
