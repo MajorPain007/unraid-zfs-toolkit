@@ -67,51 +67,59 @@
 </script>
 
 {#if o}
-  <div class="grid" data-focus={fromOpts}>
-    <div class="zt-card">
-      <div class="zt-form-section">
+  <div class="zt-card sv" data-focus={fromOpts}>
+    <section>
+      <div class="sv-head">
         <h3><Icon name="settings" />General</h3>
-        <div class="row">
+        <p>Applies to the whole plugin.</p>
+      </div>
+      <div class="sv-body">
+        <div class="sv-row">
           <Toggle checked={st.send_notifications === 'yes'} label="Unraid notifications" disabled={saving.send_notifications} onchange={(v) => setFlag('send_notifications', v)} />
           <div class="zt-hint">Failed snapshots, replication errors, low pool space and finished conversions.</div>
         </div>
-        <div class="row">
+        <div class="sv-row">
           <Toggle checked={st.show_in_menu === 'yes'} label="Show ZFS in the top menu" disabled={saving.show_in_menu} onchange={(v) => setFlag('show_in_menu', v)} />
           <div class="zt-hint">Next to Docker and VMs. The page stays under Settings &gt; Utilities either way.</div>
         </div>
       </div>
-    </div>
+    </section>
 
-    <div class="zt-card">
-      <div class="zt-form-section">
+    <section>
+      <div class="sv-head">
         <h3><Icon name="clock" />Schedules</h3>
-        <div class="crons">
+        <p>Entries live in /boot/config/plugins/zfs.toolkit/*.cron, which Unraid reads into its crontab, so they survive reboots.</p>
+      </div>
+      <div class="sv-body">
+        <div class="sv-list">
           {#each CRONS as [key, label, icon, flag] (key)}
             {@const c = o.cron[key]}
             {@const on = st[flag] === 'yes'}
-            <div class="cron">
+            <div class="sv-item">
+              <span class="zt-dot {!on ? 'idle' : c.live ? 'ok' : 'err'}"></span>
               <Icon name={icon} />
-              <div class="cron-main">
-                <b>{label}</b>
+              <b>{label}</b>
+              <span class="sv-item-val">
                 {#if !on}
                   <span class="zt-sub">Off</span>
                 {:else if c.live}
-                  <span class="zt-sub"><code>{cronLine(c)}</code></span>
+                  <code>{cronLine(c)}</code>
                 {:else}
                   <span class="bad">Not in the crontab. Save the schedule again, or reinstall the plugin.</span>
                 {/if}
-              </div>
-              <span class="zt-dot {!on ? 'idle' : c.live ? 'ok' : 'err'}"></span>
+              </span>
             </div>
           {/each}
         </div>
-        <div class="zt-hint">Entries live in /boot/config/plugins/zfs.toolkit/*.cron, which Unraid reads into its crontab, so they survive reboots.</div>
       </div>
-    </div>
+    </section>
 
-    <div class="zt-card">
-      <div class="zt-form-section">
+    <section>
+      <div class="sv-head">
         <h3><Icon name="info" />About</h3>
+        <p>Versions and the tools the plugin can use.</p>
+      </div>
+      <div class="sv-body">
         <div class="zt-facts">
           <div class="zt-fact"><div class="zt-label">Plugin</div><div class="zt-value">{o.version || '-'}</div></div>
           <div class="zt-fact"><div class="zt-label">Server</div><div class="zt-value">{o.server}</div></div>
@@ -128,69 +136,107 @@
           </div>
         {/if}
       </div>
-    </div>
+    </section>
 
-    <div class="zt-card">
-      <div class="zt-form-section">
+    <section>
+      <div class="sv-head">
         <h3><Icon name="terminal" />Diagnostics</h3>
-        <div class="zt-hint" style="margin-bottom:12px">A report of settings, cron entries, pools and recent logs to look at or attach to a bug report.</div>
+        <p>Settings, cron entries, pools and recent logs in one report, to look at or attach to a bug report.</p>
+      </div>
+      <div class="sv-body">
         <Button icon="eye" busy={diagBusy} onclick={diagnostics}>Show diagnostics</Button>
       </div>
-    </div>
+    </section>
   </div>
 {/if}
 
 <style>
-  .grid {
+  .sv {
+    padding: 0;
+  }
+  section {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-    gap: 16px;
-    align-items: start;
+    grid-template-columns: minmax(200px, 280px) minmax(0, 1fr);
+    gap: 24px;
+    padding: 20px 22px;
+    border-top: 1px solid var(--zt-border);
   }
-  .row {
-    margin-bottom: 14px;
+  section:first-child {
+    border-top: 0;
   }
-  .row :global(.zt-hint) {
+  .sv-head h3 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 6px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .sv-head p {
+    margin: 0;
+    color: var(--zt-dim);
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+  .sv-row + .sv-row {
+    margin-top: 14px;
+  }
+  .sv-row :global(.zt-hint) {
     margin: 4px 0 0 46px;
   }
-  .crons {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin-bottom: 12px;
+  .sv-list {
+    border: 1px solid var(--zt-border);
+    border-radius: var(--zt-radius-sm);
   }
-  .cron {
+  .sv-item {
     display: flex;
     align-items: center;
     gap: 10px;
+    padding: 10px 12px;
+    border-top: 1px solid var(--zt-border);
   }
-  .cron-main {
+  .sv-item:first-child {
+    border-top: 0;
+  }
+  .sv-item b {
+    width: 100px;
+    flex: none;
+  }
+  .sv-item-val {
     flex: 1;
     min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
+    overflow-wrap: anywhere;
   }
-  .cron-main code {
+  .sv-item code {
     font-family: var(--zt-mono);
+    font-size: 12.5px;
   }
   .bad {
     color: var(--zt-err);
-    font-size: 12px;
+    font-size: 12.5px;
   }
   .tools {
     display: flex;
     gap: 6px;
     flex-wrap: wrap;
-    margin-top: 12px;
+    margin-top: 14px;
   }
   .tools .off {
     opacity: 0.5;
     text-decoration: line-through;
   }
-  @media (max-width: 640px) {
-    .grid {
+  @media (max-width: 760px) {
+    section {
       grid-template-columns: minmax(0, 1fr);
+      gap: 12px;
+      padding: 16px;
+    }
+    .sv-item {
+      flex-wrap: wrap;
+    }
+    .sv-item-val {
+      flex-basis: 100%;
+      padding-left: 26px;
     }
   }
 </style>
