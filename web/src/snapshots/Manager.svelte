@@ -128,8 +128,8 @@
   }
 
   function browse(s: SnapInfo) {
-    if (actions.browseSnapshot) actions.browseSnapshot({ snapshot: s.name, dataset: s.dataset });
-    else show('browse', { snapshot: s.name, dataset: s.dataset });
+    if (actions.browseSnapshot) actions.browseSnapshot({ snapshot: s.snapshot, dataset: s.dataset });
+    else show('browse', { snapshot: s.snapshot, dataset: s.dataset });
   }
 
   function rowMenu(e: MouseEvent, s: SnapInfo) {
