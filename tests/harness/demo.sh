@@ -107,7 +107,7 @@ CFG
 {"datasets":[{"name":"$PC/appdata","recursive":true,"use_template":true,"hourly":"","daily":"","weekly":"","monthly":"","yearly":""},{"name":"$PC/TV Shows","recursive":false,"use_template":false,"hourly":"0","daily":"14","weekly":"4","monthly":"0","yearly":"0"}]}
 JSON
     cat > "$T/config/send_jobs.json" <<JSON
-{"jobs":[{"id":"demo1","enabled":true,"name":"Appdata to backup pool","source":"$PC/appdata","dest":"backup/replica/appdata","recursive":true,"transport":"local","ssh_host":"","ssh_port":22,"ssh_key":"","raw":false,"compressed":true,"allow_rollback":false,"keep_dest":0}]}
+{"jobs":[{"id":"demo1","enabled":true,"name":"Appdata to backup pool","source":"$PC/appdata","dest":"$PB/replica/appdata","recursive":true,"transport":"local","ssh_host":"","ssh_port":22,"ssh_key":"","raw":false,"compressed":true,"allow_rollback":false,"keep_dest":0}]}
 JSON
 fi
 
