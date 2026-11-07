@@ -13,7 +13,18 @@
   import RollbackDialog from './RollbackDialog.svelte';
   import CreateDialog from './CreateDialog.svelte';
 
-  let { dataset = '' }: { dataset?: string } = $props();
+  let {
+    dataset = '',
+    items = undefined,
+    scope = '',
+    outside = false
+  }: { dataset?: string; items?: SnapInfo[]; scope?: string; outside?: boolean } = $props();
+
+  let onlyOutside = $state(true);
+  let embedded = $derived(!!scope);
+  let configured = $derived(snap.config);
+  let isOutside = $derived((name: string) => !configured.some((d) => name === d.name || (d.recursive && name.startsWith(d.name + '/'))));
+  let source = $derived(items ?? (outside && onlyOutside ? snap.list.filter((s) => isOutside(s.dataset)) : snap.list));
 
   type Kind = 'all' | 'auto' | 'manual' | 'held' | 'replication';
   type SortKey = 'creation' | 'used' | 'name';
@@ -32,7 +43,7 @@
   });
 
   $effect(() => {
-    if (snap.filterSeq) {
+    if (snap.filterSeq && !scope) {
       ds = snap.filterDataset;
       q = '';
       kind = 'all';
@@ -40,15 +51,15 @@
   });
 
   $effect(() => {
-    const alive = new Set(snap.list.map((s) => s.name));
+    const alive = new Set(source.map((s) => s.name));
     for (const n of [...selected]) if (!alive.has(n)) selected.delete(n);
   });
 
-  let datasetNames = $derived([...new Set(snap.list.map((s) => s.dataset))].sort());
+  let datasetNames = $derived([...new Set(source.map((s) => s.dataset))].sort());
   let match = $derived(globMatcher(q));
 
   let filtered = $derived.by(() => {
-    const out = snap.list.filter((s) => {
+    const out = source.filter((s) => {
       if (ds && s.dataset !== ds) return false;
       if (kind === 'auto' && !s.managed) return false;
       if (kind === 'manual' && (s.managed || s.checkpoint)) return false;
@@ -70,10 +81,10 @@
   let hiddenSelected = $derived([...selected].filter((n) => !visible.has(n)).length);
   let allShownSelected = $derived(filtered.length > 0 && filtered.every((s) => selected.has(s.name)));
   let someShownSelected = $derived(filtered.some((s) => selected.has(s.name)));
-  let selectedItems = $derived(snap.list.filter((s) => selected.has(s.name)));
+  let selectedItems = $derived(source.filter((s) => selected.has(s.name)));
   let heavy = $derived(
     [...snap.datasets]
-      .filter((d) => d.usedbysnapshots > 0 && (!ds || d.name === ds))
+      .filter((d) => d.usedbysnapshots > 0 && (!ds || d.name === ds) && (!outside || !onlyOutside || isOutside(d.name)))
       .sort((a, b) => b.usedbysnapshots - a.usedbysnapshots)
       .slice(0, 4)
   );
@@ -137,7 +148,7 @@
       { label: 'Browse files', icon: 'folder', onclick: () => browse(s) },
       { label: s.held ? 'Release the hold' : 'Hold - never prune', icon: s.held ? 'unlock' : 'lock', onclick: () => setHold([s], !s.held) },
       { label: 'Copy name', icon: 'copy', onclick: () => copyText(s.name) },
-      { label: 'Show only ' + s.dataset, icon: 'database', disabled: ds === s.dataset, onclick: () => (ds = s.dataset) },
+      datasetNames.length > 1 ? { label: 'Show only ' + (embedded ? rel(s.dataset) : s.dataset), icon: 'database', disabled: ds === s.dataset, onclick: () => (ds = s.dataset) } : null,
       '-',
       { label: 'Roll back to here…', icon: 'restore', danger: true, onclick: () => rollback(s) },
       { label: 'Delete', icon: 'trash', danger: true, onclick: () => destroy([s]) }
@@ -152,6 +163,10 @@
     ['replication', 'Replication']
   ];
 
+  function rel(n: string): string {
+    return scope && n.startsWith(scope + '/') ? n.slice(scope.length + 1) : n;
+  }
+
   function kindClass(k: string): string {
     if (k === 'replication') return 'warn';
     if (k === 'manual') return 'run';
@@ -160,29 +175,36 @@
   }
 </script>
 
-<div class="zt-toolbar ss-mgr-tools">
-  <select bind:value={ds} aria-label="Dataset">
-    <option value="">All datasets</option>
-    {#each datasetNames as n (n)}<option value={n}>{n}</option>{/each}
-    {#if ds && !datasetNames.includes(ds)}<option value={ds}>{ds}</option>{/if}
-  </select>
+<div class="zt-toolbar ss-mgr-tools" class:ss-embedded={embedded}>
+  {#if !embedded || datasetNames.length > 1}
+    <select bind:value={ds} aria-label="Dataset">
+      <option value="">{embedded ? 'This dataset and its children' : 'All datasets'}</option>
+      {#each datasetNames as n (n)}<option value={n}>{embedded ? rel(n) : n}</option>{/each}
+      {#if ds && !datasetNames.includes(ds)}<option value={ds}>{ds}</option>{/if}
+    </select>
+  {/if}
   <input type="search" placeholder="Filter, e.g. *daily* or plex" bind:value={q} aria-label="Filter snapshots" />
   <Segmented bind:value={kind} options={KINDS} />
   <div class="zt-spacer"></div>
-  <Button icon="camera" small onclick={() => openDialog(CreateDialog, { dataset: ds })}>Snapshot</Button>
-  <Button icon="refresh" small kind="ghost" title="Reload" busy={snap.loading} onclick={() => reloadAll()} />
+  {#if outside}
+    <label class="ss-mgr-outside"><input type="checkbox" bind:checked={onlyOutside} /> Only outside the scheduled datasets</label>
+  {/if}
+  {#if !embedded}
+    <Button icon="camera" small onclick={() => openDialog(CreateDialog, { dataset: ds })}>Snapshot</Button>
+    <Button icon="refresh" small kind="ghost" title="Reload" busy={snap.loading} onclick={() => reloadAll()} />
+  {/if}
 </div>
 
 <div class="zt-table-wrap">
   <div class="zt-snap-info">
     <span>
-      {#if filtered.length !== snap.list.length}
-        <b>{count(filtered.length)}</b> of {count(snap.list.length)} snapshots shown, {bytes(filteredBytes)}
+      {#if filtered.length !== source.length}
+        <b>{count(filtered.length)}</b> of {count(source.length)} snapshots shown, {bytes(filteredBytes)}
       {:else}
-        <b>{count(snap.list.length)}</b> snapshots, {bytes(filteredBytes)} unique
+        <b>{count(source.length)}</b> snapshots, {bytes(filteredBytes)} unique
       {/if}
     </span>
-    {#each heavy as d (d.name)}
+    {#each embedded ? [] : heavy as d (d.name)}
       <span class="zt-hide-narrow" title="Space held only by snapshots of {d.name}"><Icon name="database" /> {d.name}: <b>{bytes(d.usedbysnapshots)}</b></span>
     {/each}
   </div>
@@ -192,9 +214,9 @@
   {:else if !snap.listLoaded}
     <div class="zt-hint ss-mgr-pad"><Icon name="loader" class="zt-spin" /> Loading snapshots&hellip;</div>
   {:else if !filtered.length}
-    <div class="zt-hint ss-mgr-pad">{snap.list.length ? 'No snapshot matches this filter.' : 'No snapshots yet.'}</div>
+    <div class="zt-hint ss-mgr-pad">{source.length ? 'No snapshot matches this filter.' : embedded ? 'No snapshots of this dataset yet.' : 'No snapshots here.'}</div>
   {:else}
-    <div class="ss-mgr-scroll">
+    <div class="ss-mgr-scroll" class:ss-short={embedded}>
       <table class="zt-table ss-mgr">
         <thead>
           <tr>
@@ -221,7 +243,7 @@
             <tr class:ss-sel={selected.has(s.name)}>
               <td class="shrink"><input type="checkbox" checked={selected.has(s.name)} onchange={() => toggle(s.name)} aria-label="Select {s.name}" /></td>
               <td class="ss-mgr-name">
-                <span class="ss-mgr-ds">{s.dataset}@</span><span class="zt-mono">{s.snapshot}</span>
+                {#if !embedded || s.dataset !== scope}<span class="ss-mgr-ds">{embedded ? rel(s.dataset) : s.dataset}@</span>{/if}<span class="zt-mono">{s.snapshot}</span>
                 <div class="ss-mgr-meta">
                   <span class="zt-pill {kindClass(k)}">{k}</span>
                   {bytes(s.used)} · {relative(s.creation)}{s.held ? ' · held' : ''}
@@ -262,6 +284,20 @@
 </div>
 
 <style>
+  :global(#zt-app) .ss-mgr-outside {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    color: var(--zt-dim);
+    cursor: pointer;
+  }
+  :global(#zt-app) .ss-mgr-scroll.ss-short {
+    max-height: 440px;
+  }
+  :global(#zt-app) .ss-mgr-tools.ss-embedded {
+    margin-bottom: 10px;
+  }
   :global(#zt-app) .ss-mgr-scroll {
     max-height: 70vh;
     overflow-y: auto;

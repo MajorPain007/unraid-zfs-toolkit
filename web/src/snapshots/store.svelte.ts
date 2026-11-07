@@ -1,3 +1,4 @@
+import { SvelteSet } from 'svelte/reactivity';
 import { api } from '../lib/api';
 import { provide } from '../lib/actions';
 import { app, fail, refresh, show, toast } from '../lib/state.svelte';
@@ -14,13 +15,29 @@ export const snap = $state({
   listError: '',
   loading: false,
   filterDataset: '',
-  filterSeq: 0
+  filterSeq: 0,
+  allOpen: false
 });
 
+export const openRows = new SvelteSet<string>();
+
+export function rootOf(dataset: string): string {
+  const own = snap.config.find((d) => d.name === dataset);
+  if (own) return own.name;
+  return snap.config.find((d) => d.recursive && dataset.startsWith(d.name + '/'))?.name ?? '';
+}
+
 export function focusManager(dataset: string): void {
+  const root = rootOf(dataset);
+  if (root) {
+    openRows.add(root);
+    setTimeout(() => document.getElementById('ss-row-' + root)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+    return;
+  }
+  snap.allOpen = true;
   snap.filterDataset = dataset;
   snap.filterSeq++;
-  setTimeout(() => document.getElementById('ss-manager')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 30);
+  setTimeout(() => document.getElementById('ss-manager')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
 }
 
 export function part(): SnapOverview | null {

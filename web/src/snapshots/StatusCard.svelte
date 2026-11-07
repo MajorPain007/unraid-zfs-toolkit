@@ -5,7 +5,7 @@
   import { app, openDialog, openMenu } from '../lib/state.svelte';
   import { bytes, count, dateTime, plural, relative } from '../lib/format';
   import { part, runNow, setEnabled, settings } from './store.svelte';
-  import { TYPES, TYPE_LABEL, scheduleText } from './types';
+  import { TYPES, TYPE_LABEL, globalKeep, scheduleText } from './types';
   import LogDialog from './LogDialog.svelte';
   import PreviewDialog from './PreviewDialog.svelte';
   import SettingsDrawer from './SettingsDrawer.svelte';
@@ -44,6 +44,14 @@
       { label: 'Schedule & retention', icon: 'settings', onclick: () => openDialog(SettingsDrawer, {}) }
     ]);
   }
+
+  let retention = $derived(
+    TYPES.filter((t) => globalKeep(s, t) > 0).map((t) => {
+      const age = Number(s['snap_age_' + t]) || 0;
+      return globalKeep(s, t) + ' ' + t + (age ? ` (max ${age} d)` : '');
+    })
+  );
+  let target = $derived((s.snap_free_target || '').trim());
 
   function nextText(ts: number): string {
     return ts <= Date.now() / 1000 + 30 ? 'at the next run' : relative(ts);
@@ -128,6 +136,17 @@
       </div>
     {/if}
 
+    <div class="ss-ret-line">
+      <Icon name="clock" />
+      <span class="ss-ret-label">Retention</span>
+      <span class="ss-ret-text">
+        {retention.length ? retention.join(' · ') : 'nothing kept'}
+        <span class="zt-sep">·</span>
+        {target ? 'keeps ' + target + ' free' : 'no free-space target'}
+      </span>
+      <Button icon="edit" small kind="ghost" onclick={() => openDialog(SettingsDrawer, {})}>Edit</Button>
+    </div>
+
     {#if p?.missing?.length}
       <div class="zt-card-note err">
         <Icon name="alert" />
@@ -180,6 +199,44 @@
   }
   :global(#zt-app) .ss-facts {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  :global(#zt-app) .ss-ret-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 1px solid var(--zt-border);
+    font-size: 13px;
+  }
+  :global(#zt-app) .ss-ret-line > :global(svg.zt-i) {
+    flex: none;
+    color: var(--zt-dim);
+  }
+  :global(#zt-app) .ss-ret-label {
+    flex: none;
+    color: var(--zt-dim);
+    font-size: 11.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  :global(#zt-app) .ss-ret-text {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  :global(#zt-app) .ss-ret-text .zt-sep {
+    opacity: 0.5;
+    margin: 0 4px;
+  }
+  @media (max-width: 560px) {
+    :global(#zt-app) .ss-ret-line {
+      align-items: flex-start;
+    }
+    :global(#zt-app) .ss-ret-line > :global(svg.zt-i),
+    :global(#zt-app) .ss-ret-label {
+      display: none;
+    }
   }
   :global(#zt-app) .ss-link {
     margin-left: 6px;

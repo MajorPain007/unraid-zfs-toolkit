@@ -2,10 +2,9 @@
   import Icon from '../lib/ui/Icon.svelte';
   import Button from '../lib/ui/Button.svelte';
   import { onRefresh, openDialog } from '../lib/state.svelte';
-  import { loadConfig, loadList, part, setEnabled, snap } from '../snapshots/store.svelte';
+  import { focusManager, loadConfig, loadList, part, setEnabled, snap } from '../snapshots/store.svelte';
   import StatusCard from '../snapshots/StatusCard.svelte';
-  import DatasetCard from '../snapshots/DatasetCard.svelte';
-  import RetentionCard from '../snapshots/RetentionCard.svelte';
+  import DatasetRow from '../snapshots/DatasetRow.svelte';
   import Manager from '../snapshots/Manager.svelte';
   import AddDialog from '../snapshots/AddDialog.svelte';
 
@@ -33,9 +32,18 @@
     })
   );
 
+  let focused = false;
   $effect(() => {
-    if (opts.dataset) setTimeout(() => document.getElementById('ss-manager')?.scrollIntoView({ block: 'start' }), 200);
+    if (opts.dataset && snap.configLoaded && snap.listLoaded && !focused) {
+      focused = true;
+      focusManager(String(opts.dataset));
+    }
   });
+
+  let outsideCount = $derived(
+    snap.list.filter((x) => !snap.config.some((d) => x.dataset === d.name || (d.recursive && x.dataset.startsWith(d.name + '/')))).length
+  );
+  let allOpen = $derived(snap.allOpen || !enabled);
 
   async function turnOn() {
     turningOn = true;
@@ -48,7 +56,7 @@
 
 {#if enabled}
   <div class="zt-section-head">
-    <h2>Datasets &amp; retention</h2>
+    <h2>Scheduled datasets</h2>
     <Button icon="plus" small disabled={!snap.configLoaded} onclick={() => openDialog(AddDialog, {})}>Add dataset</Button>
   </div>
   {#if snap.configError}
@@ -61,19 +69,23 @@
       </div>
     </div>
   {:else}
-    <div class="zt-grid">
-      <RetentionCard />
-      {#each snap.config as ds (ds.name)}
-        <DatasetCard {ds} missing={missing.has(ds.name)} />
-      {/each}
-      {#if snap.configLoaded}
-        <button type="button" class="zt-card add" onclick={() => openDialog(AddDialog, {})}>
-          <Icon name="plus" />
-          {snap.config.length ? 'Add a dataset' : 'Add the first dataset to snapshot'}
-          {#if !snap.config.length}<span class="zt-hint ss-add-hint">appdata, domains or a share - recursive covers everything below it</span>{/if}
-        </button>
-      {/if}
-    </div>
+    {#if snap.configLoaded && !snap.config.length}
+      <div class="zt-empty">
+        <Icon name="database" class="big" />
+        <h3>No dataset is snapshotted yet</h3>
+        <p>Add appdata, domains or a share. Recursive covers every dataset below it.</p>
+        <Button icon="plus" kind="primary" onclick={() => openDialog(AddDialog, {})}>Add the first dataset</Button>
+      </div>
+    {:else}
+      <div class="zt-table-wrap ss-list">
+        <div class="ss-list-head zt-hide-narrow" aria-hidden="true">
+          <span></span><span>Dataset</span><span>Rule</span><span class="r">Snapshots</span><span class="r">Space</span><span>Newest</span><span>Last 30 days</span>
+        </div>
+        {#each snap.config as ds (ds.name)}
+          <DatasetRow {ds} missing={missing.has(ds.name)} />
+        {/each}
+      </div>
+    {/if}
   {/if}
 {:else if p}
   <div class="zt-empty ss-off">
@@ -87,16 +99,65 @@
   </div>
 {/if}
 
-<div class="zt-section-head" id="ss-manager">
-  <h2>Snapshot manager</h2>
-</div>
-<Manager dataset={opts.dataset || ''} />
+<details class="ss-all" id="ss-manager" open={allOpen} ontoggle={(e) => (snap.allOpen = (e.currentTarget as HTMLDetailsElement).open)}>
+  <summary class="zt-section-head">
+    <h2>{enabled ? 'All snapshots on this system' : 'Snapshots on this system'}</h2>
+    {#if enabled && snap.listLoaded}<span class="zt-hint">{outsideCount} outside the scheduled datasets · {snap.list.length} in total</span>{/if}
+  </summary>
+  {#if allOpen}
+    <Manager outside={enabled} />
+  {/if}
+</details>
 
 <style>
-  :global(#zt-app) .ss-add-hint {
-    max-width: 260px;
-    text-align: center;
-    font-weight: 400;
+  :global(#zt-app) .ss-list {
+    --ss-cols: 16px minmax(0, 1fr) 76px 84px 84px 104px 140px;
+  }
+  :global(#zt-app) .ss-list-head {
+    display: grid;
+    grid-template-columns: var(--ss-cols);
+    gap: 12px;
+    padding: 8px 48px 8px 12px;
+    border-bottom: 1px solid var(--zt-border);
+    background: var(--zt-surface-2);
+    color: var(--zt-dim);
+    font-size: 11.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  @media (max-width: 760px) {
+    :global(#zt-app) .ss-list-head {
+      display: none;
+    }
+  }
+  :global(#zt-app) .ss-list-head .r {
+    text-align: right;
+  }
+  :global(#zt-app) details.ss-all > summary {
+    flex-wrap: wrap;
+    row-gap: 4px;
+    cursor: pointer;
+    list-style: none;
+    margin-top: 28px;
+  }
+  :global(#zt-app) details.ss-all > summary::-webkit-details-marker {
+    display: none;
+  }
+  :global(#zt-app) details.ss-all > summary h2 {
+    flex: none;
+  }
+  :global(#zt-app) details.ss-all > summary::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-right: 2px solid var(--zt-dim);
+    border-bottom: 2px solid var(--zt-dim);
+    transform: rotate(-45deg);
+    transition: transform 0.15s;
+  }
+  :global(#zt-app) details.ss-all[open] > summary::before {
+    transform: rotate(45deg);
   }
   :global(#zt-app) .ss-off {
     margin-top: 16px;
