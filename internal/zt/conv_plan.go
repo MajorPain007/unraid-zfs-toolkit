@@ -79,7 +79,7 @@ func convClassify(in convPlanInput) []convSourceScan {
 		}
 		sort.Slice(entries, func(i, j int) bool { return natLess(entries[i].Name, entries[j].Name) })
 		for _, e := range entries {
-			if !e.IsDir || e.Link {
+			if !e.IsDir || e.Link || strings.HasPrefix(e.Name, ".") {
 				continue
 			}
 			path := strings.TrimRight(mp, "/") + "/" + e.Name

@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.toolkit">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.11.05.01">
-<!ENTITY md5       "99e393ebf9165651169c3b1d7b0d91b7">
+<!ENTITY version   "2026.11.07.01">
+<!ENTITY md5       "bcb05d2634c4f3d680f39ecf6d3738be">
 <!ENTITY launch    "Settings/ZFSToolkit">
 <!ENTITY github    "MajorPain007/unraid-zfs-toolkit">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,49 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.11.07.01 — Rewritten in Go, new interface
+
+The plugin is now one program written in Go instead of bash and PHP scripts,
+and the page is rebuilt. Settings, dataset lists, replication jobs and the
+cron schedules carry over unchanged.
+
+- New interface with tabs for Snapshots, Browse and Restore, Replication,
+  Conversion and Settings, a status line and the fill level of every pool.
+- Snapshots: next snapshot per type, a warning when runs are overdue, a
+  30-day strip and the space snapshots hold per dataset, a preview of what
+  a retention change would keep or remove, manual snapshots with a name of
+  your own, and a manager that keeps the selection while filtering.
+- Browse and Restore: snapshots grouped by day, files marked when changed or
+  deleted since, compare with another snapshot or the current files, a
+  preview before restoring, and downloads of files or folders as zip.
+- Replication: test and dry run for a job before saving it, progress with
+  speed, a stop button, a bandwidth limit, read-only copies, a picker for
+  datasets on both sides, an SSH key helper and a per-job log.
+- Conversion: a plan that shows which folders become which datasets and
+  which containers and VMs are stopped, progress per folder, a history and
+  a log viewer.
+- Settings: notifications, the top menu entry, the state of all three cron
+  schedules, and a diagnostics report.
+
+Fixed:
+
+- Conversion: stopping a run while it cleaned up could destroy the new
+  dataset; a folder with a mount inside was copied with what was mounted;
+  a container that did not stop, or one using a folder in an extra
+  dataset, kept running while its folder was copied; only the first disk
+  of a VM was checked; an unreadable dry run setting meant a real run.
+- Restore: an absolute target could leave /mnt, symlinks were followed,
+  and restoring with delete could remove snapshots under .zfs or the
+  contents of child datasets.
+- Snapshots: a rollback past a held snapshot destroyed newer snapshots
+  before it failed; a recursive dataset with a separately listed child
+  failed with already exists; low-space and error notifications came every
+  run; a broken dataset list was skipped without a word.
+- Replication: job a could prune the checkpoints of job a-x; a snapshot
+  with the same name but other contents counted as common base; a first
+  run into a new path failed for a missing parent; a failed run left its
+  checkpoint behind; known hosts were lost at every reboot.
+
 ## Version 2026.11.05.01 — Leaner source
 
 - Comments removed from the source. Nothing changes in how the plugin works.

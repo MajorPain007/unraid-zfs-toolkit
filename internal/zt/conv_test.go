@@ -100,7 +100,7 @@ func testWorld() *convWorld {
 
 func TestConvClassify(t *testing.T) {
 	w := testWorld()
-	dirs := []string{"plex", "tdarr", "tdarr_temp", "ghost", "Büro (alt)", "big", "a+b", "a,b", "nested", "line\nbreak", "Odd Name", "TV Shows"}
+	dirs := []string{".Recycle.Bin", "plex", "tdarr", "tdarr_temp", "ghost", "Büro (alt)", "big", "a+b", "a,b", "nested", "line\nbreak", "Odd Name", "TV Shows"}
 	sizes := map[string]int64{"/mnt/cache/appdata/big": 950}
 	in := convPlanInput{
 		World:   w,
@@ -130,6 +130,9 @@ func TestConvClassify(t *testing.T) {
 	}
 	if _, ok := got["link"]; ok {
 		t.Error("a symlink was listed")
+	}
+	if _, ok := got[".Recycle.Bin"]; ok {
+		t.Error("a hidden folder was listed")
 	}
 	want := map[string][2]string{
 		"plex":        {"convert", ""},
