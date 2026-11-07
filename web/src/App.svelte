@@ -40,12 +40,10 @@
   function overall(o: Overview): PartStatus {
     if (!o.zfs) return { level: 'err', text: 'ZFS is not available', sub: 'No pool is imported, or the zfs tools are missing.' };
     let best: PartStatus = { level: 'idle', text: 'Nothing set up yet', sub: 'Start with automatic snapshots.' };
-    let any = false;
-    for (const p of Object.keys(PARTS)) {
+    for (const p of ['snapshots', 'replication', 'conversion', 'browse']) {
       const st = partStatus(o, p);
       if (!st) continue;
-      if (!any || RANK[st.level] > RANK[best.level]) best = st;
-      any = true;
+      if (RANK[st.level] > RANK[best.level] || (st.level === 'idle' && best.level === 'idle' && p === 'snapshots')) best = st;
     }
     return best;
   }
