@@ -100,6 +100,7 @@
   }
   .head {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 10px;
   }
@@ -153,6 +154,15 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  @media (max-width: 560px) {
+    .rc-title {
+      flex-basis: calc(100% - 40px);
+    }
+    .acts {
+      width: 100%;
+      justify-content: flex-end;
+    }
   }
   .card pre {
     margin-top: 10px;
