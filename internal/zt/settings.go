@@ -4,7 +4,6 @@ import (
 	"os"
 	"regexp"
 	"strings"
-	"time"
 )
 
 var settingKeys = []string{
@@ -137,7 +136,7 @@ func yes(v string) bool {
 
 func (s Settings) Render() string {
 	var b strings.Builder
-	b.WriteString("# ZFS Toolkit settings - saved " + time.Now().Format("2006-01-02 15:04:05") + "\n\n")
+	b.WriteString("# ZFS Toolkit settings\n\n")
 	for _, k := range settingKeys {
 		b.WriteString(k + "=" + s[k] + "\n")
 	}
