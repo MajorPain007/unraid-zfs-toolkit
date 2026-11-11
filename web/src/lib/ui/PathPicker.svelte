@@ -93,7 +93,7 @@
 <Dialog {title} icon="folder" wide={multiple} onclose={() => close(null)}>
   <div class="zt-browser-head" style="padding:0 0 10px;border:0">
     <div class="zt-crumbs">
-      <button type="button" onclick={() => load('/')}><Icon name="home" /></button>
+      <button type="button" title="/" aria-label="Top folder" onclick={() => load('/')}><Icon name="home" /></button>
       {#each parts as p, i (i)}
         <span class="zt-sep">/</span>
         <button type="button" onclick={() => load('/' + parts.slice(0, i + 1).join('/'))}>{p}</button>

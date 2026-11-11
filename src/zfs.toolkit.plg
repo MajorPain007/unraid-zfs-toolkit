@@ -94,7 +94,7 @@ Fixed:
 
 The conversion, pruning and replication faults that could cost data were
 reproduced in a test pool on real ZFS before they were fixed;
-tests/zfs_integration.sh repeats those checks.
+the integration tests repeat those checks.
 
 Conversion:
 

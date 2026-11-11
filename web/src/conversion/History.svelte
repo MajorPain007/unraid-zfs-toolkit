@@ -62,8 +62,8 @@
 </div>
 
 <style>
-  .cv-hist {
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  :global(#zt-app) .zt-grid.cv-hist {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
   }
   .cv-card-title {
     display: flex;

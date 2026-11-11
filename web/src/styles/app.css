@@ -13,17 +13,22 @@
     --zt-accent: #3584e8;
     --zt-accent-soft: rgba(53, 132, 232, 0.16);
     --zt-accent-text: #7db5ff;
+    --zt-on-accent: #fff;
     --zt-ok: #3fb950;
     --zt-ok-soft: rgba(63, 185, 80, 0.14);
     --zt-warn: #d6a32a;
     --zt-warn-soft: rgba(214, 163, 42, 0.15);
     --zt-err: #f2645a;
     --zt-err-soft: rgba(242, 100, 90, 0.14);
+    --zt-err-border: rgba(242, 100, 90, 0.4);
+    --zt-run-border: rgba(88, 166, 255, 0.45);
     --zt-info: #3cc4b8;
     --zt-info-soft: rgba(60, 196, 184, 0.14);
     --zt-select: rgba(53, 132, 232, 0.16);
     --zt-select-soft: rgba(53, 132, 232, 0.09);
     --zt-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    --zt-log-bg: rgba(0, 0, 0, 0.3);
+    --zt-log-text: #d7dbe0;
     --zt-radius: 10px;
     --zt-radius-sm: 7px;
     --zt-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
@@ -59,11 +64,15 @@
     --zt-warn-soft: rgba(154, 103, 0, 0.11);
     --zt-err: #cf222e;
     --zt-err-soft: rgba(207, 34, 46, 0.09);
+    --zt-err-border: rgba(207, 34, 46, 0.4);
+    --zt-run-border: rgba(31, 111, 209, 0.45);
     --zt-info: #0f857c;
     --zt-info-soft: rgba(15, 133, 124, 0.1);
     --zt-select: rgba(9, 105, 218, 0.09);
     --zt-select-soft: rgba(9, 105, 218, 0.05);
     --zt-shadow: 0 10px 30px rgba(20, 25, 35, 0.16);
+    --zt-log-bg: #f6f8fa;
+    --zt-log-text: #1f2328;
     color-scheme: light;
 }
 
@@ -272,7 +281,7 @@
 #zt-app .zt-btn.primary {
     background: var(--zt-accent);
     border-color: var(--zt-accent);
-    color: #fff;
+    color: var(--zt-on-accent);
 }
 
 #zt-app .zt-btn.primary:hover:not(:disabled) {
@@ -289,7 +298,7 @@
 #zt-app .zt-btn.danger.solid {
     background: var(--zt-err);
     border-color: var(--zt-err);
-    color: #fff;
+    color: var(--zt-on-accent);
 }
 
 #zt-app .zt-btn.ghost {
@@ -464,7 +473,7 @@
 
 #zt-app .zt-switch input:checked + span::after {
     transform: translateX(14px);
-    background: #fff;
+    background: var(--zt-on-accent);
 }
 
 #zt-app .zt-switch input:focus-visible + span {
@@ -523,11 +532,11 @@
 }
 
 #zt-app .zt-card.is-running {
-    border-color: rgba(88, 166, 255, 0.45);
+    border-color: var(--zt-run-border);
 }
 
 #zt-app .zt-card.is-failed {
-    border-color: rgba(242, 100, 90, 0.4);
+    border-color: var(--zt-err-border);
 }
 
 #zt-app .zt-card.is-disabled {
@@ -1736,8 +1745,8 @@
     padding: 14px 16px;
     max-height: 60vh;
     overflow: auto;
-    background: rgba(0, 0, 0, 0.3);
-    color: #d7dbe0;
+    background: var(--zt-log-bg);
+    color: var(--zt-log-text);
     border-radius: var(--zt-radius-sm);
     font-family: var(--zt-mono);
     font-size: 12px;
@@ -1747,8 +1756,6 @@
 }
 
 #zt-app.zt-light pre.zt-log {
-    background: #f6f8fa;
-    color: #1f2328;
     border: 1px solid var(--zt-border);
 }
 

@@ -270,8 +270,8 @@
 </div>
 
 <style>
-  .cv-settings {
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  :global(#zt-app) .zt-grid.cv-settings {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
   }
   .cv-card-title {
     display: flex;
@@ -290,7 +290,7 @@
   .cv-block {
     margin-top: 16px;
   }
-  .cv-sub-fields {
+  :global(#zt-app) .zt-fields.cv-sub-fields {
     margin-top: 10px;
     grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   }
