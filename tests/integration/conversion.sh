@@ -16,6 +16,7 @@ case "\$(cat "\$(dirname "\$0")/mode" 2>/dev/null)" in
   fail)    /usr/bin/rsync -a --exclude=b.txt "\$src" "\$dst"; exit 23 ;;
   partial) /usr/bin/rsync -a --exclude=b.txt "\$src" "\$dst"; exit 0 ;;
   slow)    sleep 60; exit 0 ;;
+  throttle) exec /usr/bin/rsync --bwlimit=400 "\$@" ;;
   *)       exec /usr/bin/rsync "\$@" ;;
 esac
 EOF
@@ -281,6 +282,19 @@ zfs create "$C/appdata/app"; echo a > "$A/app/a.txt"; echo b > "$A/app/b.txt"; e
 convert >/dev/null
 check "validated and cut off while cleaning up: the rest of the original is deleted" \
       '[ ! -e "$A/app_temp" ] && [ -f "$A/app/c.txt" ] && [ ! -f "$ZDC_CONVERSION_JOURNAL" ]'
+
+fresh_appdata; mkdir -p "$A/vm"; echo c > "$A/vm/a.conf"; head -c 10M /dev/urandom > "$A/vm/vdisk1.img"
+sum=$(md5sum < "$A/vm/vdisk1.img")
+part() { stat -c %s "$A"/vm/.vdisk1.img.* 2>/dev/null || echo 0; }
+rsync_mode throttle; pid=$(convert no nowait)
+for _ in $(seq 1 600); do [ "$(part)" -ge 10066330 ] && break; sleep 0.1; done
+kill -9 "$pid"; pkill -9 -x rsync; wait_pid "$pid"; rsync_mode normal
+check "killed hard during rsync: the copy ends in rsync's partial file, the journal is not committed" \
+      '[ -f "$A/vm/a.conf" ] && [ ! -e "$A/vm/vdisk1.img" ] && [ "$(part)" -ge 10066330 ] && [ -f "$ZDC_CONVERSION_JOURNAL" ] && ! grep -q committed "$ZDC_CONVERSION_JOURNAL"' \
+      "partial file: $(part) bytes"
+convert >/dev/null
+check "the next run keeps the original and does not take the cut copy as complete" \
+      '[ "$(md5sum < "$A/vm_temp/vdisk1.img")" = "$sum" ] && [ -f "$ZDC_CONVERSION_JOURNAL" ] && lastlog | grep -q "Keep one of them"'
 
 fresh_appdata; mkdir -p "$A/app_temp"; echo a > "$A/app_temp/a.txt"; journal
 DRY=yes convert >/dev/null

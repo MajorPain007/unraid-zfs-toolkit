@@ -1,6 +1,9 @@
 package zt
 
 import (
+	"context"
+	"os"
+	"strings"
 	"testing"
 )
 
@@ -203,5 +206,106 @@ func TestConvConfig(t *testing.T) {
 func TestConvRequired(t *testing.T) {
 	if convRequired(100, 11) != 111 || convRequired(0, 50) != 0 {
 		t.Error("required space")
+	}
+}
+
+func recoverFixture(t *testing.T, copy map[string]int) (*convRunner, string) {
+	d := t.TempDir()
+	temp, path := d+"/app_temp", d+"/app"
+	os.MkdirAll(temp, 0o755)
+	os.MkdirAll(path, 0o755)
+	os.WriteFile(temp+"/a.conf", []byte("x"), 0o644)
+	os.WriteFile(temp+"/vdisk1.img", make([]byte, 1000000), 0o644)
+	for name, size := range copy {
+		os.WriteFile(path+"/"+name, make([]byte, size), 0o644)
+	}
+	os.WriteFile(d+"/zfs", []byte("#!/bin/sh\nprintf 'cache/appdata/app\\tyes\\t%s\\t1000\\t10\\n' '"+path+"'\n"), 0o755)
+	oldZfs, oldJournal := ZfsBin, convJournalPath
+	ZfsBin, convJournalPath = d+"/zfs", d+"/journal"
+	t.Cleanup(func() { ZfsBin, convJournalPath = oldZfs, oldJournal })
+	convWriteJournal(convJournal{Source: "cache/appdata", Entry: "app", Name: "app", Temp: temp})
+	return &convRunner{cfg: convConfig{Tolerance: 5, Cleanup: true}, ctx: context.Background(), log: &convLog{}}, temp
+}
+
+func TestConvRecoverKeepsOriginalOfCutCopy(t *testing.T) {
+	r, temp := recoverFixture(t, map[string]int{"a.conf": 1, ".vdisk1.img.Xk3j2a": 970000})
+	if r.recoverInterrupted() {
+		t.Error("a copy cut off inside vdisk1.img was taken as complete")
+	}
+	if st, err := os.Stat(temp + "/vdisk1.img"); err != nil || st.Size() != 1000000 {
+		t.Fatalf("the original is gone: %v", err)
+	}
+	if _, err := os.Stat(convJournalPath); err != nil {
+		t.Error("the journal was cleared")
+	}
+	if len(r.converted) != 0 {
+		t.Errorf("reported as converted: %v", r.converted)
+	}
+}
+
+func TestConvRecoverFinishesCompleteCopy(t *testing.T) {
+	r, temp := recoverFixture(t, map[string]int{"a.conf": 1, "vdisk1.img": 1000000})
+	if !r.recoverInterrupted() {
+		t.Fatal("a complete copy was not finished")
+	}
+	if _, err := os.Stat(temp); !os.IsNotExist(err) {
+		t.Error("the original was not cleaned up")
+	}
+	if _, err := os.Stat(convJournalPath); !os.IsNotExist(err) {
+		t.Error("the journal is still there")
+	}
+}
+
+func TestConvRecoverKeepsOriginalItCannotRead(t *testing.T) {
+	r, temp := recoverFixture(t, map[string]int{"a.conf": 1, "vdisk1.img": 1000000})
+	os.MkdirAll(temp+"/secret", 0o755)
+	os.WriteFile(temp+"/secret/x", []byte("x"), 0o644)
+	os.MkdirAll(dirOf(temp)+"/app/secret", 0o755)
+	os.Chmod(temp+"/secret", 0)
+	t.Cleanup(func() { os.Chmod(temp+"/secret", 0o755) })
+	if r.recoverInterrupted() {
+		t.Error("an original that cannot be read completely was deleted")
+	}
+	if _, err := os.Stat(temp + "/vdisk1.img"); err != nil {
+		t.Fatalf("the original is gone: %v", err)
+	}
+}
+
+func TestConvMissingFrom(t *testing.T) {
+	tree := func(root string, files map[string]string) {
+		os.MkdirAll(root, 0o755)
+		for name, body := range files {
+			os.MkdirAll(dirOf(root+"/"+name), 0o755)
+			if strings.HasPrefix(body, "->") {
+				os.Symlink(body[2:], root+"/"+name)
+			} else {
+				os.WriteFile(root+"/"+name, []byte(body), 0o644)
+			}
+		}
+	}
+	orig := map[string]string{"a.conf": "x", "db/main.db": "data", "link": "->a.conf"}
+	cases := []struct {
+		name string
+		copy map[string]string
+		want string
+	}{
+		{"same", map[string]string{"a.conf": "x", "db/main.db": "data", "link": "->a.conf"}, ""},
+		{"extra files are fine", map[string]string{"a.conf": "x", "db/main.db": "data", "link": "->a.conf", "new.log": "y"}, ""},
+		{"nested file missing", map[string]string{"a.conf": "x", "db/.main.db.Xk3j2a": "data", "link": "->a.conf"}, "/db/main.db"},
+		{"other size", map[string]string{"a.conf": "x", "db/main.db": "dat", "link": "->a.conf"}, "/db/main.db"},
+		{"file instead of symlink", map[string]string{"a.conf": "x", "db/main.db": "data", "link": "x"}, "/link"},
+		{"file instead of folder", map[string]string{"a.conf": "x", "db": "data", "link": "->a.conf"}, "/db"},
+	}
+	for _, c := range cases {
+		d := t.TempDir()
+		tree(d+"/src", orig)
+		tree(d+"/dst", c.copy)
+		got, err := convMissingFrom(d+"/src", d+"/dst")
+		if err != nil || got != c.want {
+			t.Errorf("%s: got %q, %v want %q", c.name, got, err, c.want)
+		}
+	}
+	if _, err := convMissingFrom(t.TempDir()+"/gone", t.TempDir()); err == nil {
+		t.Error("an unreadable original was not reported")
 	}
 }

@@ -128,7 +128,7 @@ func (r *convRunner) recoverInterrupted() bool {
 	} else if w.datasetAt(path) == dataset {
 		finish := j.Committed
 		if !finish {
-			finish = r.validate(context.Background(), j.Temp, path)
+			finish = r.copyHolds(j.Temp, path)
 		}
 		if finish {
 			if r.cfg.Cleanup {
@@ -465,6 +465,21 @@ func (r *convRunner) validate(ctx context.Context, src, dst string) bool {
 		}
 	}
 	r.log.ok("Validation passed.")
+	return true
+}
+
+func (r *convRunner) copyHolds(src, dst string) bool {
+	r.log.info("Checking that the copy holds every file of the original...")
+	miss, err := convMissingFrom(src, dst)
+	if err != nil {
+		r.log.err("Cannot compare %s with %s: %s", src, dst, err)
+		return false
+	}
+	if miss != "" {
+		r.log.err("The copy is incomplete: %s is missing or differs from the original.", dst+miss)
+		return false
+	}
+	r.log.ok("The copy holds every file of the original.")
 	return true
 }
 

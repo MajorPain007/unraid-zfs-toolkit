@@ -143,3 +143,24 @@ func convDirUsage(ctx context.Context, root string) (convUsage, error) {
 	u.Done = true
 	return u, nil
 }
+
+func convMissingFrom(src, dst string) (string, error) {
+	miss := ""
+	err := filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		a, err := d.Info()
+		if err != nil {
+			return err
+		}
+		rel := strings.TrimPrefix(p, src)
+		b, err := os.Lstat(dst + rel)
+		if err != nil || a.Mode().Type() != b.Mode().Type() || (a.Mode().IsRegular() && a.Size() != b.Size()) {
+			miss = rel
+			return fs.SkipAll
+		}
+		return nil
+	})
+	return miss, err
+}
