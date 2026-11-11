@@ -1,28 +1,15 @@
 <script lang="ts">
+  import { dayBuckets, weekDate } from '../lib/format';
   import type { SnapInfo } from './types';
 
   let { snapshots, days = 30 }: { snapshots: SnapInfo[]; days?: number } = $props();
 
-  let buckets = $derived.by(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const start = today.getTime() / 1000 - (days - 1) * 86400;
-    const out = Array.from({ length: days }, (_, i) => ({ day: start + i * 86400, n: 0, manual: 0 }));
-    for (const s of snapshots) {
-      const d = new Date(s.creation * 1000);
-      d.setHours(0, 0, 0, 0);
-      const i = Math.round((d.getTime() / 1000 - start) / 86400);
-      if (i < 0 || i >= days) continue;
-      out[i].n++;
-      if (!s.managed) out[i].manual++;
-    }
-    return out;
-  });
+  let buckets = $derived(dayBuckets(snapshots, days).map((b) => ({ day: b.day, n: b.items.length, manual: b.items.filter((s) => !s.managed).length })));
   let max = $derived(Math.max(1, ...buckets.map((b) => b.n)));
   let total = $derived(buckets.reduce((a, b) => a + b.n, 0));
 
   function title(b: { day: number; n: number; manual: number }): string {
-    const d = new Date(b.day * 1000).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+    const d = weekDate(b.day);
     if (!b.n) return d + ': none';
     return d + ': ' + b.n + (b.n === 1 ? ' snapshot' : ' snapshots') + (b.manual ? ` (${b.manual} manual)` : '');
   }

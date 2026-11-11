@@ -115,10 +115,6 @@ export function parentOf(path: string): string {
   return path.replace(/\/[^/]+$/, '') || '/';
 }
 
-export function baseName(path: string): string {
-  return path.split('/').filter(Boolean).pop() || '/';
-}
-
 export function snapPath(s: Snap, path = '/'): string {
   const mp = B.mountpoint.replace(/\/+$/, '');
   return mp + '/.zfs/snapshot/' + s.name + (path === '/' ? '' : path);

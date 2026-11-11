@@ -69,6 +69,34 @@ export function relative(ts: number | null | undefined): string {
   return diff < 0 ? text + ' ago' : 'in ' + text;
 }
 
+export function hourLabel(h: number | string): string {
+  return String(h).padStart(2, '0') + ':00';
+}
+
+export function weekDate(ts: number): string {
+  return new Date(ts * 1000).toLocaleDateString(LOCALE, { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+export function logTime(name: string): number {
+  const m = /(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})/.exec(name);
+  if (!m) return 0;
+  return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]).getTime() / 1000;
+}
+
+export function dayBuckets<T extends { creation: number }>(items: T[], days: number): { day: number; items: T[] }[] {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const start = today.getTime() / 1000 - (days - 1) * 86400;
+  const out = Array.from({ length: days }, (_, i) => ({ day: start + i * 86400, items: [] as T[] }));
+  for (const x of items) {
+    const d = new Date(x.creation * 1000);
+    d.setHours(0, 0, 0, 0);
+    const i = Math.round((d.getTime() / 1000 - start) / 86400);
+    if (i >= 0 && i < days) out[i].items.push(x);
+  }
+  return out;
+}
+
 export function shortDate(ts: number, withYear = false): string {
   return new Date(ts * 1000).toLocaleDateString(
     LOCALE,

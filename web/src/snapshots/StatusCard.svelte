@@ -3,7 +3,7 @@
   import Button from '../lib/ui/Button.svelte';
   import Toggle from '../lib/ui/Toggle.svelte';
   import { app, openDialog, openMenu } from '../lib/state.svelte';
-  import { bytes, count, dateTime, plural, relative } from '../lib/format';
+  import { bytes, count, dateTime, hourLabel, plural, relative } from '../lib/format';
   import { part, runNow, setEnabled, settings } from './store.svelte';
   import { TYPES, TYPE_LABEL, globalKeep, scheduleText } from './types';
   import LogDialog from './LogDialog.svelte';
@@ -67,7 +67,7 @@
         {#if enabled}
           <span>{scheduleText(s)}</span>
           <span class="zt-sep">·</span>
-          <span>daily and longer from {String(s.snap_daily_hour || '2').padStart(2, '0')}:00</span>
+          <span>daily and longer from {hourLabel(s.snap_daily_hour || '2')}</span>
           {#if cron && !cron.live}
             <span class="zt-sep">·</span><span class="zt-err-text">cron entry missing</span>
           {/if}

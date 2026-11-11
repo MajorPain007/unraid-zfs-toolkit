@@ -130,10 +130,6 @@ export async function runNow(all = false): Promise<void> {
   }
 }
 
-export function snapshotsOf(dataset: string): SnapInfo[] {
-  return snap.list.filter((s) => s.dataset === dataset);
-}
-
 export async function addDataset(name: string, recursive = false): Promise<boolean> {
   if (!snap.configLoaded) await loadConfig();
   if (snap.config.some((d) => d.name === name)) return true;

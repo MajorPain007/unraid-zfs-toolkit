@@ -1,5 +1,3 @@
-export type Yes = 'yes' | 'no';
-
 export interface CronState {
   entry: string;
   live: boolean;

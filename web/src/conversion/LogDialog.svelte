@@ -5,7 +5,7 @@
   import Icon from '../lib/ui/Icon.svelte';
   import { api } from '../lib/api';
   import { copyText, fail } from '../lib/state.svelte';
-  import { dateTime, plural } from '../lib/format';
+  import { dateTime, logTime, plural } from '../lib/format';
   import { classify, pieces, saveText, type Line } from './lines';
   import { STATUS_LABEL } from './types';
 
@@ -124,9 +124,8 @@
   }
 
   function when(n: string): string {
-    const m = /(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})/.exec(n);
-    if (!m) return n;
-    return dateTime(new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]).getTime() / 1000);
+    const t = logTime(n);
+    return t ? dateTime(t) : n;
   }
 </script>
 

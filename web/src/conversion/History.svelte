@@ -1,18 +1,12 @@
 <script lang="ts">
   import Icon from '../lib/ui/Icon.svelte';
   import Button from '../lib/ui/Button.svelte';
-  import { dateTime, plural, relative } from '../lib/format';
+  import { dateTime, logTime, plural, relative } from '../lib/format';
   import { STATUS_LABEL, type HistoryRun, type LogFile } from './types';
 
   let { runs, logs, onlog }: { runs: HistoryRun[]; logs: LogFile[]; onlog: (file: string) => void } = $props();
 
   let known = $derived(new Set(logs.map((l) => l.file)));
-
-  function when(n: string): number {
-    const m = /(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})/.exec(n);
-    if (!m) return 0;
-    return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]).getTime() / 1000;
-  }
 </script>
 
 <div class="zt-grid cv-hist">
@@ -54,7 +48,7 @@
             <button type="button" class="cv-log-btn" onclick={() => onlog(l.file)}>
               <span class="zt-dot {l.status === 'running' ? 'run' : pl[1] || 'idle'}"></span>
               <span class="cv-list-main">
-                <b>{relative(when(l.name) || l.mtime)}</b>
+                <b>{relative(logTime(l.name) || l.mtime)}</b>
                 <span class="cv-dim">{l.source === 'auto' ? 'scheduled' : 'started here'} · {pl[0].toLowerCase()}</span>
               </span>
               <Icon name="right" />

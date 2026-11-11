@@ -4,6 +4,8 @@
   import Toggle from '../lib/ui/Toggle.svelte';
   import Segmented from '../lib/ui/Segmented.svelte';
   import { api } from '../lib/api';
+  import { cronProblem } from '../lib/cron';
+  import { hourLabel } from '../lib/format';
   import { app, fail, refresh, toast } from '../lib/state.svelte';
 
   type Preset = 'hourly' | '6hourly' | 'daily' | 'weekly' | 'custom';
@@ -19,7 +21,7 @@
   let cron = $derived(app.overview?.cron?.replication ?? null);
   let customProblem = $derived(preset === 'custom' ? cronProblem(custom) : '');
   let summary = $derived.by(() => {
-    const hh = String(hour).padStart(2, '0') + ':00';
+    const hh = hourLabel(hour);
     switch (preset) {
       case 'hourly':
         return 'every hour at :15';
@@ -33,13 +35,6 @@
         return custom;
     }
   });
-
-  function cronProblem(expr: string): string {
-    const f = expr.trim().split(/\s+/);
-    if (f.length !== 5) return 'A cron expression has five fields: minute hour day month weekday.';
-    if (!/^[0-9*/,\s-]+$/.test(expr)) return 'Only digits and * / , - are allowed.';
-    return '';
-  }
 
   function changed() {
     if (timer) clearTimeout(timer);
@@ -101,7 +96,7 @@
         <label class="zt-inline zr-sched-hour">
           at
           <select bind:value={hour} onchange={changed} aria-label="Hour">
-            {#each { length: 24 } as _, h (h)}<option value={h}>{String(h).padStart(2, '0')}:00</option>{/each}
+            {#each { length: 24 } as _, h (h)}<option value={h}>{hourLabel(h)}</option>{/each}
           </select>
         </label>
       {:else if preset === 'custom'}

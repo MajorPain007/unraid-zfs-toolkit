@@ -73,15 +73,6 @@ export function datasetProblem(ds: string, label: string): string {
   return '';
 }
 
-export function cronProblem(expr: string): string {
-  const e = expr.trim();
-  if (!e) return 'Enter a cron expression.';
-  if (!/^[0-9*/,\s-]+$/.test(e)) return 'Only digits and * / , - are allowed.';
-  const n = e.split(/\s+/).length;
-  if (n !== 5) return 'A cron expression has 5 fields (minute hour day month weekday), this one has ' + n + '.';
-  return '';
-}
-
 export function intProblem(v: string, lo: number, hi: number, label: string): string {
   if (!/^\d+$/.test(v.trim())) return label + ' must be a whole number.';
   const n = Number(v);

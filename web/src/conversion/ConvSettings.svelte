@@ -8,7 +8,8 @@
   import ErrorBox from '../lib/ui/ErrorBox.svelte';
   import { api } from '../lib/api';
   import { app, busy, refresh, toast } from '../lib/state.svelte';
-  import { cronPreview, cronProblem, datasetProblem, fingerprint, formFrom, intProblem, splitExtra, type Form } from './settings';
+  import { cronProblem } from '../lib/cron';
+  import { cronPreview, datasetProblem, fingerprint, formFrom, intProblem, splitExtra, type Form } from './settings';
 
   let { onsaved }: { onsaved?: () => void } = $props();
 

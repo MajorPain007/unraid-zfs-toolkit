@@ -7,7 +7,7 @@
   import ErrorBox from '../lib/ui/ErrorBox.svelte';
   import { api, ApiError } from '../lib/api';
   import { openDialog, toast } from '../lib/state.svelte';
-  import { bytes, dateTime, plural } from '../lib/format';
+  import { bytes, dateTime, hourLabel, plural } from '../lib/format';
   import { saveSettings, settings } from './store.svelte';
   import { TYPES, TYPE_LABEL, reach, reachText, validTarget, type Preview, type SnapType } from './types';
   import PreviewDialog from './PreviewDialog.svelte';
@@ -117,10 +117,6 @@
     }
     toast('Snapshot schedule and retention saved');
     close(true);
-  }
-
-  function hourLabel(h: number): string {
-    return String(h).padStart(2, '0') + ':00';
   }
 </script>
 
