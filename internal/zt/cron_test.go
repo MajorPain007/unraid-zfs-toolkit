@@ -109,7 +109,8 @@ func TestValidCronMistakesAreNamed(t *testing.T) {
 
 func TestValidCronUsualFormsAccepted(t *testing.T) {
 	for _, expr := range []string{"*/15 * * * *", "0 3 * * *", "30 2 * * 1-5", "0 0 1 */3 *", "5/15 * * * *",
-		"  0  3  *  *  *  ", "0 0 * * 7", "0 4 * 1,7 0", "1-5/2 * * * *", "0\t3 * * *", "59 23 31 12 7", "*/59 */23 * * *"} {
+		"  0  3  *  *  *  ", "0 0 * * 7", "0 4 * 1,7 0", "1-5/2 * * * *", "0\t3 * * *", "59 23 31 12 7", "*/59 */23 * * *",
+		"0-5 * * * *", "1-59 * * * *", "5-5 * * * *", "*/1 * * * *", "0 0-23 1-31 1-12 0-7"} {
 		cronEq(t, "", validCronProblem(expr), expr)
 		cronEq(t, true, validCron(expr), expr)
 	}
