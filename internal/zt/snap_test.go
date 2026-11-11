@@ -2,6 +2,8 @@ package zt
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
@@ -356,5 +358,67 @@ func TestSnapNextCreation(t *testing.T) {
 	h, _ := cronParse("0 * * * *")
 	if got := snapNextCreation("frequent", h, from, func(k string) bool { return false }, 2); got != at("2026-04-12 11:00").Unix() {
 		t.Errorf("frequent follows the cron: %v", time.Unix(got, 0))
+	}
+}
+
+func fakeNotify(t *testing.T) func() int {
+	d := t.TempDir()
+	rec := filepath.Join(d, "notify.args")
+	for name, body := range map[string]string{"notify": "echo sent >> " + rec, "setsid": "exec \"$@\""} {
+		if err := os.WriteFile(filepath.Join(d, name), []byte("#!/bin/sh\n"+body+"\n"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("PATH", d+":"+os.Getenv("PATH"))
+	old := notifyBin
+	notifyBin = filepath.Join(d, "notify")
+	t.Cleanup(func() { notifyBin = old })
+	count := func() int {
+		b, _ := os.ReadFile(rec)
+		return strings.Count(string(b), "sent")
+	}
+	return func() int {
+		for i := 0; i < 100 && count() == 0; i++ {
+			time.Sleep(20 * time.Millisecond)
+		}
+		time.Sleep(300 * time.Millisecond)
+		return count()
+	}
+}
+
+func TestSnapFailingSnapshotNotifiesOncePerSixHours(t *testing.T) {
+	notified := fakeNotify(t)
+	oldTmp := TmpDir
+	TmpDir = t.TempDir()
+	defer func() { TmpDir = oldTmp }()
+	f := &fakeZFS{ds: []string{"c", "c/a"}, failOn: "frequent"}
+	s := settingsOf("snap_frequent", "4")
+	start := at("2026-04-12 10:00")
+	clean := engine(&fakeZFS{ds: []string{"c", "c/a"}}, s, start, snapDS{Name: "c/a", UseTemplate: true})
+	clean.notify = snapNotifyLimited
+	clean.run()
+	clean.notifyErrors()
+	if seen, _ := jsonRead(snapNotifyFile()); len(seen) != 0 {
+		t.Fatalf("a run without errors notified: %v", seen)
+	}
+	names := map[string]bool{}
+	for i := 0; i < 72; i++ {
+		e := engine(f, s, start.Add(time.Duration(i)*5*time.Minute), snapDS{Name: "c/a", UseTemplate: true})
+		e.notify = snapNotifyLimited
+		e.run()
+		if e.Errors == 0 {
+			t.Fatalf("tick %d: the snapshot did not fail", i)
+		}
+		names[e.LastError] = true
+		e.notifyErrors()
+	}
+	if len(names) != 72 {
+		t.Fatalf("the failing snapshot names do not change: %d", len(names))
+	}
+	if n := notified(); n != 1 {
+		t.Errorf("%d notifications in 6 hours of failing snapshots every 5 minutes, want 1", n)
+	}
+	if seen, _ := jsonRead(snapNotifyFile()); len(seen) != 1 {
+		t.Errorf("snapshot_notify.json grows per tick: %d keys", len(seen))
 	}
 }

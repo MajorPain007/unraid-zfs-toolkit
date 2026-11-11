@@ -6,7 +6,6 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestSendJobFromMapDefaults(t *testing.T) {
@@ -314,42 +313,28 @@ func TestSendJobsCorruptIsNeverOverwritten(t *testing.T) {
 }
 
 func TestSendRunReportsUnreadableJobs(t *testing.T) {
+	notified := fakeNotify(t)
 	d := t.TempDir()
-	rec := filepath.Join(d, "notify.args")
-	bin := filepath.Join(d, "bin")
-	os.MkdirAll(bin, 0o755)
-	for name, body := range map[string]string{
-		"notify": "printf '%s\\n' \"$@\" >> " + rec,
-		"setsid": "exec \"$@\"",
-		"zpool":  "echo tank",
-		"zfs":    "exit 1",
-	} {
-		if err := os.WriteFile(filepath.Join(bin, name), []byte("#!/bin/sh\n"+body+"\n"), 0o755); err != nil {
+	for name, body := range map[string]string{"zpool": "echo tank", "zfs": "exit 1"} {
+		if err := os.WriteFile(filepath.Join(d, name), []byte("#!/bin/sh\n"+body+"\n"), 0o755); err != nil {
 			t.Fatal(err)
 		}
 	}
-	t.Setenv("PATH", bin+":"+os.Getenv("PATH"))
-	oldCfg, oldTmp, oldNotify, oldZfs, oldZpool := ConfigDir, TmpDir, notifyBin, ZfsBin, ZpoolBin
-	ConfigDir, TmpDir, notifyBin, ZfsBin, ZpoolBin = filepath.Join(d, "cfg"), filepath.Join(d, "tmp"), filepath.Join(bin, "notify"), filepath.Join(bin, "zfs"), filepath.Join(bin, "zpool")
-	defer func() { ConfigDir, TmpDir, notifyBin, ZfsBin, ZpoolBin = oldCfg, oldTmp, oldNotify, oldZfs, oldZpool }()
-	os.MkdirAll(ConfigDir, 0o755)
+	oldCfg, oldTmp, oldZfs, oldZpool := ConfigDir, TmpDir, ZfsBin, ZpoolBin
+	ConfigDir, TmpDir, ZfsBin, ZpoolBin = filepath.Join(d, "cfg"), filepath.Join(d, "tmp"), filepath.Join(d, "zfs"), filepath.Join(d, "zpool")
+	defer func() { ConfigDir, TmpDir, ZfsBin, ZpoolBin = oldCfg, oldTmp, oldZfs, oldZpool }()
+	if err := os.MkdirAll(ConfigDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
 	good := `{"jobs":[{"id":"a","source":"tank/a","dest":"tank/r/a","enabled":true}]}`
 	if err := os.WriteFile(sendJobsFile(), []byte(good[:30]), 0o600); err != nil {
 		t.Fatal(err)
-	}
-	notified := func() int {
-		b, _ := os.ReadFile(rec)
-		return strings.Count(string(b), "-s\n")
 	}
 	for run := 1; run <= 2; run++ {
 		if code := sendRun(nil); code == 0 {
 			t.Errorf("run %d: send-run exits 0 with an unreadable job list", run)
 		}
-		for i := 0; i < 50 && notified() < 1; i++ {
-			time.Sleep(20 * time.Millisecond)
-		}
 	}
-	time.Sleep(200 * time.Millisecond)
 	logb, _ := os.ReadFile(sendLogFile())
 	if !strings.Contains(string(logb), "ERROR: ") || !strings.Contains(string(logb), "send_jobs.json") {
 		t.Errorf("the log does not name the broken file:\n%s", logb)
@@ -358,8 +343,7 @@ func TestSendRunReportsUnreadableJobs(t *testing.T) {
 		t.Errorf("the log claims there are no jobs:\n%s", logb)
 	}
 	if n := notified(); n != 1 {
-		b, _ := os.ReadFile(rec)
-		t.Errorf("%d notification(s) for two runs, want exactly one:\n%s", n, b)
+		t.Errorf("%d notification(s) for two runs, want exactly one", n)
 	}
 	st := sendOverview(loadSettings()).(M)["status"].(M)
 	if st["level"] != "err" || !strings.Contains(str(st["sub"]), "send_jobs.json") {

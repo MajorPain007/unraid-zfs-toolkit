@@ -237,10 +237,7 @@ func snapTick(args []string) int {
 		jsonWrite(snapStatusFile(), st, 0o644)
 		fileWrite(snapLastFile(), []byte(st.LastRun+"\n"), 0o644)
 		snapInvalidate()
-		if e.Errors > 0 {
-			e.sendNotify("errors:"+e.LastError, fmt.Sprintf("ZFS Snapshots - %d error(s)", e.Errors),
-				fmt.Sprintf("Snapshot run finished with %d error(s). Last: %s", e.Errors, e.LastError), "warning", 6*time.Hour)
-		}
+		e.notifyErrors()
 	}
 	e.now = time.Now()
 	e.logf("Snapshot Manager finished (created=%d, pruned=%d, freed=%s, errors=%d).", e.Created, e.Pruned, humanBytes(float64(e.Freed)), e.Errors)

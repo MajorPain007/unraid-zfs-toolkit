@@ -134,6 +134,13 @@ func (e *snapEngine) sendNotify(key, subject, text, level string, every time.Dur
 	e.notify(key, subject, text, level, every)
 }
 
+func (e *snapEngine) notifyErrors() {
+	if e.Errors > 0 {
+		e.sendNotify("errors", fmt.Sprintf("ZFS Snapshots - %d error(s)", e.Errors),
+			fmt.Sprintf("Snapshot run finished with %d error(s). Last: %s", e.Errors, e.LastError), "warning", 6*time.Hour)
+	}
+}
+
 func (e *snapEngine) plan(op, name, typ, reason string, used, creation int64) {
 	e.Plan = append(e.Plan, snapPlanItem{Op: op, Name: name, Dataset: snapRow{Name: name}.dataset(), Type: typ, Used: used, Creation: creation, Reason: reason})
 }
