@@ -1044,9 +1044,24 @@ rm -f /etc/cron.d/&name; /etc/cron.d/&name;-snapshots /etc/cron.d/&name;-send
 rm -f /etc/rc.d/rc.&name;
 command -v update_cron &gt;/dev/null 2&gt;&amp;1 &amp;&amp; update_cron &gt;/dev/null 2&gt;&amp;1
 [ -f /var/run/crond.pid ] &amp;&amp; kill -HUP "$(cat /var/run/crond.pid)" 2&gt;/dev/null
+pkill -TERM -f "&pluginDir;/bin/zfs-toolkit" 2&gt;/dev/null
+for _ in $(seq 60); do pgrep -f "&pluginDir;/bin/zfs-toolkit" &gt;/dev/null || break; sleep 1; done
+pkill -KILL -f "&pluginDir;/bin/zfs-toolkit" 2&gt;/dev/null
 removepkg &name; 2&gt;/dev/null || rm -rf &pluginDir;
 rm -rf &tmpDir;
-echo "ZFS Toolkit removed. Settings in &configDir; preserved."
+j=&configDir;/conversion_in_progress
+if [ -s "$j" ]; then
+  find &configDir; -mindepth 1 -maxdepth 1 ! -name conversion_in_progress -exec rm -rf {} +
+  logger -t &name; "uninstall kept the journal of an interrupted conversion: $(tr '\n' '|' &lt; "$j")"
+  echo "ZFS Toolkit removed. Deleted from &configDir;: settings, replication jobs, SSH key and known hosts, snapshot list, conversion history and the package."
+  line() { sed -n "$1p" "$j" | tr -d '&lt;&gt;&amp;'; }
+  echo "Kept: $j. A folder conversion was interrupted. The original folder is $(line 4), the copy is dataset $(line 1)/$(line 3)."
+  echo "Reinstall the plugin and start a conversion to finish or undo it, or sort it out by hand and delete $j."
+else
+  rm -rf &configDir;
+  echo "ZFS Toolkit removed. Deleted: &configDir; (settings, replication jobs, SSH key and known hosts, snapshot list, conversion history, package) and &tmpDir;."
+fi
+echo "Datasets, snapshots and replicated data are not touched. Remove the plugin's public key from authorized_keys on your replication targets."
 </INLINE>
 </FILE>
 

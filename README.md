@@ -39,6 +39,22 @@ Replication hosts and ports are masked, keys and passwords are not included.
 Pool, dataset, share and container names and disk IDs are, so read the report
 through before posting it publicly.
 
+## Data and privacy
+
+Settings, replication jobs, the replication SSH key (`id_send`) and its known
+hosts, the snapshot list, the conversion history and the package are kept in
+`/boot/config/plugins/zfs.toolkit/` on the flash drive. Logs and status live in
+`/tmp/zfs.toolkit/` (RAM). The plugin contacts no one except the SSH targets of
+your replication jobs. Notifications go through Unraid's own notification
+system.
+
+**Uninstalling** stops the plugin's running tasks and deletes both folders,
+SSH key included. Datasets, snapshots and replicated data stay. Remove the
+plugin's public key from `authorized_keys` on your replication targets. If a
+folder conversion was interrupted, only its journal `conversion_in_progress`
+is kept and the removal message names the original folder, so the half-done
+conversion can still be finished or undone.
+
 ## Credits
 
 Conversion logic based on the original script by
