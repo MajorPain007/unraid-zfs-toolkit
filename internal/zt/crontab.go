@@ -14,19 +14,18 @@ var cronFieldNames = []string{"Minute", "Hour", "Day of month", "Month", "Weekda
 var cronLo = []int{0, 0, 1, 1, 0}
 var cronHi = []int{59, 23, 31, 12, 7}
 
-var reCronChars = regexp.MustCompile(`^[0-9*/,\s-]+$`)
+var reCronChars = regexp.MustCompile(`^[0-9*/, \t-]+$`)
 var reCronDanger = regexp.MustCompile("[;&|$`()<>\r\n]")
 
 func validCronProblem(expr string) string {
-	expr = strings.TrimSpace(expr)
-	if expr == "" {
+	if strings.TrimSpace(expr) == "" {
 		return "No cron expression entered."
 	}
 	if reCronDanger.MatchString(expr) {
 		return "Contains characters that could be read as a shell command."
 	}
 	if !reCronChars.MatchString(expr) {
-		return "Only digits and * / , - are allowed. Use numbers for weekdays and months."
+		return "Only digits, spaces and * / , - are allowed. Use numbers for weekdays and months."
 	}
 	fields := strings.Fields(expr)
 	if len(fields) != 5 {

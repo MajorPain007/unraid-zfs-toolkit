@@ -74,13 +74,6 @@ func cronParse(expr string) (*cronExpr, error) {
 	return c, nil
 }
 
-func cronProblem(expr string) string {
-	if _, err := cronParse(expr); err != nil {
-		return err.Error()
-	}
-	return ""
-}
-
 func asciiLower(s string) string {
 	b := []byte(s)
 	for i, ch := range b {

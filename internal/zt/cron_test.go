@@ -1,6 +1,8 @@
 package zt
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -52,37 +54,99 @@ func cronEq(t *testing.T, want, got any, what ...string) {
 	}
 }
 
-func TestCronMistakesAreNamed(t *testing.T) {
+func TestValidCronMistakesAreNamed(t *testing.T) {
 	cases := map[string]string{
-		"":             "five fields",
-		"* * * *":      "five fields",
-		"60 * * * *":   "minute: 60 is outside 0-59",
-		"* 24 * * *":   "hour: 24 is outside 0-23",
-		"* * 0 * *":    "day of month: 0 is outside 1-31",
-		"* * 32 * *":   "day of month: 32",
-		"* * * 13 *":   "month: 13",
-		"* * * * 8":    "day of week: 8",
-		"5-1 * * * *":  "runs backwards",
-		"*/0 * * * *":  "step \"0\"",
-		"x * * * *":    "minute: \"x\" is not a number",
-		"* * * foo *":  "month: \"foo\" is not a number or a name",
-		"1,,2 * * * *": "empty list entry",
-		"@reboot":      "five fields",
+		"":                    "no cron expression",
+		"   ":                 "no cron expression",
+		"* * * *":             "5 fields",
+		"* * * * * *":         "5 fields",
+		"60 * * * *":          "minute must be 0-59",
+		"* 24 * * *":          "hour must be 0-23",
+		"* * 0 * *":           "day of month must be 1-31",
+		"* * 32 * *":          "day of month must be 1-31",
+		"* * * 13 *":          "month must be 1-12",
+		"* * * * 8":           "weekday must be 0-7",
+		"5-1 * * * *":         "range must run upwards",
+		"5-60 * * * *":        "range must run upwards",
+		"1-2-3 * * * *":       "range must be two numbers",
+		"*/0 * * * *":         "step must be 1-59",
+		"*/60 * * * *":        "step must be 1-59",
+		"1,,2 * * * *":        "empty value",
+		"x * * * *":           "only digits",
+		"0 9 * * mon-fri":     "only digits",
+		"0 4 * jan *":         "only digits",
+		"@daily":              "only digits",
+		"@reboot":             "only digits",
+		"0 2 * * *; rm -rf /": "shell command",
+		"0 2 * * * && reboot": "shell command",
+		"0 2 * * * | sh":      "shell command",
+		"$(id) * * * *":       "shell command",
+		"`id` * * * *":        "shell command",
+		"0 2 * * * > /boot/x": "shell command",
+		"0 2 * * * < /x":      "shell command",
+		"0 2 * * *\nreboot":   "shell command",
+		"0 2 * * *\r":         "shell command",
+		"0 (2) * * *":         "shell command",
+		"0\f2 * * *":          "only digits",
+		"0 2\v* * *":          "only digits",
+		"0 2 * * *\v":         "only digits",
+		"\f0 2 * * *":         "only digits",
+		"0\x002 * * *":        "only digits",
+		"0\u00a02 * * *":      "only digits",
 	}
 	for expr, needle := range cases {
-		p := cronProblem(expr)
+		p := validCronProblem(expr)
 		if p == "" {
 			t.Errorf("%q was accepted", expr)
-		} else if !strings.Contains(strings.ToLower(p), strings.ToLower(needle)) {
+		} else if !strings.Contains(strings.ToLower(p), needle) {
 			t.Errorf("%q: %q lacks %q", expr, p, needle)
+		}
+		if validCron(expr) {
+			t.Errorf("validCron accepted %q", expr)
 		}
 	}
 }
 
-func TestCronUsualFormsAccepted(t *testing.T) {
-	for _, expr := range []string{"*/15 * * * *", "0 3 * * *", "30 2 * * 1-5", "0 0 1 */3 *", "0 9 * * mon-fri",
-		"0 4 * jan,jul sun", "5/15 * * * *", "  0  3  *  *  *  ", "@daily", "@HOURLY", "0 0 * * 7"} {
-		cronEq(t, "", cronProblem(expr), expr)
+func TestValidCronUsualFormsAccepted(t *testing.T) {
+	for _, expr := range []string{"*/15 * * * *", "0 3 * * *", "30 2 * * 1-5", "0 0 1 */3 *", "5/15 * * * *",
+		"  0  3  *  *  *  ", "0 0 * * 7", "0 4 * 1,7 0", "1-5/2 * * * *", "0\t3 * * *", "59 23 31 12 7", "*/59 */23 * * *"} {
+		cronEq(t, "", validCronProblem(expr), expr)
+		cronEq(t, true, validCron(expr), expr)
+	}
+}
+
+func TestCronInstallRefusesControlCharacters(t *testing.T) {
+	d := t.TempDir()
+	bin := filepath.Join(d, "bin")
+	if err := os.MkdirAll(bin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	calls := filepath.Join(d, "calls")
+	for _, name := range []string{"crontab", "update_cron"} {
+		if err := os.WriteFile(filepath.Join(bin, name), []byte("#!/bin/sh\necho "+name+" >> "+calls+"\nexit 1\n"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("PATH", bin+":"+os.Getenv("PATH"))
+	oldDir, oldSpool, oldTmp := CronDir, CronSpool, TmpDir
+	CronDir, CronSpool, TmpDir = filepath.Join(d, "cfg"), filepath.Join(d, "spool"), filepath.Join(d, "tmp")
+	defer func() { CronDir, CronSpool, TmpDir = oldDir, oldSpool, oldTmp }()
+	job := cronJobs[1]
+	for _, expr := range []string{"0\f2 * * *", "0 2 * * *\v", "0 2\x00* * *"} {
+		if _, err := job.install(expr); err == nil {
+			t.Errorf("%q was installed", expr)
+		}
+		if b, err := os.ReadFile(job.file()); err == nil {
+			t.Fatalf("%q was written as %q", expr, b)
+		}
+		if b, err := os.ReadFile(calls); err == nil {
+			t.Fatalf("%q reached crontab: %s", expr, b)
+		}
+	}
+	job.install("0 2 * * *")
+	b, err := os.ReadFile(job.file())
+	if err != nil || !strings.Contains(string(b), "\n0 2 * * * ") {
+		t.Fatalf("a valid expression was not written: %q %v", b, err)
 	}
 }
 
