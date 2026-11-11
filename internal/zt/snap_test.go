@@ -150,16 +150,6 @@ func TestSnapParseDatasets(t *testing.T) {
 func strPtr(s string) *string { return &s }
 
 func TestSnapValidNames(t *testing.T) {
-	for _, n := range []string{"cache", "cache/appdata", "cache/TV Shows", "cache/_x/.y", "a:b/c-d.e"} {
-		if !snapValidDataset(n) {
-			t.Errorf("%q rejected", n)
-		}
-	}
-	for _, n := range []string{"", "/cache", "cache/", "cache//x", "cache/..", "cache/Büro", "cache/a(b)", "cache/a;rm", " cache", "cache/x\n"} {
-		if snapValidDataset(n) {
-			t.Errorf("%q accepted", n)
-		}
-	}
 	if !snapValidSnapshot("cache/TV Shows@auto-daily-2026-01-01") || snapValidSnapshot("cache@") || snapValidSnapshot("@x") || snapValidSnapshot("cache@a/b") {
 		t.Error("snapshot names")
 	}

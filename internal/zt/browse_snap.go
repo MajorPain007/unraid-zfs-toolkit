@@ -11,24 +11,11 @@ import (
 )
 
 var (
-	reBrDataset = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.:-]*(/[A-Za-z0-9_.: -]+)*$`)
-	reBrSnap    = regexp.MustCompile(`^[A-Za-z0-9_.:-][A-Za-z0-9_.: -]*$`)
-	reBrAuto    = regexp.MustCompile(`^auto-(frequent|hourly|daily|weekly|monthly|yearly)-`)
+	reBrSnap = regexp.MustCompile(`^[A-Za-z0-9_.:-][A-Za-z0-9_.: -]*$`)
+	reBrAuto = regexp.MustCompile(`^auto-(frequent|hourly|daily|weekly|monthly|yearly)-`)
 )
 
 const brMaxEntries = 20000
-
-func brValidDataset(name string) bool {
-	if len(name) > 255 || !reBrDataset.MatchString(name) {
-		return false
-	}
-	for _, c := range strings.Split(name, "/") {
-		if c == "." || c == ".." {
-			return false
-		}
-	}
-	return true
-}
 
 func brValidSnap(name string) bool {
 	return len(name) <= 255 && name != "." && name != ".." && reBrSnap.MatchString(name)
@@ -152,7 +139,7 @@ func brDatasetMount(ds string) (string, error) {
 func brOpen(p M) (*brSnap, error) {
 	ds := strings.TrimSpace(pstr(p, "dataset", ""))
 	snap := strings.TrimSpace(pstr(p, "snapshot", ""))
-	if !brValidDataset(ds) {
+	if !validDataset(ds) {
 		return nil, apiFail("That is not a valid dataset name.")
 	}
 	if !brValidSnap(snap) {
@@ -496,7 +483,7 @@ func brListSnaps(ds string) ([]brSnapInfo, error) {
 
 func apiBrowseSnapshots(p M) (M, error) {
 	ds := strings.TrimSpace(pstr(p, "dataset", ""))
-	if !brValidDataset(ds) {
+	if !validDataset(ds) {
 		return nil, apiFail("That is not a valid dataset name.")
 	}
 	snaps, err := brListSnaps(ds)

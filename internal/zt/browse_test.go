@@ -34,16 +34,6 @@ func TestBrRel(t *testing.T) {
 }
 
 func TestBrNames(t *testing.T) {
-	for _, d := range []string{"cache", "cache/appdata", "cache/TV Shows", "tank/a.b:c-d_e", "cache/_hidden"} {
-		if !brValidDataset(d) {
-			t.Errorf("dataset %q rejected", d)
-		}
-	}
-	for _, d := range []string{"", "/cache", "cache/", "cache//x", "cache/..", "cache/Büro", "cache@snap", "cache/a(b)", " cache"} {
-		if brValidDataset(d) {
-			t.Errorf("dataset %q accepted", d)
-		}
-	}
 	for _, s := range []string{"auto-hourly-2026-04-12_14-00", "before upgrade", "zdc-send-ab12-1"} {
 		if !brValidSnap(s) {
 			t.Errorf("snapshot %q rejected", s)

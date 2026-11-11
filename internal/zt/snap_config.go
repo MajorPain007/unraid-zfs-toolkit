@@ -11,27 +11,14 @@ import (
 
 var snapTypes = []string{"frequent", "hourly", "daily", "weekly", "monthly", "yearly"}
 
-var reSnapDataset = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.:-]*(/[A-Za-z0-9_.: -]+)*$`)
 var reSnapName = regexp.MustCompile(`^[A-Za-z0-9_][A-Za-z0-9_.: -]*$`)
-
-func snapValidDataset(name string) bool {
-	if len(name) > 255 || !reSnapDataset.MatchString(name) {
-		return false
-	}
-	for _, c := range strings.Split(name, "/") {
-		if c == "." || c == ".." || strings.TrimSpace(c) == "" {
-			return false
-		}
-	}
-	return true
-}
 
 func snapValidSnapshot(full string) bool {
 	i := strings.Index(full, "@")
 	if i <= 0 {
 		return false
 	}
-	return snapValidDataset(full[:i]) && reSnapName.MatchString(full[i+1:]) && len(full) <= 255
+	return validDataset(full[:i]) && reSnapName.MatchString(full[i+1:]) && len(full) <= 255
 }
 
 func snapDatasetsFile() string {

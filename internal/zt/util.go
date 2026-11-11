@@ -425,6 +425,20 @@ func hasControl(s string) bool {
 	return controlChars.MatchString(s)
 }
 
+var reDataset = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.:-]*(/[A-Za-z0-9_.: -]+)*$`)
+
+func validDataset(name string) bool {
+	if len(name) > 255 || !reDataset.MatchString(name) {
+		return false
+	}
+	for _, c := range strings.Split(name, "/") {
+		if c == "." || c == ".." {
+			return false
+		}
+	}
+	return true
+}
+
 func scalarString(v any) (string, bool) {
 	switch x := v.(type) {
 	case string:

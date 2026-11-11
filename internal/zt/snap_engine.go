@@ -458,7 +458,7 @@ func (e *snapEngine) run() error {
 			continue
 		}
 		seen[d.Name] = true
-		if !snapValidDataset(d.Name) {
+		if !validDataset(d.Name) {
 			e.errf("Skipping invalid dataset name from config: '%s'", d.Name)
 			continue
 		}

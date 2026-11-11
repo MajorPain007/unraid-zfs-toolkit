@@ -67,7 +67,7 @@ func convConfigFrom(s Settings) convConfig {
 		if ds == "" {
 			return
 		}
-		if !convValidDataset(ds) {
+		if !validDataset(ds) {
 			c.Problems = append(c.Problems, label+" '"+ds+"' is not a valid dataset name - skipped.")
 			return
 		}

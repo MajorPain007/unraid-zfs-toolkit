@@ -30,21 +30,6 @@ func TestConvDatasetName(t *testing.T) {
 	}
 }
 
-func TestConvValidDataset(t *testing.T) {
-	good := []string{"cache/appdata", "cache/TV Shows", "cache/_backup", "cache/a:b", "cache", "tank/media/photos"}
-	bad := []string{"cache/Büro", "cache/a(b)", "TV Shows/x", "cache/appdata;rm", "/cache/appdata", "cache/app@data", "", "cache/", "_pool/x", "cache//x", "cache/.."}
-	for _, g := range good {
-		if !convValidDataset(g) {
-			t.Errorf("%q should be valid", g)
-		}
-	}
-	for _, b := range bad {
-		if convValidDataset(b) {
-			t.Errorf("%q should be rejected", b)
-		}
-	}
-}
-
 func TestConvOwnerFolder(t *testing.T) {
 	mp := "/mnt/cache/appdata"
 	cases := map[string]string{

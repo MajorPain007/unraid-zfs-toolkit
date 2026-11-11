@@ -55,7 +55,7 @@ func snapDatasetsFromParam(p M) ([]snapDS, []string, error) {
 		if d.Name == "" {
 			continue
 		}
-		if !snapValidDataset(d.Name) {
+		if !validDataset(d.Name) {
 			problems = append(problems, fmt.Sprintf("\"%s\" is not a valid dataset name.", d.Name))
 			continue
 		}
@@ -114,7 +114,7 @@ func snapInfoOf(r snapRow, refer int64) M {
 func apiSnapList(p M) (M, error) {
 	ds := strings.TrimSpace(pstr(p, "dataset", ""))
 	onlyAuto := toBool(param(p, "only_auto", false))
-	if ds != "" && !snapValidDataset(ds) {
+	if ds != "" && !validDataset(ds) {
 		return nil, apiFail("Invalid dataset name")
 	}
 	scope := []string{}
@@ -388,7 +388,7 @@ func apiSnapCreate(p M) (M, error) {
 	ds := strings.TrimSpace(pstr(p, "dataset", ""))
 	label := strings.TrimSpace(pstr(p, "name", ""))
 	recursive := toBool(param(p, "recursive", false))
-	if !snapValidDataset(ds) {
+	if !validDataset(ds) {
 		return nil, apiFail("Invalid dataset name")
 	}
 	if label == "" {

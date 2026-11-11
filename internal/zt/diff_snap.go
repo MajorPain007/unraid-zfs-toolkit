@@ -80,7 +80,7 @@ func apiDiffSnapshots(p M) (M, error) {
 	ds := strings.TrimSpace(pstr(p, "dataset", ""))
 	from := strings.TrimSpace(pstr(p, "from", ""))
 	to := strings.TrimSpace(pstr(p, "to", ""))
-	if !brValidDataset(ds) {
+	if !validDataset(ds) {
 		return nil, apiFail("That is not a valid dataset name.")
 	}
 	if !brValidSnap(from) || (to != "" && !brValidSnap(to)) {

@@ -170,7 +170,7 @@ func apiSendDelete(p M) (M, error) {
 		return nil, apiFail("This job is part of the replication running right now. Stop it first.")
 	}
 	removed := []string{}
-	if toBool(param(p, "checkpoints", false)) && sendDatasetOK(gone.Source) {
+	if toBool(param(p, "checkpoints", false)) && validDataset(gone.Source) {
 		args := []string{"list", "-H", "-t", "snapshot", "-o", "name"}
 		if gone.Recursive {
 			args = append(args, "-r")

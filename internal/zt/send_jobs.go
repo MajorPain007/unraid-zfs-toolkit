@@ -31,7 +31,6 @@ type sendJob struct {
 
 var (
 	reSendID       = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
-	reSendDataset  = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.:-]*(/[A-Za-z0-9_.: -]+)*$`)
 	reSendHost     = regexp.MustCompile(`^[A-Za-z0-9._@:\[\]-]+$`)
 	reSendKey      = regexp.MustCompile(`^/[A-Za-z0-9._/-]+$`)
 	reSendPlainArg = regexp.MustCompile(`^[A-Za-z0-9_./=:@%+,-]+$`)
@@ -44,10 +43,6 @@ func sendLockFile() string   { return TmpDir + "/send.lock" }
 func sendRunLogDir() string  { return TmpDir + "/send-logs" }
 func sendKeyFile() string    { return ConfigDir + "/id_send" }
 func sendKnownHosts() string { return ConfigDir + "/send_known_hosts" }
-
-func sendDatasetOK(name string) bool {
-	return name != "" && len(name) < 256 && reSendDataset.MatchString(name) && !strings.Contains(name, "//")
-}
 
 func sendBool(v any, def bool) bool {
 	if v == nil {
@@ -185,10 +180,10 @@ func sendJobProblem(j sendJob) string {
 	if j.Source == "" || j.Dest == "" {
 		return "incomplete"
 	}
-	if !sendDatasetOK(j.Source) {
+	if !validDataset(j.Source) {
 		return fmt.Sprintf("source \"%s\" is not a valid dataset name", j.Source)
 	}
-	if !sendDatasetOK(j.Dest) {
+	if !validDataset(j.Dest) {
 		return fmt.Sprintf("destination \"%s\" is not a valid dataset name", j.Dest)
 	}
 	if !strings.Contains(j.Dest, "/") {
