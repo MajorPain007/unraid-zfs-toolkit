@@ -101,6 +101,10 @@ check "restoring in place below a folder that is now a symlink is refused" 'echo
 out=$(api restore_preview "{\"dataset\":\"$D\",\"snapshot\":\"s1\",\"items\":[\"/dir/sub\"]}")
 check "restoring a folder in place over a symlink is refused" 'echo "$out" | j .error | grep -q "symbolic link"' "$out"
 rm "$M/dir/sub"; mv "$M/dir/sub.real" "$M/dir/sub"
+mv "$M/dir/a.txt" "$M/dir/a.txt.real"; ln -s "/mnt/$B/elsewhere" "$M/dir/a.txt"
+st=$(restore "{\"dataset\":\"$D\",\"snapshot\":\"s1\",\"items\":[\"/dir/a.txt\"]}")
+check "restoring a file in place over a symlink is refused" 'echo "$st" | grep -q "start-failed:.*symbolic link"' "$st"
+rm "$M/dir/a.txt"; mv "$M/dir/a.txt.real" "$M/dir/a.txt"
 check "nothing was written outside" '[ -z "$(ls -A "/mnt/$B/elsewhere")" ]'
 
 group "Restore"

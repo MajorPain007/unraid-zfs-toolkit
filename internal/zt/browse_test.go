@@ -289,3 +289,94 @@ func TestZipStream(t *testing.T) {
 		}
 	}
 }
+
+func TestRestoreDismissStaysInRestoreDir(t *testing.T) {
+	d := t.TempDir()
+	old := TmpDir
+	TmpDir = d + "/tmp/zt"
+	defer func() { TmpDir = old }()
+	if err := os.MkdirAll(restoreDir(), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	out := apiDispatch("restore_dismiss", M{"id": "../../../outside/deep/x"})
+	if out["ok"] != false {
+		t.Errorf("a traversing id was accepted: %v", out)
+	}
+	if _, ok := restoreUpdate("../../../outside2/y", func(j *restoreJob) bool { return true }); ok {
+		t.Error("restoreUpdate accepted a traversing id")
+	}
+	for _, p := range []string{d + "/outside", d + "/outside2", d + "/tmp/outside"} {
+		if _, err := os.Lstat(p); err == nil {
+			t.Errorf("%s was created", p)
+		}
+	}
+}
+
+func restoreFixture(t *testing.T) (mount, outside string) {
+	t.Helper()
+	d := t.TempDir()
+	mount, outside = d+"/live", d+"/outside"
+	snap := mount + "/.zfs/snapshot/s1"
+	for _, dir := range []string{snap, outside, d + "/bin"} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	script := "#!/bin/sh\n[ \"$1\" = get ] && printf 'type\\tfilesystem\\nmounted\\tyes\\nmountpoint\\t%s\\n' '" + mount + "'\nexit 0\n"
+	if err := os.WriteFile(d+"/bin/zfs", []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	old := ZfsBin
+	ZfsBin = d + "/bin/zfs"
+	t.Cleanup(func() { ZfsBin = old })
+	if err := os.WriteFile(snap+"/a.txt", []byte("from the snapshot"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(outside+"/b.txt", []byte("outside"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("outside-link-target", snap+"/l"); err != nil {
+		t.Fatal(err)
+	}
+	return mount, outside
+}
+
+func TestRestoreFileOntoSymlinkRefused(t *testing.T) {
+	mount, outside := restoreFixture(t)
+	req := M{"dataset": "tank/data", "snapshot": "s1", "items": []any{"/a.txt"}}
+	for _, target := range []string{outside, outside + "/b.txt", outside + "/missing"} {
+		if err := os.Symlink(target, mount+"/a.txt"); err != nil {
+			t.Fatal(err)
+		}
+		out := apiDispatch("restore_preview", req)
+		if msg, _ := out["error"].(string); out["ok"] != false || !strings.Contains(msg, "symbolic link") {
+			t.Errorf("restoring a file onto a symlink to %s: %v", target, out)
+		}
+		if err := os.Remove(mount + "/a.txt"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if out := apiDispatch("restore_preview", req); out["ok"] != true {
+		t.Errorf("a plain restore is refused: %v", out)
+	}
+}
+
+func TestRestoreSymlinkOntoSymlinkedFolderRefused(t *testing.T) {
+	mount, outside := restoreFixture(t)
+	req := M{"dataset": "tank/data", "snapshot": "s1", "items": []any{"/l"}}
+	if err := os.Symlink(outside, mount+"/l"); err != nil {
+		t.Fatal(err)
+	}
+	if out := apiDispatch("restore_preview", req); out["ok"] != false {
+		t.Errorf("a link restored onto a symlink to a folder: %v", out)
+	}
+	if err := os.Remove(mount + "/l"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside+"/b.txt", mount+"/l"); err != nil {
+		t.Fatal(err)
+	}
+	if out := apiDispatch("restore_preview", req); out["ok"] != true {
+		t.Errorf("a link restored onto a link to a file is refused: %v", out)
+	}
+}

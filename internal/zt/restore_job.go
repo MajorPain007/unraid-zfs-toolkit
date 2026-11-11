@@ -79,6 +79,9 @@ func restoreLoad(id string) (*restoreJob, bool) {
 }
 
 func restoreUpdate(id string, fn func(j *restoreJob) bool) (*restoreJob, bool) {
+	if !reRestoreID.MatchString(id) {
+		return nil, false
+	}
 	l := lockFile(restorePath(id, ".lock"), true)
 	defer l.Unlock()
 	j, ok := restoreLoad(id)
@@ -280,8 +283,8 @@ func restorePlan(p M) (*restoreJob, error) {
 		if li, err := os.Lstat(into); err == nil {
 			lt := brType(li.Mode())
 			switch {
-			case lt == "symlink" && typ == "dir":
-				return nil, apiFailf("%s is a symbolic link now. Restoring the folder through it could write elsewhere - restore into another folder instead.", into)
+			case lt == "symlink" && (typ != "symlink" || isDir(into)):
+				return nil, apiFailf("%s is a symbolic link now. Restoring through it could write elsewhere - restore into another folder instead.", into)
 			case lt == "dir" && typ != "dir":
 				return nil, apiFailf("%s is a folder now, but a file in the snapshot. Restore it into another folder instead.", into)
 			case lt != "dir" && lt != "symlink" && typ == "dir":
