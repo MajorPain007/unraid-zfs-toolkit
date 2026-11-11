@@ -153,10 +153,18 @@ func TestCronInstallRefusesControlCharacters(t *testing.T) {
 func TestCronStepRunsOnMultiples(t *testing.T) {
 	cronTestZone(t)
 	c := cronMust(t, "*/15 * * * *")
-	cronEq(t, true, c.matches(cronAt(t, "2026-10-01 10:15")), "10:15")
-	cronEq(t, false, c.matches(cronAt(t, "2026-10-01 10:16")), "10:16")
 	cronEq(t, "2026-10-01 10:15 Thu", cronFmt(c.prev(cronAt(t, "2026-10-01 10:29:59"))))
 	cronEq(t, "2026-10-01 10:30 Thu", cronFmt(c.next(cronAt(t, "2026-10-01 10:15:00"))))
+}
+
+func TestCronStarCoversTheLastValue(t *testing.T) {
+	cronTestZone(t)
+	cronEq(t, "2026-12-31 23:59 Thu", cronFmt(cronMust(t, "* * * * *").next(cronAt(t, "2026-12-31 23:58"))))
+}
+
+func TestCronStepAfterASingleValueRunsToTheEnd(t *testing.T) {
+	cronTestZone(t)
+	cronEq(t, "2026-10-01 10:59 Thu", cronFmt(cronMust(t, "1/2 * * * *").prev(cronAt(t, "2026-10-01 10:59:30"))))
 }
 
 func TestCronStepStartsAtA(t *testing.T) {
@@ -187,7 +195,7 @@ func TestCronTurnOfMonthAndYear(t *testing.T) {
 
 func TestCronDomOrDowWhenBothGiven(t *testing.T) {
 	cronTestZone(t)
-	c := cronMust(t, "0 3 1 * mon")
+	c := cronMust(t, "0 3 1 * 1")
 	days := []string{}
 	for _, ts := range c.upcoming(cronAt(t, "2026-10-01 04:00"), 4) {
 		days = append(days, time.Unix(ts, 0).In(time.Local).Format("Mon 2"))
@@ -207,13 +215,13 @@ func TestCronStarFieldMakesItBoth(t *testing.T) {
 	}
 }
 
-func TestCronSundayAndNames(t *testing.T) {
+func TestCronSundayAndWeekdayRange(t *testing.T) {
 	cronTestZone(t)
 	cronEq(t, cronFmt(cronMust(t, "0 0 * * 0").next(cronAt(t, "2026-10-01"))),
 		cronFmt(cronMust(t, "0 0 * * 7").next(cronAt(t, "2026-10-01"))))
-	cronEq(t, "2026-10-04 00:00 Sun", cronFmt(cronMust(t, "0 0 * * sun").next(cronAt(t, "2026-10-01"))))
-	cronEq(t, "2026-10-02 09:00 Fri", cronFmt(cronMust(t, "0 9 * * mon-fri").next(cronAt(t, "2026-10-01 09:00"))))
-	cronEq(t, "2026-10-05 09:00 Mon", cronFmt(cronMust(t, "0 9 * * mon-fri").next(cronAt(t, "2026-10-02 09:00"))))
+	cronEq(t, "2026-10-04 00:00 Sun", cronFmt(cronMust(t, "0 0 * * 7").next(cronAt(t, "2026-10-01"))))
+	cronEq(t, "2026-10-02 09:00 Fri", cronFmt(cronMust(t, "0 9 * * 1-5").next(cronAt(t, "2026-10-01 09:00"))))
+	cronEq(t, "2026-10-05 09:00 Mon", cronFmt(cronMust(t, "0 9 * * 1-5").next(cronAt(t, "2026-10-02 09:00"))))
 }
 
 func TestCronFebruary29(t *testing.T) {
@@ -239,15 +247,6 @@ func TestCronDSTSkippedHour(t *testing.T) {
 	cronEq(t, "2026-03-30 02:30 Mon", cronFmt(c.next(cronAt(t, "2026-03-29 03:30"))))
 }
 
-func TestCronMacros(t *testing.T) {
-	cronTestZone(t)
-	cronEq(t, "2026-10-02 00:00 Fri", cronFmt(cronMust(t, "@daily").next(cronAt(t, "2026-10-01 00:00"))))
-	cronEq(t, "2026-10-04 00:00 Sun", cronFmt(cronMust(t, "@weekly").next(cronAt(t, "2026-10-01"))))
-	cronEq(t, "2026-11-01 00:00 Sun", cronFmt(cronMust(t, "@monthly").next(cronAt(t, "2026-10-01"))))
-	cronEq(t, "2027-01-01 00:00 Fri", cronFmt(cronMust(t, "@yearly").next(cronAt(t, "2026-10-01"))))
-	cronEq(t, "2026-10-01 11:00 Thu", cronFmt(cronMust(t, "@hourly").next(cronAt(t, "2026-10-01 10:00"))))
-}
-
 func TestCronRareScheduleIsQuick(t *testing.T) {
 	cronTestZone(t)
 	c := cronMust(t, "0 0 29 2 1")
@@ -259,4 +258,15 @@ func TestCronRareScheduleIsQuick(t *testing.T) {
 		t.Errorf("fifty look-ups took %v", d)
 	}
 	cronEq(t, "2027-02-01 00:00 Mon", cronFmt(c.next(cronAt(t, "2026-10-01"))), "the first Monday in February")
+}
+
+func TestCronParseAcceptsOnlyWhatCronInstalls(t *testing.T) {
+	for _, expr := range []string{"*/15 * * * *", "0 3 * * 1-5", "  0  3  *  *  *  ", "0\t3 * * *", "59 23 31 12 7", "5/15 * * * *",
+		"@daily", "@hourly", "0 9 * * mon-fri", "0 4 * jan *", "0 0 * * SUN", "0\f2 * * *", "0 2 * * *\v", "\v0 2 * * *", "0 2 * * *\x00",
+		"*/60 * * * *", "0 2 * * *; rm -rf /", "", "* * * *"} {
+		_, err := cronParse(expr)
+		if (err == nil) != validCron(expr) {
+			t.Errorf("%q: cronParse error %v, validCron %v", expr, err, validCron(expr))
+		}
+	}
 }

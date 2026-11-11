@@ -113,7 +113,6 @@ func snapInfoOf(r snapRow, refer int64) M {
 
 func apiSnapList(p M) (M, error) {
 	ds := strings.TrimSpace(pstr(p, "dataset", ""))
-	onlyAuto := toBool(param(p, "only_auto", false))
 	if ds != "" && !validDataset(ds) {
 		return nil, apiFail("Invalid dataset name")
 	}
@@ -138,7 +137,6 @@ func apiSnapList(p M) (M, error) {
 		return nil, apiFail("zfs list failed: " + r.Message())
 	}
 	snaps := []M{}
-	var total int64
 	for _, l := range r.Lines() {
 		f := strings.Split(l, "\t")
 		if len(f) < 5 || !strings.Contains(f[0], "@") {
@@ -149,14 +147,10 @@ func apiSnapList(p M) (M, error) {
 			refs = toInt(f[4])
 		}
 		row := snapRow{Name: f[0], Used: toInt64(f[1]), Creation: toInt64(f[3]), Refs: refs}
-		if onlyAuto && !strings.HasPrefix(row.snap(), "auto-") {
-			continue
-		}
-		total += row.Used
 		snaps = append(snaps, snapInfoOf(row, toInt64(f[2])))
 	}
 	sort.SliceStable(snaps, func(i, j int) bool { return toInt64(snaps[i]["creation"]) > toInt64(snaps[j]["creation"]) })
-	return M{"snapshots": snaps, "datasets": datasets, "count": len(snaps), "total_used": total}, nil
+	return M{"snapshots": snaps, "datasets": datasets}, nil
 }
 
 func snapNamesParam(p M) ([]string, error) {
@@ -469,11 +463,7 @@ func apiSnapPreview(p M) (M, error) {
 }
 
 func apiSnapSchedule(p M) (M, error) {
-	expr := strings.TrimSpace(pstr(p, "expr", ""))
-	if prob := validCronProblem(expr); prob != "" {
-		return M{"problem": prob, "next": []int64{}}, nil
-	}
-	c, err := cronParse(expr)
+	c, err := cronParse(strings.TrimSpace(pstr(p, "expr", "")))
 	if err != nil {
 		return M{"problem": err.Error(), "next": []int64{}}, nil
 	}

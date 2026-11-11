@@ -46,8 +46,3 @@ func notify(subject, description, level string) bool {
 func notificationsOn() bool {
 	return yes(loadSettings().Get("send_notifications", "yes"))
 }
-
-func parityRunning() bool {
-	ini := varIni()
-	return phpInt(ini["mdResyncPos"]) > 0 && phpInt(ini["mdResync"]) > 0
-}

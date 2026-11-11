@@ -570,11 +570,6 @@ func convOverview(s Settings) any {
 	cfg := convConfigFrom(s)
 	sv := convStatusView()
 	running := sv["running"] == true
-	out := M{"running": running, "dry_run": cfg.DryRun, "sources": len(cfg.Sources)}
-	for _, k := range []string{"status", "started", "finished", "result", "source", "current_folder", "phase"} {
-		out["last_"+k] = sv[k]
-	}
-	out["journal"] = sv["journal"]
 	waiting := 0
 	if len(cfg.Sources) > 0 && !running {
 		w := convLoadWorld()
@@ -582,7 +577,6 @@ func convOverview(s Settings) any {
 			waiting = convCount(convClassify(convPlanInput{World: w, Sources: cfg.Sources, ReplaceSpaces: cfg.ReplaceSpaces, Buffer: cfg.Buffer, ReadDir: convReadDir}), "convert")
 		}
 	}
-	out["count"] = waiting
 	cronOn := s.Yes("cron_enabled")
 	var status M
 	switch {
@@ -615,8 +609,7 @@ func convOverview(s Settings) any {
 	default:
 		status = M{"level": "idle", "text": "All folders are datasets", "sub": ""}
 	}
-	out["status"] = status
-	return out
+	return M{"status": status, "count": waiting, "running": running}
 }
 
 func init() {

@@ -164,15 +164,6 @@ var cronJobs = []cronJob{
 
 var legacyCronPatterns = []string{"run_auto.sh", "snapshot_manager.sh", "zfs_send.sh"}
 
-func cronJobByBase(base string) *cronJob {
-	for i := range cronJobs {
-		if cronJobs[i].Base == base {
-			return &cronJobs[i]
-		}
-	}
-	return nil
-}
-
 func (c cronJob) line(expr string) string {
 	return expr + " " + SelfBin + " " + c.Command + " >> " + TmpDir + "/" + c.Log + " 2>&1"
 }

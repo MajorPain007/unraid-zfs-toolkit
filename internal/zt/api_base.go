@@ -71,11 +71,6 @@ func settingsView(s Settings) M {
 	out := M{}
 	for _, k := range settingKeys {
 		out[k] = s.Get(k, "")
-		if v, ok := s[k]; ok && v == "" {
-			if d := settingDefaults[k]; d == "" {
-				out[k] = ""
-			}
-		}
 	}
 	for k, v := range s {
 		if _, ok := out[k]; !ok {

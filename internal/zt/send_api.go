@@ -54,10 +54,9 @@ func apiSendJobs(p M) (M, error) {
 	}
 	st := sendReadStatus()
 	return M{
-		"jobs":   sendJobsView(jobs),
-		"state":  sendStateView(st),
-		"key":    sendKeyInfo(),
-		"has_pv": false,
+		"jobs":  sendJobsView(jobs),
+		"state": sendStateView(st),
+		"key":   sendKeyInfo(),
 	}, nil
 }
 
@@ -639,7 +638,6 @@ func sendOverview(s Settings) any {
 	enabled := 0
 	failed := []string{}
 	var lastOK int64
-	list := []M{}
 	for _, j := range jobs {
 		if j.Enabled {
 			enabled++
@@ -654,7 +652,6 @@ func sendOverview(s Settings) any {
 		if last != nil && last.Status == "ok" && last.Ended > lastOK {
 			lastOK = last.Ended
 		}
-		list = append(list, M{"id": j.ID, "name": j.Name, "enabled": j.Enabled, "source": j.Source, "target": j.target(), "transport": j.Transport, "last": last})
 	}
 	status := M{"level": "idle", "text": "Replication is not set up", "sub": "Copy snapshots to a second pool or another server."}
 	switch {
@@ -683,18 +680,7 @@ func sendOverview(s Settings) any {
 	case len(jobs) > 0:
 		status = M{"level": "idle", "text": "All replication jobs are disabled", "sub": ""}
 	}
-	return M{
-		"status":   status,
-		"count":    enabled,
-		"total":    len(jobs),
-		"running":  st.Running,
-		"dry_run":  st.Running && st.DryRun == 1,
-		"progress": st.Progress,
-		"current":  st.CurrentID,
-		"queue":    st.Queue,
-		"jobs":     list,
-		"last_ok":  lastOK,
-	}
+	return M{"status": status, "count": enabled, "running": st.Running}
 }
 
 func init() {

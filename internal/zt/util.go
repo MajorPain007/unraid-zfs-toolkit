@@ -15,7 +15,6 @@ import (
 	"strings"
 	"syscall"
 	"time"
-	"unicode/utf8"
 )
 
 var buildName = "zfs.toolkit"
@@ -109,12 +108,6 @@ func fileWrite(path string, data []byte, mode os.FileMode) bool {
 		return false
 	}
 	return true
-}
-
-func newID(prefix string) string {
-	b := make([]byte, 4)
-	rand.Read(b)
-	return prefix + hex.EncodeToString(b)
 }
 
 func randHex(n int) string {
@@ -358,21 +351,6 @@ func mountInfo(pid string) []mountEntry {
 	return out
 }
 
-func fsType(path string) string {
-	real, err := filepath.EvalSymlinks(path)
-	if err != nil {
-		return ""
-	}
-	best, typ := "", ""
-	for _, m := range mountInfo("self") {
-		mp := m.Point
-		if (mp == "/" || real == mp || strings.HasPrefix(real, strings.TrimRight(mp, "/")+"/")) && len(mp) >= len(best) {
-			best, typ = mp, m.FSType
-		}
-	}
-	return typ
-}
-
 func dirHasEntries(dir string) bool {
 	f, err := os.Open(dir)
 	if err != nil {
@@ -463,19 +441,6 @@ func scalarString(v any) (string, bool) {
 	return "", false
 }
 
-func text(v any, max int) string {
-	s, ok := scalarString(v)
-	if !ok {
-		return ""
-	}
-	s = strings.TrimSpace(s)
-	if utf8.RuneCountInString(s) > max {
-		r := []rune(s)
-		s = string(r[:max])
-	}
-	return s
-}
-
 func str(v any) string {
 	s, _ := scalarString(v)
 	return s
@@ -561,39 +526,6 @@ func count(v any, max int) int {
 	return n
 }
 
-var lineSplit = regexp.MustCompile(`\r?\n`)
-
-func list(v any, max int) []string {
-	var items []any
-	switch x := v.(type) {
-	case string:
-		for _, s := range lineSplit.Split(x, -1) {
-			items = append(items, s)
-		}
-	case []any:
-		items = x
-	case []string:
-		for _, s := range x {
-			items = append(items, s)
-		}
-	default:
-		return []string{}
-	}
-	out := []string{}
-	seen := map[string]bool{}
-	for _, it := range items {
-		s := text(it, 4096)
-		if s != "" && !seen[s] {
-			seen[s] = true
-			out = append(out, s)
-		}
-	}
-	if len(out) > max {
-		out = out[:max]
-	}
-	return out
-}
-
 func absPath(v any) string {
 	p := ""
 	if s, ok := scalarString(v); ok {
@@ -613,25 +545,6 @@ func absPath(v any) string {
 		parts = append(parts, seg)
 	}
 	return "/" + strings.Join(parts, "/")
-}
-
-func mapOf(v any) M {
-	if m, ok := v.(M); ok {
-		return m
-	}
-	return M{}
-}
-
-func has(m M, k string) bool {
-	_, ok := m[k]
-	return ok
-}
-
-func get(m M, k string, def any) any {
-	if v, ok := m[k]; ok && v != nil {
-		return v
-	}
-	return def
 }
 
 func inList(s string, l ...string) bool {

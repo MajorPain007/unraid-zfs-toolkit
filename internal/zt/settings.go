@@ -122,14 +122,6 @@ func (s Settings) Yes(key string) bool {
 	return yes(s.Get(key, ""))
 }
 
-func (s Settings) Int(key string, def int) int {
-	v := strings.TrimSpace(s.Get(key, ""))
-	if !isDigits(v) {
-		return def
-	}
-	return digitsInt(v)
-}
-
 func yes(v string) bool {
 	return strings.EqualFold(strings.TrimSpace(v), "yes")
 }

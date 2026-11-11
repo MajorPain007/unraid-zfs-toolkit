@@ -56,7 +56,6 @@ type snapEngine struct {
 	dry      bool
 	forceNow bool
 	forceAll bool
-	quiet    bool
 	out      func(line string)
 	notify   func(key, subject, text, level string, every time.Duration)
 
