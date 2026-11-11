@@ -34,8 +34,10 @@ tab. Every setting is explained where you set it.
 ## Troubleshooting
 
 **Diagnostics** on the Settings tab shows the configuration, logs, cron state
-and the pool and snapshot inventory in one report to copy or download. Keys and
-passwords are not included.
+and the pool and snapshot inventory in one report to copy or download.
+Replication hosts and ports are masked, keys and passwords are not included.
+Pool, dataset, share and container names and disk IDs are, so read the report
+through before posting it publicly.
 
 ## Credits
 

@@ -19,7 +19,7 @@
 
 <Dialog title="Diagnostics" icon="terminal" wide onclose={() => close()}>
   <p class="zt-hint" style="margin-top:0">
-    Settings, cron entries, pools, snapshot counts and the last log lines. No passwords or SSH keys are included. Attach it when you report a problem.
+    Settings, cron entries, pools, snapshot counts and the last log lines. Replication hosts and ports are masked, passwords and SSH keys are not included. Pool, dataset, share and container names and disk IDs are, so read it through before you post it publicly.
   </p>
   <pre class="zt-log diag">{report}</pre>
   {#snippet actions()}

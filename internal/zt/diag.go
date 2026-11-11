@@ -3,10 +3,28 @@ package zt
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
 )
+
+var (
+	reDiagHost     = regexp.MustCompile(`"ssh_host"\s*:\s*"([^"]+)"`)
+	reDiagJSONPort = regexp.MustCompile(`("ssh_port"\s*:\s*)"?\d+"?`)
+	reDiagPort     = regexp.MustCompile(`(\bport| -p) \d+`)
+)
+
+func diagRedact(report, jobs string) string {
+	for _, m := range reDiagHost.FindAllStringSubmatch(jobs, -1) {
+		host := m[1][strings.LastIndex(m[1], "@")+1:]
+		if host != "" {
+			report = strings.ReplaceAll(report, host, "…")
+		}
+	}
+	report = reDiagJSONPort.ReplaceAllString(report, `${1}"…"`)
+	return reDiagPort.ReplaceAllString(report, "${1} …")
+}
 
 func diagRun(name string, args ...string) string {
 	r := runCmd(60*time.Second, name, args...)
@@ -135,7 +153,7 @@ func diagnosticsReport() string {
 		}
 		diagSection(&b, "conversion: "+filepath.Base(c), diagTail(c, 300))
 	}
-	return b.String()
+	return diagRedact(b.String(), diagFile(sendJobsFile()))
 }
 
 func itoa(n int) string {
