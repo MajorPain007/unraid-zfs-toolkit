@@ -246,3 +246,34 @@ func TestSendNextCheckpoint(t *testing.T) {
 		t.Fatal(got)
 	}
 }
+
+func TestSendInspectRejectsOptionHost(t *testing.T) {
+	d := t.TempDir()
+	rec := filepath.Join(d, "ssh.args")
+	for name, body := range map[string]string{"ssh": "printf '%s\\n' \"$@\" > " + rec + "\nexit 1", "zfs": "exit 1"} {
+		if err := os.WriteFile(filepath.Join(d, name), []byte("#!/bin/sh\n"+body+"\n"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	oldSSH, oldZfs, oldTmp, oldCfg := sendSSHBin, ZfsBin, TmpDir, ConfigDir
+	sendSSHBin, ZfsBin, TmpDir, ConfigDir = filepath.Join(d, "ssh"), filepath.Join(d, "zfs"), filepath.Join(d, "tmp"), filepath.Join(d, "cfg")
+	defer func() { sendSSHBin, ZfsBin, TmpDir, ConfigDir = oldSSH, oldZfs, oldTmp, oldCfg }()
+	job := `{"id":"j1","source":"tank/a","dest":"tank/b/c","transport":"ssh","ssh_host":"-oProxyCommand=touch /tmp/pwn","ssh_port":22}`
+	out := apiDispatch("send_inspect", M{"job": job})
+	if out["ok"] != false || out["error"] == nil {
+		t.Fatalf("send_inspect accepted the job: %v", out)
+	}
+	if b, err := os.ReadFile(rec); err == nil {
+		t.Fatalf("ssh was started with:\n%s", b)
+	}
+}
+
+func TestSendSSHArgsHostNeverAnOption(t *testing.T) {
+	a, err := sendJob{SSHHost: "-oProxyCommand=x", SSHPort: 22}.sshArgs()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(a) < 2 || a[len(a)-1] != "-oProxyCommand=x" || a[len(a)-2] != "--" {
+		t.Fatalf("host can be read as an option: %q", a)
+	}
+}

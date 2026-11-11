@@ -101,7 +101,7 @@ func (j sendJob) sshArgs() ([]string, error) {
 		}
 		a = append(a, "-i", k, "-o", "IdentitiesOnly=yes")
 	}
-	return append(a, j.SSHHost), nil
+	return append(a, "--", j.SSHHost), nil
 }
 
 func (j sendJob) destZfs(ctx context.Context, timeout time.Duration, args ...string) result {

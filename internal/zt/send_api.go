@@ -544,6 +544,9 @@ func apiSendInspect(p M) (M, error) {
 	if err != nil {
 		return nil, err
 	}
+	if why := sendJobProblem(j); why != "" {
+		return nil, apiFail("The job cannot be inspected: " + why)
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 	src := sendParseSnaps(srcZfs(ctx, time.Minute, append(append([]string{}, sendSnapCols...), j.Source)...))
