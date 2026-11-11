@@ -634,7 +634,7 @@ func sendCheckpointList(snaps []sendSnap, id string) []sendSnap {
 }
 
 func sendOverview(s Settings) any {
-	jobs, _ := sendLoadJobs()
+	jobs, jobsErr := sendLoadJobs()
 	st := sendReadStatus()
 	enabled := 0
 	failed := []string{}
@@ -668,6 +668,8 @@ func sendOverview(s Settings) any {
 			sub += " - " + humanBytes(float64(st.Progress.Bytes))
 		}
 		status = M{"level": "run", "text": text, "sub": sub}
+	case jobsErr != nil:
+		status = M{"level": "err", "text": "The replication job list cannot be read", "sub": jobsErr.Error()}
 	case len(failed) > 0:
 		status = M{"level": "err", "text": "Replication failed", "sub": strings.Join(failed, ", ")}
 	case enabled > 0 && !s.Yes("send_enabled"):

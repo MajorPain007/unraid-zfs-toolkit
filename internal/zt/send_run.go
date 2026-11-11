@@ -706,8 +706,17 @@ func sendRun(args []string) int {
 		r.st.DryRun = 1
 	}
 	r.line("", "ZFS replication starting...")
+	all, err := sendLoadJobs()
+	if err != nil {
+		r.logf("err", "%v No replication job runs until then.", err)
+		r.st.Running, r.st.Errors, r.st.LastError, r.st.Ended = false, 1, err.Error(), time.Now().Unix()
+		r.save()
+		if !dry && notificationsOn() {
+			snapNotifyLimited("send-jobs-unreadable", "ZFS replication stopped", "The replication job list cannot be read. "+err.Error(), "alert", 6*time.Hour)
+		}
+		return 1
+	}
 	jobs := []sendJob{}
-	all, _ := sendLoadJobs()
 	known := map[string]bool{}
 	for _, j := range all {
 		known[j.ID] = true
