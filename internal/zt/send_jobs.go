@@ -44,27 +44,6 @@ func sendRunLogDir() string  { return TmpDir + "/send-logs" }
 func sendKeyFile() string    { return ConfigDir + "/id_send" }
 func sendKnownHosts() string { return ConfigDir + "/send_known_hosts" }
 
-func sendBool(v any, def bool) bool {
-	if v == nil {
-		return def
-	}
-	switch x := v.(type) {
-	case bool:
-		return x
-	case float64:
-		return x != 0
-	case int:
-		return x != 0
-	case string:
-		s := strings.ToLower(strings.TrimSpace(x))
-		if isNumeric(s) {
-			return toInt(s) != 0
-		}
-		return inList(s, "1", "true", "yes", "on")
-	}
-	return def
-}
-
 func sendClean(v any) string {
 	s, _ := scalarString(v)
 	return strings.TrimSpace(strings.NewReplacer("\x1f", " ", "\t", " ", "\n", " ", "\r", " ").Replace(s))
@@ -73,20 +52,20 @@ func sendClean(v any) string {
 func sendJobFromMap(m M, index int) sendJob {
 	j := sendJob{
 		ID:            sendClean(m["id"]),
-		Enabled:       sendBool(m["enabled"], true),
+		Enabled:       toBool(m["enabled"], true),
 		Name:          sendClean(m["name"]),
 		Source:        strings.Trim(sendClean(m["source"]), "/"),
 		Dest:          strings.Trim(sendClean(m["dest"]), "/"),
-		Recursive:     sendBool(m["recursive"], false),
+		Recursive:     toBool(m["recursive"], false),
 		Transport:     "local",
 		SSHHost:       sendClean(m["ssh_host"]),
 		SSHPort:       toInt(m["ssh_port"]),
 		SSHKey:        sendClean(m["ssh_key"]),
-		Raw:           sendBool(m["raw"], false),
-		Compressed:    sendBool(m["compressed"], true),
-		AllowRollback: sendBool(m["allow_rollback"], false),
+		Raw:           toBool(m["raw"], false),
+		Compressed:    toBool(m["compressed"], true),
+		AllowRollback: toBool(m["allow_rollback"], false),
 		KeepDest:      toInt(m["keep_dest"]),
-		Readonly:      sendBool(m["readonly"], false),
+		Readonly:      toBool(m["readonly"], false),
 		BwLimit:       toInt(m["bwlimit"]),
 	}
 	if sendClean(m["transport"]) == "ssh" {
@@ -243,9 +222,8 @@ func sendUserShareExists(name string) bool {
 	return isDir("/mnt/user/" + name)
 }
 
-func sendNormalizeList(raw []any) ([]sendJob, []string) {
+func sendNormalizeList(raw []any) []sendJob {
 	jobs := []sendJob{}
-	warnings := []string{}
 	seen := map[string]bool{}
 	used := map[string]bool{}
 	for _, x := range raw {
@@ -269,26 +247,12 @@ func sendNormalizeList(raw []any) ([]sendJob, []string) {
 			j.ID += "_"
 		}
 		seen[j.ID] = true
-		label := j.Name
-		if label == "" {
-			label = "#" + strconv.Itoa(i+1)
-		}
-		if why := sendJobProblem(j); why != "" {
+		if sendJobProblem(j) != "" {
 			j.Enabled = false
-			if why != "incomplete" {
-				warnings = append(warnings, "Job "+label+": "+why+" - disabled")
-			}
-		} else {
-			if w := sendShareWarning(j, sendUserShareExists); w != "" {
-				warnings = append(warnings, "Job "+label+": "+w)
-			}
-			if w := sendMirrorWarning(j); w != "" {
-				warnings = append(warnings, "Job "+label+": "+w)
-			}
 		}
 		jobs = append(jobs, j)
 	}
-	return jobs, warnings
+	return jobs
 }
 
 func sendFreeID(used map[string]bool) string {

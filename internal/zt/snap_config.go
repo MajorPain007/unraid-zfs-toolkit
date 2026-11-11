@@ -73,9 +73,9 @@ func snapRetentionValue(v any) (string, bool) {
 
 func snapDSFromMap(m M) snapDS {
 	d := snapDS{Name: strings.TrimSpace(str(m["name"])), UseTemplate: true}
-	d.Recursive = toBool(m["recursive"])
+	d.Recursive = toBool(m["recursive"], false)
 	if v, ok := m["use_template"]; ok && v != nil {
-		d.UseTemplate = toBool(v)
+		d.UseTemplate = toBool(v, false)
 	}
 	for _, t := range snapTypes {
 		if v, ok := m[t]; ok {
@@ -138,30 +138,19 @@ func snapSaveDatasets(l []snapDS) error {
 	return nil
 }
 
-func snapGlobalKeep(s Settings, typ string) (int, string) {
-	v := strings.TrimSpace(s.Get("snap_"+typ, ""))
+func snapGlobal(s Settings, key string) (int, string) {
+	v := strings.TrimSpace(s.Get(key, ""))
 	if v == "" {
 		return 0, ""
 	}
 	if !isDigits(v) {
-		return 0, fmt.Sprintf("Invalid value for snap_%s='%s', using 0.", typ, v)
-	}
-	return digitsInt(v), ""
-}
-
-func snapGlobalAge(s Settings, typ string) (int, string) {
-	v := strings.TrimSpace(s.Get("snap_age_"+typ, ""))
-	if v == "" {
-		return 0, ""
-	}
-	if !isDigits(v) {
-		return 0, fmt.Sprintf("Invalid value for snap_age_%s='%s', using 0.", typ, v)
+		return 0, fmt.Sprintf("Invalid value for %s='%s', using 0.", key, v)
 	}
 	return digitsInt(v), ""
 }
 
 func (d snapDS) keep(s Settings, typ string) (int, string) {
-	global, warn := snapGlobalKeep(s, typ)
+	global, warn := snapGlobal(s, "snap_"+typ)
 	if d.UseTemplate {
 		return global, warn
 	}
@@ -196,11 +185,11 @@ func (d snapDS) keeps(s Settings) (map[string]int, []string) {
 }
 
 func snapDailyHour(s Settings) int {
-	return clampInt(s, "snap_daily_hour", 0, 23, 2)
+	return s.Clamp("snap_daily_hour", 2, 0, 23)
 }
 
 func snapMinFreePct(s Settings) int {
-	return clampInt(s, "snap_min_free_pct", 0, 90, 5)
+	return s.Clamp("snap_min_free_pct", 5, 0, 90)
 }
 
 var reSnapTarget = regexp.MustCompile(`^([0-9]+)([KMGTP]?)I?B?$`)

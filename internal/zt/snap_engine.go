@@ -489,7 +489,7 @@ func (e *snapEngine) run() error {
 	}
 	ages := map[string]int{}
 	for _, t := range snapTypes {
-		n, w := snapGlobalAge(e.s, t)
+		n, w := snapGlobal(e.s, "snap_age_"+t)
 		if w != "" {
 			e.warnf("%s", w)
 		}

@@ -208,7 +208,7 @@ func restorePlan(p M) (*restoreJob, error) {
 		Mount:     b.Mount,
 		Target:    target,
 		Overwrite: overwrite,
-		Delete:    target == "original" && toBool(param(p, "delete", false)),
+		Delete:    target == "original" && toBool(p["delete"], false),
 	}
 	if target == "path" {
 		dir, err := restoreTargetDir(b, strings.TrimSpace(pstr(p, "target_path", "")))
@@ -572,14 +572,6 @@ func apiRestoreStatus(p M) (M, error) {
 	return M{"restore": restoreView(j), "log": tail(restorePath(id, ".log"), lines, 262144)}, nil
 }
 
-func apiRestoreList(p M) (M, error) {
-	out := []M{}
-	for _, j := range restoreAll() {
-		out = append(out, restoreView(j))
-	}
-	return M{"restores": out}, nil
-}
-
 func apiRestoreStop(p M) (M, error) {
 	id := pstr(p, "id", "")
 	j, ok := restoreLoad(id)
@@ -912,7 +904,6 @@ func init() {
 	registerAction("restore_preview", apiRestorePreview)
 	registerAction("restore_start", apiRestoreStart)
 	registerAction("restore_status", apiRestoreStatus)
-	registerAction("restore_list", apiRestoreList)
 	registerAction("restore_stop", apiRestoreStop)
 	registerAction("restore_dismiss", apiRestoreDismiss)
 	registerOverview("browse", restoreOverview)

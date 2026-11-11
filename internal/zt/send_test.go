@@ -53,7 +53,7 @@ func TestSendNormalizeListKeepsIncompleteDisabled(t *testing.T) {
 		M{"name": "draft", "source": "cache/x", "dest": "", "enabled": true},
 		M{"id": "job1", "name": "dup", "source": "cache/a", "dest": "cache/a", "enabled": true},
 	}
-	jobs, warnings := sendNormalizeList(raw)
+	jobs := sendNormalizeList(raw)
 	if len(jobs) != 3 {
 		t.Fatalf("lost a job: %+v", jobs)
 	}
@@ -63,10 +63,7 @@ func TestSendNormalizeListKeepsIncompleteDisabled(t *testing.T) {
 	if jobs[1].ID != "job2" || jobs[2].ID != "job1_" {
 		t.Fatalf("ids wrong: %s %s", jobs[1].ID, jobs[2].ID)
 	}
-	if len(warnings) != 1 || !strings.Contains(warnings[0], "dup") {
-		t.Fatalf("warnings wrong: %v", warnings)
-	}
-	empty, _ := sendNormalizeList([]any{})
+	empty := sendNormalizeList([]any{})
 	if empty == nil || len(empty) != 0 {
 		t.Fatal("an empty list has to stay a list")
 	}
@@ -299,7 +296,6 @@ func TestSendJobsCorruptIsNeverOverwritten(t *testing.T) {
 		p      M
 	}{
 		{"send_save_job", M{"job": `{"id":"c","source":"tank/c","dest":"tank/r/c"}`}},
-		{"send_save", M{"jobs": `[]`}},
 		{"send_toggle", M{"id": "a", "enabled": 0}},
 		{"send_delete", M{"id": "a"}},
 	} {

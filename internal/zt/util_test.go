@@ -52,3 +52,35 @@ func TestValidDataset(t *testing.T) {
 		}
 	}
 }
+
+func TestToBool(t *testing.T) {
+	cases := []struct {
+		v    any
+		def  bool
+		want bool
+	}{
+		{true, false, true}, {false, true, false},
+		{1.0, false, true}, {2.0, false, true}, {-1.0, false, true}, {0.0, true, false},
+		{1, false, true}, {0, true, false},
+		{"1", false, true}, {"2", false, true}, {"0", true, false},
+		{"true", false, true}, {"TRUE", false, true}, {" yes ", false, true}, {"On", false, true},
+		{"false", true, false}, {"no", true, false}, {"off", true, false}, {"", true, false}, {"x", true, false},
+		{nil, true, true}, {nil, false, false}, {M{}, true, true}, {[]any{}, false, false},
+	}
+	for _, c := range cases {
+		if got := toBool(c.v, c.def); got != c.want {
+			t.Errorf("toBool(%#v, %v) = %v, want %v", c.v, c.def, got, c.want)
+		}
+	}
+}
+
+func TestSendJobBoolDefaults(t *testing.T) {
+	j := sendJobFromMap(M{"id": "a", "enabled": nil}, 0)
+	if !j.Enabled || !j.Compressed || j.Recursive || j.Raw || j.AllowRollback || j.Readonly {
+		t.Errorf("defaults: %+v", j)
+	}
+	j = sendJobFromMap(M{"id": "a", "enabled": "0", "compressed": "no", "recursive": 1.0, "raw": "TRUE", "allow_rollback": "on", "readonly": true}, 0)
+	if j.Enabled || j.Compressed || !j.Recursive || !j.Raw || !j.AllowRollback || !j.Readonly {
+		t.Errorf("values: %+v", j)
+	}
+}

@@ -190,7 +190,7 @@ func apiSnapDestroy(p M) (M, error) {
 	if err != nil {
 		return nil, err
 	}
-	forceCheckpoint := toBool(param(p, "force_checkpoint", false))
+	forceCheckpoint := toBool(p["force_checkpoint"], false)
 	results := []M{}
 	okCount := 0
 	for _, n := range names {
@@ -221,7 +221,7 @@ func apiSnapDestroy(p M) (M, error) {
 func snapNamesSuffix(results []M) string {
 	n := []string{}
 	for _, r := range results {
-		if toBool(r["ok"]) {
+		if toBool(r["ok"], false) {
 			n = append(n, str(r["name"]))
 		}
 	}
@@ -321,10 +321,10 @@ func apiSnapRollbackCheck(p M) (M, error) {
 	}
 	held, checkpoints := 0, 0
 	for _, n := range newer {
-		if toBool(n["held"]) {
+		if toBool(n["held"], false) {
 			held++
 		}
-		if toBool(n["checkpoint"]) {
+		if toBool(n["checkpoint"], false) {
 			checkpoints++
 		}
 	}
@@ -349,7 +349,7 @@ func apiSnapRollback(p M) (M, error) {
 	checkpoints := 0
 	heldNames := []string{}
 	for _, n := range newer {
-		if toBool(n["held"]) {
+		if toBool(n["held"], false) {
 			heldNames = append(heldNames, str(n["name"]))
 		}
 	}
@@ -358,7 +358,7 @@ func apiSnapRollback(p M) (M, error) {
 	}
 	for _, n := range newer {
 		lost = append(lost, str(n["name"]))
-		if toBool(n["checkpoint"]) {
+		if toBool(n["checkpoint"], false) {
 			checkpoints++
 		}
 	}
@@ -381,7 +381,7 @@ func apiSnapRollback(p M) (M, error) {
 func apiSnapCreate(p M) (M, error) {
 	ds := strings.TrimSpace(pstr(p, "dataset", ""))
 	label := strings.TrimSpace(pstr(p, "name", ""))
-	recursive := toBool(param(p, "recursive", false))
+	recursive := toBool(p["recursive"], false)
 	if !validDataset(ds) {
 		return nil, apiFail("Invalid dataset name")
 	}
@@ -411,7 +411,7 @@ func apiSnapRun(p M) (M, error) {
 		return nil, apiFail("A snapshot run is already in progress.")
 	}
 	args := []string{"--now"}
-	if toBool(param(p, "all", false)) {
+	if toBool(p["all"], false) {
 		args = []string{"--all"}
 	}
 	if err := snapSpawn(args...); err != nil {
@@ -442,7 +442,7 @@ func apiSnapPreview(p M) (M, error) {
 		}
 		e.config, e.hasConfig = l, true
 	}
-	e.forceNow = toBool(param(p, "now", false))
+	e.forceNow = toBool(p["now"], false)
 	lines := []string{}
 	e.out = func(l string) { lines = append(lines, l) }
 	e.run()

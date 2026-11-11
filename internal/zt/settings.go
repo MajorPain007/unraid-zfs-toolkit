@@ -122,6 +122,14 @@ func (s Settings) Yes(key string) bool {
 	return yes(s.Get(key, ""))
 }
 
+func (s Settings) Clamp(key string, def, lo, hi int) int {
+	v := strings.TrimSpace(s.Get(key, ""))
+	if !isDigits(v) {
+		return def
+	}
+	return min(max(digitsInt(v), lo), hi)
+}
+
 func yes(v string) bool {
 	return strings.EqualFold(strings.TrimSpace(v), "yes")
 }

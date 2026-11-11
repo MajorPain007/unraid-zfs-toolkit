@@ -69,7 +69,7 @@ func apiBrowse(p M) (M, error) {
 	if !isDir(path) {
 		return root, nil
 	}
-	files := toBool(param(p, "files", false))
+	files := toBool(p["files"], false)
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, apiFail("Cannot open " + path)

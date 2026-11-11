@@ -23,10 +23,11 @@ echo show > "/mnt/$C/TV Shows/episode.mkv"
 zfs snapshot -r "$C/appdata@auto-daily-2026-11-01"
 
 group "Save semantics"
-out=$(api send_save "{\"jobs\":[$(job a "$C/appdata" "$B/replica/appdata"),{\"name\":\"draft\",\"source\":\"$C/appdata\",\"dest\":\"\",\"enabled\":true},$(job top "$C/TV Shows" "$B/TV Shows")]}")
-check "an incomplete job is kept, disabled" '[ "$(echo "$out" | jget "len(d[\"jobs\"])")" = 3 ] && [ "$(echo "$out" | jget "d[\"jobs\"][1][\"enabled\"]")" = False ]' "$out"
+out=$(api send_save_job "{\"job\":{\"name\":\"draft\",\"source\":\"$C/appdata\",\"dest\":\"\",\"enabled\":true}}")
+check "an incomplete job is kept, disabled" '[ "$(echo "$out" | jget "len(d[\"jobs\"])")" = 1 ] && [ "$(echo "$out" | jget "d[\"job\"][\"enabled\"]")" = False ]' "$out"
+out=$(api send_save_job "{\"job\":$(job top "$C/TV Shows" "$B/TV Shows")}")
 check "a copy directly below the pool is warned about" 'echo "$out" | grep -q "one level down"' "$out"
-api send_save '{"jobs":[]}' >/dev/null
+for id in $(echo "$out" | jget '" ".join(j["id"] for j in d["jobs"])'); do api send_delete "{\"id\":\"$id\"}" >/dev/null; done
 check "removing the last job really empties the list" 'grep -q "\"jobs\": \[\]" "$ZDC_CONFIG_DIR/send_jobs.json"'
 out=$(api send_save_job "{\"job\":{\"name\":\"bad\",\"source\":\"$C/appdata\",\"dest\":\"$C/appdata/copy\"}}")
 check "a job whose copy lies inside the source is saved disabled with the reason" 'echo "$out" | grep -q "inside the source" && [ "$(echo "$out" | jget "d[\"job\"][\"enabled\"]")" = False ]' "$out"
@@ -47,8 +48,8 @@ done
 zfs mount "$B/replica/appdata/plex"
 check "the last change arrived" 'grep -q "change 4" "/mnt/$B/replica/appdata/plex/prefs.xml"'
 zfs unmount "$B/replica/appdata/plex"
-st=$("$ZT" api send_status "{}")
-check "status keeps the old fields and the job result" '[ "$(echo "$st" | jget "d[\"run\"][\"jobs_ok\"]")" = 1 ] && [ "$(echo "$st" | jget "d[\"state\"][\"jobs\"][\"a\"][\"last\"][\"status\"]")" = ok ]' "$st"
+st=$("$ZT" api send_jobs "{}")
+check "the job list state has the run and the job result" '[ "$(echo "$st" | jget "d[\"state\"][\"errors\"]")" = 0 ] && [ "$(echo "$st" | jget "d[\"state\"][\"last_run\"]")" != "" ] && [ "$(echo "$st" | jget "d[\"state\"][\"jobs\"][\"a\"][\"last\"][\"status\"]")" = ok ]' "$st"
 check "a per-run log was written" '[ "$(ls "$ZDC_TMP_DIR/send-logs" | grep -c "^a-")" -ge 4 ]'
 
 group "keep_dest"
@@ -131,14 +132,14 @@ head -c 160M /dev/urandom > "/mnt/$C/big/blob"
 jobs_json "$(job big "$C/big" "$B/replica/big" ',"bwlimit":4')"
 api send_run '{"job":"big"}' >/dev/null
 for _ in $(seq 1 100); do
-    b=$("$ZT" api send_status "{}" | jget '(d["state"]["progress"] or {}).get("bytes",0)')
+    b=$("$ZT" api send_jobs "{}" | jget '(d["state"]["progress"] or {}).get("bytes",0)')
     [ "${b:-0}" -gt 0 ] && break
     sleep 0.2
 done
 check "progress counts bytes while sending" '[ "${b:-0}" -gt 0 ]' "bytes=$b"
 out=$(api send_stop)
-st=$("$ZT" api send_status "{}")
-check "stop ends the run" '[ "$(echo "$st" | jget "d[\"running\"]")" = False ] && [ "$(echo "$st" | jget "d[\"state\"][\"jobs\"][\"big\"][\"last\"][\"status\"]")" = cancelled ]' "$out $st"
+st=$("$ZT" api send_jobs "{}")
+check "stop ends the run" '[ "$(echo "$st" | jget "d[\"state\"][\"running\"]")" = False ] && [ "$(echo "$st" | jget "d[\"state\"][\"jobs\"][\"big\"][\"last\"][\"status\"]")" = cancelled ]' "$out $st"
 check "no zfs send or recv is left running" '! pgrep -f "zfs (send|recv).*big" >/dev/null'
 check "the unfinished checkpoint is removed and no partial copy remains" '[ "$(ncp "$C/big" big)" = 0 ] && ! zfs list "$B/replica/big" >/dev/null 2>&1' "$(zfs list -t all -r "$B/replica" 2>&1 | grep big)"
 zfs destroy -r "$C/big"

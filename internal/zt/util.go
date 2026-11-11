@@ -446,18 +446,22 @@ func str(v any) string {
 	return s
 }
 
-func toBool(v any) bool {
+func toBool(v any, def bool) bool {
 	switch x := v.(type) {
 	case bool:
 		return x
 	case float64:
-		return x == 1
+		return x != 0
 	case int:
-		return x == 1
+		return x != 0
 	case string:
-		return x == "1" || x == "true" || x == "yes" || x == "on"
+		s := strings.ToLower(strings.TrimSpace(x))
+		if isNumeric(s) {
+			return toInt(s) != 0
+		}
+		return inList(s, "true", "yes", "on")
 	}
-	return false
+	return def
 }
 
 func toInt(v any) int {

@@ -293,7 +293,7 @@ func snapStatusOf(enabled bool, cfgErr error, cfg []snapDS, cron cronState, last
 		}
 		return M{"level": "idle", "text": "Automatic snapshots are off", "sub": sub}
 	}
-	if toBool(out["running"]) {
+	if toBool(out["running"], false) {
 		return M{"level": "run", "text": "Taking snapshots", "sub": "The snapshot manager is running."}
 	}
 	if cfgErr != nil {

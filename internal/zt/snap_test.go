@@ -412,3 +412,13 @@ func TestSnapFailingSnapshotNotifiesOncePerSixHours(t *testing.T) {
 		t.Errorf("snapshot_notify.json grows per tick: %d keys", len(seen))
 	}
 }
+
+func TestSnapGlobalKeepReadsItsKey(t *testing.T) {
+	d := snapDS{Name: "cache/x", UseTemplate: true}
+	if n, w := d.keep(Settings{"snap_daily": "7", "snap_age_daily": "3"}, "daily"); n != 7 || w != "" {
+		t.Errorf("got %d %q", n, w)
+	}
+	if n, w := d.keep(Settings{"snap_daily": "x"}, "daily"); n != 0 || w != "Invalid value for snap_daily='x', using 0." {
+		t.Errorf("got %d %q", n, w)
+	}
+}

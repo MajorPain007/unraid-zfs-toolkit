@@ -157,7 +157,7 @@ out=$(api restore_status "{\"id\":\"$LAST_ID\"}")
 check "the status reports the finished restore" '[ "$(echo "$out" | j .restore.state)" = done ] && [ "$(echo "$out" | j .restore.percent)" = 100 ]' "$out"
 check "the log names the item" 'echo "$out" | j .log | grep -q "dir / ->"' "$out"
 check "the status file sits in the tmp dir" '[ -f "$ZDC_TMP_DIR/restores/$LAST_ID.json" ]'
-check "restore_list knows it" '[ "$(api restore_list | j ".restores[0].id")" = "$LAST_ID" ]'
+check "the overview names it as the last restore" '[ "$(api overview | j ".browse.last.id")" = "$LAST_ID" ]'
 check "the overview part reports the last restore" '[ "$(api overview | j .browse.status.level)" = ok ]'
 cat > "$WORK/bin/slowrsync" <<'SH'
 #!/bin/bash

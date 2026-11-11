@@ -446,7 +446,7 @@ func apiConvertStart(p M) (M, error) {
 	if !zfsReady() {
 		return nil, apiFail("ZFS is not available - no pool is imported.")
 	}
-	dry := toBool(pstr(p, "dry_run", ""))
+	dry := toBool(p["dry_run"], false)
 	only := []string{}
 	if v, ok := p["only"]; ok && v != nil && str(v) != "" {
 		l, err := pjsonList(p, "only")

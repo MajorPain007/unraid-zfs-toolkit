@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -77,18 +76,6 @@ type cronJob struct {
 	Expr    func(s Settings) string
 }
 
-func clampInt(s Settings, key string, lo, hi, def int) int {
-	v := strings.TrimSpace(s.Get(key, strconv.Itoa(def)))
-	if !isDigits(v) {
-		return def
-	}
-	n := digitsInt(v)
-	if n < lo || n > hi {
-		return def
-	}
-	return n
-}
-
 var cronJobs = []cronJob{
 	{
 		Base:    Name,
@@ -97,9 +84,9 @@ var cronJobs = []cronJob{
 		Log:     "cron_auto.log",
 		Enabled: func(s Settings) bool { return s.Yes("cron_enabled") },
 		Expr: func(s Settings) string {
-			h := clampInt(s, "cron_hour", 0, 23, 2)
-			m := clampInt(s, "cron_minute", 0, 59, 0)
-			w := clampInt(s, "cron_weekday", 0, 7, 0)
+			h := s.Clamp("cron_hour", 2, 0, 23)
+			m := s.Clamp("cron_minute", 0, 0, 59)
+			w := s.Clamp("cron_weekday", 0, 0, 7)
 			switch s.Get("cron_preset", "daily") {
 			case "hourly":
 				return "0 * * * *"
@@ -144,7 +131,7 @@ var cronJobs = []cronJob{
 		Log:     "send.log",
 		Enabled: func(s Settings) bool { return s.Yes("send_enabled") },
 		Expr: func(s Settings) string {
-			h := clampInt(s, "send_schedule_hour", 0, 23, 4)
+			h := s.Clamp("send_schedule_hour", 4, 0, 23)
 			switch s.Get("send_schedule_preset", "daily") {
 			case "hourly":
 				return "15 * * * *"

@@ -60,26 +60,6 @@ func apiSendJobs(p M) (M, error) {
 	}, nil
 }
 
-func apiSendSave(p M) (M, error) {
-	raw, err := pjsonList(p, "jobs")
-	if err != nil {
-		if m, merr := pjsonMap(p, "jobs"); merr == nil {
-			l, _ := m["jobs"].([]any)
-			raw = l
-		} else {
-			return nil, err
-		}
-	}
-	if _, err := sendLoadJobs(); err != nil {
-		return nil, err
-	}
-	jobs, warnings := sendNormalizeList(raw)
-	if err := sendWriteJobs(jobs); err != nil {
-		return nil, err
-	}
-	return M{"jobs": jobs, "saved": len(jobs), "warnings": warnings, "warning": strings.Join(warnings, "; ")}, nil
-}
-
 func apiSendSaveJob(p M) (M, error) {
 	in, err := pjsonMap(p, "job")
 	if err != nil {
@@ -118,7 +98,7 @@ func apiSendSaveJob(p M) (M, error) {
 			}
 		}
 	}
-	normalized, _ := sendNormalizeList(raw)
+	normalized := sendNormalizeList(raw)
 	saved := normalized[idx]
 	problems := []string{}
 	warnings := []string{}
@@ -169,7 +149,7 @@ func apiSendDelete(p M) (M, error) {
 		return nil, apiFail("This job is part of the replication running right now. Stop it first.")
 	}
 	removed := []string{}
-	if toBool(param(p, "checkpoints", false)) && validDataset(gone.Source) {
+	if toBool(p["checkpoints"], false) && validDataset(gone.Source) {
 		args := []string{"list", "-H", "-t", "snapshot", "-o", "name"}
 		if gone.Recursive {
 			args = append(args, "-r")
@@ -196,7 +176,7 @@ func apiSendDelete(p M) (M, error) {
 
 func apiSendToggle(p M) (M, error) {
 	id := pstr(p, "id", "")
-	on := toBool(param(p, "enabled", false))
+	on := toBool(p["enabled"], false)
 	jobs, err := sendLoadJobs()
 	if err != nil {
 		return nil, err
@@ -250,10 +230,10 @@ func apiSendRun(p M) (M, error) {
 		return nil, err
 	}
 	args := []string{"send-run"}
-	if toBool(param(p, "dry_run", false)) {
+	if toBool(p["dry_run"], false) {
 		args = append(args, "--dry-run")
 	}
-	if toBool(param(p, "force", false)) {
+	if toBool(p["force"], false) {
 		if len(ids) == 0 {
 			return nil, apiFail("Force for one run needs a job.")
 		}
@@ -338,23 +318,6 @@ func apiSendPreview(p M) (M, error) {
 		plan.describe(ctx, sendCheckpointPrefix(j.ID)+time.Now().Format("20060102-150405"), true)
 	}
 	return M{"plan": plan, "ok": !plan.Fatal}, nil
-}
-
-func apiSendStatus(p M) (M, error) {
-	st := sendReadStatus()
-	cron := cronJobs[2].state()
-	run := M{
-		"last_run": st.LastRun, "duration": st.Duration, "jobs_run": st.JobsRun, "jobs_ok": st.JobsOK,
-		"errors": st.Errors, "current": st.Current, "last_error": st.LastError, "dry_run": st.DryRun,
-	}
-	return M{
-		"run":          run,
-		"running":      st.Running,
-		"state":        sendStateView(st),
-		"entry":        cron.Entry,
-		"cron_healthy": cron.Healthy,
-		"log":          tail(sendLogFile(), 40, 256*1024),
-	}, nil
 }
 
 func apiSendLog(p M) (M, error) {
@@ -685,7 +648,6 @@ func sendOverview(s Settings) any {
 
 func init() {
 	registerAction("send_jobs", apiSendJobs)
-	registerAction("send_save", apiSendSave)
 	registerAction("send_save_job", apiSendSaveJob)
 	registerAction("send_delete", apiSendDelete)
 	registerAction("send_toggle", apiSendToggle)
@@ -693,7 +655,6 @@ func init() {
 	registerAction("send_stop", apiSendStop)
 	registerAction("send_test", apiSendTest)
 	registerAction("send_preview", apiSendPreview)
-	registerAction("send_status", apiSendStatus)
 	registerAction("send_log", apiSendLog)
 	registerAction("send_key", apiSendKey)
 	registerAction("send_forget_host", apiSendForgetHost)

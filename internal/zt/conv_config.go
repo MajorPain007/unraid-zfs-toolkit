@@ -34,21 +34,6 @@ type convConfig struct {
 	Problems      []string
 }
 
-func convClamp(s Settings, key string, def, lo, hi int) int {
-	v := strings.TrimSpace(s.Get(key, ""))
-	if !isDigits(v) {
-		return def
-	}
-	n := digitsInt(v)
-	if n < lo {
-		return lo
-	}
-	if n > hi {
-		return hi
-	}
-	return n
-}
-
 func convConfigFrom(s Settings) convConfig {
 	c := convConfig{
 		DryRun:        s.Get("dry_run", "yes") != "no",
@@ -57,9 +42,9 @@ func convConfigFrom(s Settings) convConfig {
 		Containers:    s.Yes("should_process_containers"),
 		VMs:           s.Yes("should_process_vms"),
 		Notify:        s.Yes("send_notifications"),
-		VMWait:        convClamp(s, "vm_forceshutdown_wait", 90, 10, 600),
-		Buffer:        convClamp(s, "buffer_zone", 11, 0, 100),
-		Tolerance:     convClamp(s, "validation_tolerance", 5, 0, 20),
+		VMWait:        s.Clamp("vm_forceshutdown_wait", 90, 10, 600),
+		Buffer:        s.Clamp("buffer_zone", 11, 0, 100),
+		Tolerance:     s.Clamp("validation_tolerance", 5, 0, 20),
 	}
 	seen := map[string]bool{}
 	add := func(ds, kind, label string) {
