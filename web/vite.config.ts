@@ -10,7 +10,7 @@ export default defineConfig({
     cssCodeSplit: false,
     lib: {
       entry: 'src/main.ts',
-      name: 'ResticBackup',
+      name: 'ZfsToolkit',
       formats: ['iife'],
       fileName: () => 'app.js',
       cssFileName: 'app'
