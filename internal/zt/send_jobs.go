@@ -1,6 +1,7 @@
 package zt
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"regexp"
@@ -129,13 +130,20 @@ func (j sendJob) target() string {
 	return j.Dest
 }
 
-func sendLoadJobs() []sendJob {
-	m, ok := jsonRead(sendJobsFile())
-	if !ok {
-		return []sendJob{}
+func sendLoadJobs() ([]sendJob, error) {
+	out := []sendJob{}
+	b, err := os.ReadFile(sendJobsFile())
+	if os.IsNotExist(err) {
+		return out, nil
+	}
+	var m M
+	if err == nil {
+		err = json.Unmarshal(b, &m)
+	}
+	if err != nil {
+		return nil, apiFailf("Could not read %s: %v. Nothing is saved over it until it can be read; fix or remove the file.", sendJobsFile(), err)
 	}
 	raw, _ := m["jobs"].([]any)
-	out := []sendJob{}
 	seen := map[string]bool{}
 	for i, x := range raw {
 		jm, ok := x.(M)
@@ -149,11 +157,12 @@ func sendLoadJobs() []sendJob {
 		seen[j.ID] = true
 		out = append(out, j)
 	}
-	return out
+	return out, nil
 }
 
 func sendFindJob(id string) (sendJob, bool) {
-	for _, j := range sendLoadJobs() {
+	jobs, _ := sendLoadJobs()
+	for _, j := range jobs {
 		if j.ID == id {
 			return j, true
 		}

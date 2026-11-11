@@ -48,9 +48,13 @@ func sendStateView(st sendStatus) M {
 }
 
 func apiSendJobs(p M) (M, error) {
+	jobs, err := sendLoadJobs()
+	if err != nil {
+		return nil, err
+	}
 	st := sendReadStatus()
 	return M{
-		"jobs":   sendJobsView(sendLoadJobs()),
+		"jobs":   sendJobsView(jobs),
 		"state":  sendStateView(st),
 		"key":    sendKeyInfo(),
 		"has_pv": false,
@@ -67,6 +71,9 @@ func apiSendSave(p M) (M, error) {
 			return nil, err
 		}
 	}
+	if _, err := sendLoadJobs(); err != nil {
+		return nil, err
+	}
 	jobs, warnings := sendNormalizeList(raw)
 	if err := sendWriteJobs(jobs); err != nil {
 		return nil, err
@@ -79,7 +86,10 @@ func apiSendSaveJob(p M) (M, error) {
 	if err != nil {
 		return nil, err
 	}
-	jobs := sendLoadJobs()
+	jobs, err := sendLoadJobs()
+	if err != nil {
+		return nil, err
+	}
 	raw := []any{}
 	id := sendClean(in["id"])
 	replaced := false
@@ -140,7 +150,10 @@ func sendJobMap(j sendJob) M {
 
 func apiSendDelete(p M) (M, error) {
 	id := pstr(p, "id", "")
-	jobs := sendLoadJobs()
+	jobs, err := sendLoadJobs()
+	if err != nil {
+		return nil, err
+	}
 	keep := []sendJob{}
 	var gone *sendJob
 	for i := range jobs {
@@ -185,7 +198,10 @@ func apiSendDelete(p M) (M, error) {
 func apiSendToggle(p M) (M, error) {
 	id := pstr(p, "id", "")
 	on := toBool(param(p, "enabled", false))
-	jobs := sendLoadJobs()
+	jobs, err := sendLoadJobs()
+	if err != nil {
+		return nil, err
+	}
 	for i := range jobs {
 		if jobs[i].ID != id {
 			continue
@@ -247,7 +263,8 @@ func apiSendRun(p M) (M, error) {
 	args = append(args, ids...)
 	if len(ids) == 0 {
 		n := 0
-		for _, j := range sendLoadJobs() {
+		jobs, _ := sendLoadJobs()
+		for _, j := range jobs {
 			if j.Enabled {
 				n++
 			}
@@ -502,7 +519,8 @@ func apiSendDatasets(p M) (M, error) {
 		}
 	}
 	dests := map[string]bool{}
-	for _, j := range sendLoadJobs() {
+	jobs, _ := sendLoadJobs()
+	for _, j := range jobs {
 		if !j.remote() {
 			dests[j.Dest] = true
 		}
@@ -616,7 +634,7 @@ func sendCheckpointList(snaps []sendSnap, id string) []sendSnap {
 }
 
 func sendOverview(s Settings) any {
-	jobs := sendLoadJobs()
+	jobs, _ := sendLoadJobs()
 	st := sendReadStatus()
 	enabled := 0
 	failed := []string{}

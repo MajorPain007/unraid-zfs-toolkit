@@ -707,7 +707,7 @@ func sendRun(args []string) int {
 	}
 	r.line("", "ZFS replication starting...")
 	jobs := []sendJob{}
-	all := sendLoadJobs()
+	all, _ := sendLoadJobs()
 	known := map[string]bool{}
 	for _, j := range all {
 		known[j.ID] = true

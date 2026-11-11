@@ -207,8 +207,8 @@ func TestSendLoadSaveRoundTrip(t *testing.T) {
 	defer func() { ConfigDir = old }()
 	legacy := `{"jobs":[{"id":"t1","enabled":true,"name":"t","source":"cache/appdata","dest":"backup/replica/appdata","recursive":true,"transport":"local","ssh_host":"","ssh_port":22,"ssh_key":"","raw":false,"compressed":true,"allow_rollback":true,"keep_dest":2}]}`
 	os.WriteFile(filepath.Join(dir, "send_jobs.json"), []byte(legacy), 0o644)
-	jobs := sendLoadJobs()
-	if len(jobs) != 1 || jobs[0].ID != "t1" || !jobs[0].AllowRollback || jobs[0].KeepDest != 2 || jobs[0].Readonly {
+	jobs, err := sendLoadJobs()
+	if err != nil || len(jobs) != 1 || jobs[0].ID != "t1" || !jobs[0].AllowRollback || jobs[0].KeepDest != 2 || jobs[0].Readonly {
 		t.Fatalf("legacy file read wrong: %+v", jobs)
 	}
 	if err := sendWriteJobs(nil); err != nil {
@@ -275,5 +275,39 @@ func TestSendSSHArgsHostNeverAnOption(t *testing.T) {
 	}
 	if len(a) < 2 || a[len(a)-1] != "-oProxyCommand=x" || a[len(a)-2] != "--" {
 		t.Fatalf("host can be read as an option: %q", a)
+	}
+}
+
+func TestSendJobsCorruptIsNeverOverwritten(t *testing.T) {
+	d := t.TempDir()
+	oldCfg, oldTmp := ConfigDir, TmpDir
+	ConfigDir, TmpDir = filepath.Join(d, "cfg"), filepath.Join(d, "tmp")
+	defer func() { ConfigDir, TmpDir = oldCfg, oldTmp }()
+	if out := apiDispatch("send_save_job", M{"job": `{"id":"a","source":"tank/a","dest":"tank/r/a"}`}); out["ok"] != true {
+		t.Fatalf("saving into a missing file failed: %v", out)
+	}
+	good := `{"jobs":[{"id":"a","source":"tank/a","dest":"tank/r/a","enabled":true},{"id":"b","source":"tank/b","dest":"tank/r/b","enabled":true}]}`
+	cut := []byte(good[:60])
+	if err := os.WriteFile(sendJobsFile(), cut, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if out := apiDispatch("send_jobs", M{}); out["ok"] != false || !strings.Contains(str(out["error"]), "Nothing is saved over it") {
+		t.Errorf("send_jobs hides the broken file: %v", out)
+	}
+	for _, c := range []struct {
+		action string
+		p      M
+	}{
+		{"send_save_job", M{"job": `{"id":"c","source":"tank/c","dest":"tank/r/c"}`}},
+		{"send_save", M{"jobs": `[]`}},
+		{"send_toggle", M{"id": "a", "enabled": 0}},
+		{"send_delete", M{"id": "a"}},
+	} {
+		if out := apiDispatch(c.action, c.p); out["ok"] != false || !strings.Contains(str(out["error"]), "Nothing is saved over it") {
+			t.Errorf("%s did not refuse: %v", c.action, out)
+		}
+	}
+	if b, _ := os.ReadFile(sendJobsFile()); string(b) != string(cut) {
+		t.Fatalf("the broken file was overwritten with %s", b)
 	}
 }
