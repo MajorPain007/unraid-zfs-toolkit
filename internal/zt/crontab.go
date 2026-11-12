@@ -207,7 +207,7 @@ func crontabDrop(patterns ...string) {
 }
 
 func refreshCron() {
-	if p, err := exec.LookPath("update_cron"); err == nil && runCmd(30*time.Second, "bash", p).OK() {
+	if fileExecutable(updateCronBin) && runCmd(30*time.Second, "/bin/bash", updateCronBin).OK() {
 		return
 	}
 	if fileExecutable("/etc/rc.d/rc.crond") {

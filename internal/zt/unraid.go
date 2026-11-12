@@ -8,7 +8,10 @@ import (
 	"strings"
 )
 
-var notifyBin = envOr("ZDC_NOTIFY", "/usr/local/emhttp/webGui/scripts/notify")
+var (
+	notifyBin     = envOr("ZDC_NOTIFY", "/usr/local/emhttp/webGui/scripts/notify")
+	updateCronBin = envOr("ZDC_UPDATE_CRON", "/usr/local/sbin/update_cron")
+)
 
 var leadingInt = regexp.MustCompile(`^\s*-?\d+`)
 

@@ -280,13 +280,21 @@ func TestCronInstallReachesTheLiveCrontab(t *testing.T) {
 	}
 	live, user := filepath.Join(d, "live"), filepath.Join(d, "user")
 	crontab := "#!/bin/sh\nf=" + user + "\nif [ \"$1\" = -c ]; then f=" + live + "; shift 2; fi\ncase \"$1\" in\n-l) [ -f \"$f\" ] && cat \"$f\" ;;\n-d) rm -f \"$f\" ;;\n-) cat > \"$f\" ;;\nesac\n"
-	update := "#/bin/bash\ncat " + filepath.Join(d, "cfg") + "/*.cron 2>/dev/null | crontab -c /etc/cron.d -\n"
-	for name, body := range map[string]string{"crontab": crontab, "update_cron": update} {
-		if err := os.WriteFile(filepath.Join(bin, name), []byte(body), 0o755); err != nil {
-			t.Fatal(err)
-		}
+	if err := os.WriteFile(filepath.Join(bin, "crontab"), []byte(crontab), 0o755); err != nil {
+		t.Fatal(err)
 	}
-	t.Setenv("PATH", bin+":"+os.Getenv("PATH"))
+	sbin := filepath.Join(d, "sbin")
+	if err := os.MkdirAll(sbin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	update := "#/bin/bash\ncat " + filepath.Join(d, "cfg") + "/*.cron 2>/dev/null | crontab -c /etc/cron.d -\n"
+	if err := os.WriteFile(filepath.Join(sbin, "update_cron"), []byte(update), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+":/bin:/usr/bin")
+	oldUpdate := updateCronBin
+	updateCronBin = filepath.Join(sbin, "update_cron")
+	defer func() { updateCronBin = oldUpdate }()
 	oldDir, oldSpool, oldTmp := CronDir, CronSpool, TmpDir
 	CronDir, CronSpool, TmpDir = filepath.Join(d, "cfg"), filepath.Join(d, "spool"), filepath.Join(d, "tmp")
 	defer func() { CronDir, CronSpool, TmpDir = oldDir, oldSpool, oldTmp }()
@@ -327,6 +335,9 @@ func TestCronInstallDoesNotTakeAnOldScheduleForTheNewOne(t *testing.T) {
 		}
 	}
 	t.Setenv("PATH", bin+":"+os.Getenv("PATH"))
+	oldUpdate := updateCronBin
+	updateCronBin = filepath.Join(bin, "update_cron")
+	defer func() { updateCronBin = oldUpdate }()
 	oldDir, oldSpool, oldTmp := CronDir, CronSpool, TmpDir
 	CronDir, CronSpool, TmpDir = filepath.Join(d, "cfg"), filepath.Join(d, "spool"), filepath.Join(d, "tmp")
 	defer func() { CronDir, CronSpool, TmpDir = oldDir, oldSpool, oldTmp }()
