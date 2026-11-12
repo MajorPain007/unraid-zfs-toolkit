@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.toolkit">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.11.07.04">
-<!ENTITY md5       "7ea12edcc4c1d932beb5822bfa12e13e">
+<!ENTITY version   "2026.11.12.01">
+<!ENTITY md5       "ff4db7d86480767c3090d39f6268a666">
 <!ENTITY launch    "Settings/ZFSToolkit">
 <!ENTITY github    "MajorPain007/unraid-zfs-toolkit">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,28 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.11.12.01 — Schedules apply at once, safer conversion and replication
+
+- Schedules take effect as soon as they are saved. Unraid's update_cron was
+  never run, so a new or changed schedule only started after a reboot or
+  after another plugin rebuilt the crontab.
+- A conversion that was cut off by a crash or power loss only finishes when
+  the copy holds every file of the original. Otherwise the original stays.
+- Replication: an unreadable job list is reported in the log, as a
+  notification and in the overview, and is never saved over. Job details
+  check a job like every other path does.
+- Failing snapshots notify at most once every six hours.
+- Diagnostics mask replication hosts and ports and say which names remain.
+  Replication hosts no longer appear in the global log.
+- Restore never writes through a symlink.
+- Uninstalling stops running tasks and removes all plugin data, including
+  the SSH key. An interrupted conversion keeps its journal so it can be
+  finished or undone after reinstalling.
+- One rule for dataset names everywhere; replication refuses . and ..
+  components. Schedules with control characters are refused.
+- settings.cfg is only rewritten when a value changes.
+- Running and failed borders and log colours follow the light theme.
+- Built with Go 1.27.4. Smaller interface: unused styles and code removed.
 ## Version 2026.11.07.04 — Wider dataset cards
 
 - Dataset cards are wider, and their Snapshots button is an icon, so long
