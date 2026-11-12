@@ -95,6 +95,20 @@ func sendJobFromMap(m M, index int) sendJob {
 	return j
 }
 
+func sendHideHost(s, sshHost string) string {
+	host := sshHost[strings.LastIndex(sshHost, "@")+1:]
+	if host == "" {
+		return s
+	}
+	re := regexp.MustCompile(`(?i)[A-Za-z0-9_-]*` + regexp.QuoteMeta(host) + `[A-Za-z0-9_-]*`)
+	return re.ReplaceAllStringFunc(s, func(m string) string {
+		if strings.EqualFold(m, host) {
+			return "…"
+		}
+		return m
+	})
+}
+
 func (j sendJob) remote() bool { return j.Transport == "ssh" }
 
 func (j sendJob) target() string {

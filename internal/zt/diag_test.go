@@ -65,3 +65,63 @@ func TestDiagnosticsHideHostsOfUnreadableJobList(t *testing.T) {
   {"id": "c", "na`
 	diagHidesHosts(t, diagFixture(t, jobs))
 }
+
+func TestDiagnosticsHideHostsOfDeletedJobs(t *testing.T) {
+	fakeNotify(t)
+	d := t.TempDir()
+	for name, body := range map[string]string{
+		"zpool": "echo tank",
+		"zfs":   "case \"$*\" in *encryption*) printf 'tank/a\\toff\\n' ;; esac",
+		"ssh":   "echo 'ssh: connect to host offsite.example.org port 2200: Connection refused' >&2\necho 'Backup@OFFSITE.Example.Org: Permission denied (publickey).' >&2\nexit 255",
+	} {
+		if err := os.WriteFile(filepath.Join(d, name), []byte("#!/bin/sh\n"+body+"\n"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	oldCfg, oldTmp, oldZfs, oldZpool, oldSSH := ConfigDir, TmpDir, ZfsBin, ZpoolBin, sendSSHBin
+	ConfigDir, TmpDir, ZfsBin, ZpoolBin, sendSSHBin = filepath.Join(d, "cfg"), filepath.Join(d, "tmp"), filepath.Join(d, "zfs"), filepath.Join(d, "zpool"), filepath.Join(d, "ssh")
+	defer func() { ConfigDir, TmpDir, ZfsBin, ZpoolBin, sendSSHBin = oldCfg, oldTmp, oldZfs, oldZpool, oldSSH }()
+	if err := os.MkdirAll(ConfigDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	job := `{"jobs":[{"id":"a","name":"Offsite","source":"tank/a","dest":"backup/replica/a","transport":"ssh","ssh_host":"backup@Offsite.Example.Org","ssh_port":2200,"enabled":true}]}`
+	if err := os.WriteFile(sendJobsFile(), []byte(job), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if code := sendRun(nil); code == 0 {
+		t.Fatal("the run should fail at the SSH login")
+	}
+	if code := sendRun([]string{"--test", "a"}); code == 0 {
+		t.Fatal("the test run should fail at the SSH login")
+	}
+	if b, _ := os.ReadFile(sendLogFile()); !strings.Contains(string(b), "Cannot log in") {
+		t.Fatalf("the run did not reach the SSH login:\n%s", b)
+	}
+	if b, _ := os.ReadFile(sendStatusFile()); strings.Contains(strings.ToLower(string(b)), "offsite.example.org") {
+		t.Errorf("send_status.json names the host:\n%s", b)
+	}
+	if err := os.WriteFile(sendJobsFile(), []byte(`{"jobs":[]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	report := diagnosticsReport()
+	if strings.Contains(strings.ToLower(report), "offsite.example.org") {
+		t.Errorf("the report names the host of a deleted job:\n%s", report)
+	}
+	if !strings.Contains(report, "Cannot log in") {
+		t.Errorf("the failed login should stay in the report:\n%s", report)
+	}
+}
+
+func TestSendHideHostOnlyWholeNames(t *testing.T) {
+	for _, c := range []struct{ in, want string }{
+		{"tank/nasdata -> root@NAS:backup/nas.copy", "tank/nasdata -> root@…:backup/….copy"},
+		{"ssh: Could not resolve hostname nas: Name does not resolve", "ssh: Could not resolve hostname …: Name does not resolve"},
+		{"nas nas", "… …"},
+		{"anas", "anas"},
+		{"Job 'xnas-nas' on [nas]", "Job 'xnas-nas' on […]"},
+	} {
+		if got := sendHideHost(c.in, "root@nas"); got != c.want {
+			t.Errorf("%q: got %q, want %q", c.in, got, c.want)
+		}
+	}
+}

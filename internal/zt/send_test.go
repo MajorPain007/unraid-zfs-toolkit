@@ -346,3 +346,21 @@ func TestSendRunReportsUnreadableJobs(t *testing.T) {
 		t.Errorf("overview status %v, want err naming the file", st)
 	}
 }
+
+func TestSendRunNowNamesUnreadableJobList(t *testing.T) {
+	d := t.TempDir()
+	oldCfg, oldTmp := ConfigDir, TmpDir
+	ConfigDir, TmpDir = filepath.Join(d, "cfg"), filepath.Join(d, "tmp")
+	defer func() { ConfigDir, TmpDir = oldCfg, oldTmp }()
+	if err := os.MkdirAll(ConfigDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	good := `{"jobs":[{"id":"a","source":"tank/a","dest":"tank/r/a","enabled":true}]}`
+	if err := os.WriteFile(sendJobsFile(), []byte(good[:30]), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	out := apiDispatch("send_run", M{})
+	if out["ok"] != false || !strings.Contains(str(out["error"]), "send_jobs.json") || strings.Contains(str(out["error"]), "No job is enabled") {
+		t.Fatalf("Run now with an unreadable job list: %v", out)
+	}
+}

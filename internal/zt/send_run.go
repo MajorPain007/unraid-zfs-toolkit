@@ -325,6 +325,7 @@ type sendRunner struct {
 	toOut  bool
 	stats  *sendPipeStats
 	force  bool
+	host   string
 }
 
 func (r *sendRunner) line(level, msg string) {
@@ -341,7 +342,7 @@ func (r *sendRunner) line(level, msg string) {
 		prefix += "ERROR: "
 	}
 	text := prefix + msg
-	logAppendMax(sendLogFile(), text, 2*1024*1024)
+	logAppendMax(sendLogFile(), sendHideHost(text, r.host), 2*1024*1024)
 	stamped := dateTime(time.Now()) + " " + text + "\n"
 	if r.runLog != nil {
 		r.runLog.WriteString(stamped)
@@ -451,6 +452,7 @@ func (r *sendRunner) runJob(j sendJob) {
 		}
 		sendPruneRunLogs(j.ID, 15)
 	}()
+	r.host = j.SSHHost
 	r.st.Current = j.Name
 	r.st.CurrentID = j.ID
 	r.st.Progress = &sendProgress{Job: j.ID, Name: j.Name, Phase: "checking", Total: -1, Started: started.Unix()}
@@ -467,9 +469,9 @@ func (r *sendRunner) runJob(j sendJob) {
 		msg := fmt.Sprintf(format, a...)
 		r.line("err", "Job '"+j.Name+"': "+msg)
 		res.Status = "error"
-		res.Error = msg
+		res.Error = sendHideHost(msg, j.SSHHost)
 		r.st.Errors++
-		r.st.LastError = "Job '" + j.Name + "': " + msg
+		r.st.LastError = "Job '" + j.Name + "': " + res.Error
 	}
 	finish := func() {
 		res.Ended = time.Now().Unix()
@@ -790,6 +792,7 @@ func sendRunTest(ids []string) int {
 			code = 1
 			continue
 		}
+		r.host = j.SSHHost
 		r.logf("", "Testing job '%s' (%s)", j.Name, j.ID)
 		p := sendPlanJob(r.ctx, j)
 		for _, c := range p.Checks {

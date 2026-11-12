@@ -17,10 +17,7 @@ var (
 
 func diagRedact(report, jobs string) string {
 	for _, m := range reDiagHost.FindAllStringSubmatch(jobs, -1) {
-		host := m[1][strings.LastIndex(m[1], "@")+1:]
-		if host != "" {
-			report = strings.ReplaceAll(report, host, "…")
-		}
+		report = sendHideHost(report, m[1])
 	}
 	report = reDiagJSONPort.ReplaceAllString(report, `${1}"…"`)
 	return reDiagPort.ReplaceAllString(report, "${1} …")

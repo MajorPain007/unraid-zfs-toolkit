@@ -242,7 +242,10 @@ func apiSendRun(p M) (M, error) {
 	args = append(args, ids...)
 	if len(ids) == 0 {
 		n := 0
-		jobs, _ := sendLoadJobs()
+		jobs, err := sendLoadJobs()
+		if err != nil {
+			return nil, err
+		}
 		for _, j := range jobs {
 			if j.Enabled {
 				n++
