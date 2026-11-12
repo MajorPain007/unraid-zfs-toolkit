@@ -207,7 +207,7 @@ func crontabDrop(patterns ...string) {
 }
 
 func refreshCron() {
-	if r := runCmd(30*time.Second, "update_cron"); r.OK() {
+	if p, err := exec.LookPath("update_cron"); err == nil && runCmd(30*time.Second, "bash", p).OK() {
 		return
 	}
 	if fileExecutable("/etc/rc.d/rc.crond") {
@@ -261,10 +261,10 @@ func (c cronJob) state() cronState {
 	return st
 }
 
-func (c cronJob) live() bool {
+func (c cronJob) has(s string) bool {
 	for _, spool := range []bool{true, false} {
 		for _, l := range crontabLines(spool) {
-			if strings.Contains(l, c.pattern()) {
+			if strings.Contains(l, s) {
 				return true
 			}
 		}
@@ -293,7 +293,7 @@ func (c cronJob) install(expr string) (string, error) {
 		}
 	}
 	refreshCron()
-	if c.live() {
+	if c.has(c.line(expr)) {
 		return "Cron installed via " + c.file() + ": " + expr, nil
 	}
 	warn := ""
@@ -303,7 +303,7 @@ func (c cronJob) install(expr string) (string, error) {
 	lines := crontabLines(false)
 	lines = append(lines, "# zfs-toolkit", c.line(expr))
 	crontabWrite(lines)
-	if c.live() {
+	if c.has(c.line(expr)) {
 		return warn + "Cron installed via crontab fallback: " + expr + " - that entry is transient, the next update_cron by any plugin will drop it.", nil
 	}
 	return "", fmt.Errorf("%scron entry could not be installed (%s)", warn, expr)

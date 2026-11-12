@@ -271,3 +271,79 @@ func TestCronParseAcceptsOnlyWhatCronInstalls(t *testing.T) {
 		}
 	}
 }
+
+func TestCronInstallReachesTheLiveCrontab(t *testing.T) {
+	d := t.TempDir()
+	bin := filepath.Join(d, "bin")
+	if err := os.MkdirAll(bin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	live, user := filepath.Join(d, "live"), filepath.Join(d, "user")
+	crontab := "#!/bin/sh\nf=" + user + "\nif [ \"$1\" = -c ]; then f=" + live + "; shift 2; fi\ncase \"$1\" in\n-l) [ -f \"$f\" ] && cat \"$f\" ;;\n-d) rm -f \"$f\" ;;\n-) cat > \"$f\" ;;\nesac\n"
+	update := "#/bin/bash\ncat " + filepath.Join(d, "cfg") + "/*.cron 2>/dev/null | crontab -c /etc/cron.d -\n"
+	for name, body := range map[string]string{"crontab": crontab, "update_cron": update} {
+		if err := os.WriteFile(filepath.Join(bin, name), []byte(body), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("PATH", bin+":"+os.Getenv("PATH"))
+	oldDir, oldSpool, oldTmp := CronDir, CronSpool, TmpDir
+	CronDir, CronSpool, TmpDir = filepath.Join(d, "cfg"), filepath.Join(d, "spool"), filepath.Join(d, "tmp")
+	defer func() { CronDir, CronSpool, TmpDir = oldDir, oldSpool, oldTmp }()
+	job := cronJobs[1]
+	read := func(f string) string { b, _ := os.ReadFile(f); return string(b) }
+	for _, expr := range []string{"0 * * * *", "*/5 * * * *"} {
+		msg, err := job.install(expr)
+		if err != nil || strings.Contains(msg, "fallback") {
+			t.Fatalf("%q: %q %v", expr, msg, err)
+		}
+		if !strings.Contains(read(live), job.line(expr)) {
+			t.Fatalf("%q is not in the live crontab: %q", expr, read(live))
+		}
+		if read(user) != "" {
+			t.Fatalf("%q left a transient entry: %q", expr, read(user))
+		}
+	}
+	if strings.Contains(read(live), job.line("0 * * * *")) {
+		t.Fatalf("the old schedule is still live: %q", read(live))
+	}
+	job.remove()
+	if strings.Contains(read(live), job.pattern()) {
+		t.Fatalf("a removed job is still live: %q", read(live))
+	}
+}
+
+func TestCronInstallDoesNotTakeAnOldScheduleForTheNewOne(t *testing.T) {
+	d := t.TempDir()
+	bin := filepath.Join(d, "bin")
+	if err := os.MkdirAll(bin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	live, user := filepath.Join(d, "live"), filepath.Join(d, "user")
+	crontab := "#!/bin/sh\nf=" + user + "\nif [ \"$1\" = -c ]; then f=" + live + "; shift 2; fi\ncase \"$1\" in\n-l) [ -f \"$f\" ] && cat \"$f\" ;;\n-) cat > \"$f\" ;;\nesac\n"
+	for name, body := range map[string]string{"crontab": crontab, "update_cron": "#!/bin/sh\nexit 0\n"} {
+		if err := os.WriteFile(filepath.Join(bin, name), []byte(body), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("PATH", bin+":"+os.Getenv("PATH"))
+	oldDir, oldSpool, oldTmp := CronDir, CronSpool, TmpDir
+	CronDir, CronSpool, TmpDir = filepath.Join(d, "cfg"), filepath.Join(d, "spool"), filepath.Join(d, "tmp")
+	defer func() { CronDir, CronSpool, TmpDir = oldDir, oldSpool, oldTmp }()
+	job := cronJobs[1]
+	if err := os.WriteFile(live, []byte(job.line("0 * * * *")+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	msg, _ := job.install("*/5 * * * *")
+	if !strings.Contains(msg, "fallback") {
+		t.Fatalf("the old hourly line was taken for the new schedule: %q", msg)
+	}
+	readOnly := "#!/bin/sh\nf=" + user + "\nif [ \"$1\" = -c ]; then f=" + live + "; shift 2; fi\n[ \"$1\" = -l ] && [ -f \"$f\" ] && cat \"$f\"\nexit 0\n"
+	if err := os.WriteFile(filepath.Join(bin, "crontab"), []byte(readOnly), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	os.Remove(user)
+	if msg, err := job.install("*/10 * * * *"); err == nil {
+		t.Fatalf("an install that reached no crontab was reported as done: %q", msg)
+	}
+}
