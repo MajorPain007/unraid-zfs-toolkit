@@ -65,6 +65,8 @@ type snapEngine struct {
 
 	rows      map[string][]snapRow
 	available []string
+	owners    map[string]snapOwner
+	ages      map[string]int
 
 	Created   int
 	Pruned    int
@@ -74,6 +76,11 @@ type snapEngine struct {
 	Warnings  []string
 	DS        int
 	Plan      []snapPlanItem
+}
+
+type snapOwner struct {
+	recursive bool
+	keeps     map[string]int
 }
 
 func snapPeriodKey(typ string, t time.Time) string {
@@ -287,9 +294,58 @@ func (e *snapEngine) prune(d snapDS, typ string, keep, maxAge int) {
 		e.warnf("Keeping held snapshot %s (userrefs=%d) - release the hold to allow pruning.", r.Name, r.Refs)
 		e.plan("held", r.Name, typ, "held", r.Used, r.Creation)
 	}
+	own, split := e.ownedDescendants(d, typ)
 	for i, r := range del {
-		e.destroy(r, d.Recursive, typ, reasons[i])
+		if split {
+			e.destroySplit(r, own, typ, reasons[i])
+		} else {
+			e.destroy(r, d.Recursive, typ, reasons[i])
+		}
 	}
+}
+
+func (e *snapEngine) destroySplit(r snapRow, own []string, typ, reason string) {
+	rows := []snapRow{}
+	for _, x := range own {
+		for _, cr := range e.rows[x] {
+			if cr.snap() != r.snap() {
+				continue
+			}
+			if cr.Refs > 0 {
+				e.warnf("Keeping %s: %s is held (userrefs=%d) - release the hold to allow pruning.", r.Name, cr.Name, cr.Refs)
+				e.plan("held", cr.Name, typ, "held", cr.Used, cr.Creation)
+				return
+			}
+			rows = append(rows, cr)
+		}
+	}
+	for _, cr := range rows {
+		if !e.destroy(cr, false, typ, reason) {
+			return
+		}
+	}
+	e.destroy(r, false, typ, reason)
+}
+
+func (e *snapEngine) ownedDescendants(d snapDS, typ string) (own []string, split bool) {
+	if !d.Recursive {
+		return nil, false
+	}
+	for _, x := range e.descendants(d.Name) {
+		owner := ""
+		for name, o := range e.owners {
+			covers := name == x || (o.recursive && strings.HasPrefix(x, name+"/"))
+			if covers && (o.keeps[typ] > 0 || e.ages[typ] > 0) && len(name) > len(owner) {
+				owner = name
+			}
+		}
+		if owner == d.Name {
+			own = append(own, x)
+		} else {
+			split = true
+		}
+	}
+	return own, split
 }
 
 func (e *snapEngine) process(d snapDS, keeps, ages map[string]int) {
@@ -422,6 +478,7 @@ func (e *snapEngine) run() error {
 	if e.rows == nil {
 		e.rows = map[string][]snapRow{}
 	}
+	e.owners = map[string]snapOwner{}
 	if !e.be.ready() {
 		e.warnf("ZFS is not available or no pool is imported (array not started?). Nothing to do.")
 		return errSnapNoZFS
@@ -471,6 +528,7 @@ func (e *snapEngine) run() error {
 			e.warnf("%s", w)
 		}
 		items = append(items, item{d, keeps})
+		e.owners[d.Name] = snapOwner{d.Recursive, keeps}
 		if p := snapPoolOf(d.Name); !seenPool[p] {
 			seenPool[p] = true
 			pools = append(pools, p)
@@ -495,6 +553,7 @@ func (e *snapEngine) run() error {
 		}
 		ages[t] = n
 	}
+	e.ages = ages
 	for _, it := range items {
 		e.logf("Processing dataset: %s (recursive=%s)", it.d.Name, map[bool]string{true: "1", false: "0"}[it.d.Recursive])
 		e.process(it.d, it.keeps, ages)

@@ -90,6 +90,18 @@ check "the newest of an active type stays, older go" '[ "$(snaps "$C/ret" | grep
 zfs release keep "$C/ret@auto-hourly-$H"
 check "foreign snapshots are never pruned" 'snaps "$C/ret" | grep -qx before-upgrade && snaps "$C/ret" | grep -qx "autosnap_2026-01-01_00:00:00_hourly" && snaps "$C/ret" | grep -qx zdc-send-job1-20260101'
 
+group "A child with its own retention"
+zfs create "$C/fam"; zfs create "$C/fam/plex"; zfs create "$C/fam/other"
+for i in 01 02 03 04 05 06; do zfs snapshot -r "$C/fam@auto-daily-2026-01-$i"; sleep 1; done
+settings snap_daily=2
+datasets "{\"name\":\"$C/fam\",\"recursive\":true,\"use_template\":true},{\"name\":\"$C/fam/plex\",\"recursive\":false,\"use_template\":false,\"daily\":\"30\"}"
+tick
+check "the child with daily=30 keeps all its dailies after the parent's daily=2 run" '[ "$(nsnaps "$C/fam/plex" ^auto-daily-)" = 7 ]' "$(snaps "$C/fam/plex" | tr '\n' ' ')"
+check "the parent and a child without its own entry keep 2" '[ "$(nsnaps "$C/fam" ^auto-daily-)" = 2 ] && [ "$(nsnaps "$C/fam/other" ^auto-daily-)" = 2 ]' "$(snaps "$C/fam/other" | tr '\n' ' ')"
+zfs destroy -r "$C/fam"
+settings snap_hourly=1
+datasets "{\"name\":\"$C/ret\",\"recursive\":false,\"use_template\":true}"
+
 group "Dry run and preview"
 for i in 01 02 03; do zfs snapshot "$C/ret@auto-hourly-2026-02-01_$i-00"; done
 before=$(nsnaps "$C/ret")

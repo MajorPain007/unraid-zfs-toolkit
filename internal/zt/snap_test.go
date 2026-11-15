@@ -2,6 +2,7 @@ package zt
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -35,21 +36,42 @@ func (f *fakeZFS) create(name string, recursive bool) error {
 	}
 	f.created = append(f.created, name)
 	f.rows = append(f.rows, snapRow{Name: name, Creation: time.Now().Unix()})
+	ds, snap, _ := strings.Cut(name, "@")
+	for _, d := range f.ds {
+		if recursive && strings.HasPrefix(d, ds+"/") {
+			f.rows = append(f.rows, snapRow{Name: d + "@" + snap, Creation: time.Now().Unix()})
+		}
+	}
 	return nil
 }
 func (f *fakeZFS) destroy(name string, recursive bool) error {
-	for i, r := range f.rows {
-		if r.Name == name {
+	ds, snap, _ := strings.Cut(name, "@")
+	hit := func(r snapRow) bool {
+		return r.Name == name || (recursive && strings.HasPrefix(r.dataset(), ds+"/") && r.snap() == snap)
+	}
+	found := false
+	for _, r := range f.rows {
+		if hit(r) {
 			if r.Refs > 0 {
 				return errors.New("dataset is busy")
 			}
-			f.pending += r.Used
-			f.rows = append(f.rows[:i], f.rows[i+1:]...)
-			f.destroyed = append(f.destroyed, name)
-			return nil
+			found = found || r.Name == name
 		}
 	}
-	return errors.New("could not find any snapshots to destroy")
+	if !found {
+		return errors.New("could not find any snapshots to destroy")
+	}
+	keep := []snapRow{}
+	for _, r := range f.rows {
+		if hit(r) {
+			f.pending += r.Used
+			continue
+		}
+		keep = append(keep, r)
+	}
+	f.rows = keep
+	f.destroyed = append(f.destroyed, name)
+	return nil
 }
 func (f *fakeZFS) poolSpace(pool string) (int64, int64, int, bool) {
 	return f.size, f.free, f.capacity, true
@@ -420,5 +442,85 @@ func TestSnapGlobalKeepReadsItsKey(t *testing.T) {
 	}
 	if n, w := d.keep(Settings{"snap_daily": "x"}, "daily"); n != 0 || w != "Invalid value for snap_daily='x', using 0." {
 		t.Errorf("got %d %q", n, w)
+	}
+}
+
+func TestSnapEngineParentKeepsAChildsLongerRetention(t *testing.T) {
+	base := at("2026-04-12 10:00").Unix()
+	f := &fakeZFS{ds: []string{"c", "c/a", "c/a/plex", "c/a/other"}}
+	for i := 1; i <= 6; i++ {
+		for _, ds := range []string{"c/a", "c/a/plex", "c/a/other"} {
+			f.rows = append(f.rows, snapRow{Name: fmt.Sprintf("%s@auto-daily-2026-04-0%d", ds, i), Creation: base - int64(10-i)*86400})
+		}
+	}
+	thirty := "30"
+	e := engine(f, settingsOf("snap_daily", "2"), at("2026-04-12 10:00"),
+		snapDS{Name: "c/a", Recursive: true, UseTemplate: true}, snapDS{Name: "c/a/plex", Daily: &thirty})
+	e.run()
+	count := map[string]int{}
+	for _, r := range f.rows {
+		count[r.dataset()]++
+	}
+	if count["c/a/plex"] != 7 {
+		t.Errorf("the child with daily=30 lost snapshots to the parent's daily=2: %v, destroyed %v", count, f.destroyed)
+	}
+	if count["c/a"] != 2 || count["c/a/other"] != 2 {
+		t.Errorf("the parent and a child without its own entry keep 2: %v", count)
+	}
+}
+
+func familyRows(heldIn string) *fakeZFS {
+	base := at("2026-04-12 10:00").Unix()
+	f := &fakeZFS{ds: []string{"c", "c/a", "c/a/plex", "c/a/other"}}
+	for i := 1; i <= 6; i++ {
+		for _, ds := range []string{"c/a", "c/a/plex", "c/a/other"} {
+			r := snapRow{Name: fmt.Sprintf("%s@auto-daily-2026-04-0%d", ds, i), Creation: base - int64(10-i)*86400}
+			if ds == heldIn && i == 1 {
+				r.Refs = 1
+			}
+			f.rows = append(f.rows, r)
+		}
+	}
+	return f
+}
+
+func TestSnapEngineChildWithoutThatTypeIsStillPrunedByTheParent(t *testing.T) {
+	f := familyRows("")
+	four, zero := "4", "0"
+	e := engine(f, settingsOf("snap_daily", "2"), at("2026-04-12 10:00"),
+		snapDS{Name: "c/a", Recursive: true, UseTemplate: true}, snapDS{Name: "c/a/plex", Weekly: &four, Daily: &zero})
+	e.run()
+	count := map[string]int{}
+	for _, r := range f.rows {
+		if strings.Contains(r.Name, "@auto-daily-") {
+			count[r.dataset()]++
+		}
+	}
+	if count["c/a/plex"] != 2 || count["c/a"] != 2 || count["c/a/other"] != 2 {
+		t.Errorf("a child whose own entry keeps no dailies must not collect the parent's dailies: %v", count)
+	}
+}
+
+func TestSnapEngineHeldChildSnapshotKeepsTheParentOne(t *testing.T) {
+	thirty := "30"
+	cfg := []snapDS{{Name: "c/a", Recursive: true, UseTemplate: true}, {Name: "c/a/plex", Daily: &thirty}}
+	dry := engine(familyRows("c/a/other"), settingsOf("snap_daily", "2"), at("2026-04-12 10:00"), cfg...)
+	dry.dry = true
+	dry.run()
+	f := familyRows("c/a/other")
+	e := engine(f, settingsOf("snap_daily", "2"), at("2026-04-12 10:00"), cfg...)
+	e.run()
+	left := map[string]bool{}
+	for _, r := range f.rows {
+		left[r.Name] = true
+	}
+	if !left["c/a@auto-daily-2026-04-01"] || !left["c/a/other@auto-daily-2026-04-01"] {
+		t.Errorf("a held child snapshot keeps the parent's snapshot of the same name, as zfs destroy -r would: %v", f.destroyed)
+	}
+	if len(e.Warnings) == 0 || !strings.Contains(strings.Join(e.Warnings, " "), "c/a/other@auto-daily-2026-04-01") {
+		t.Errorf("the hold is reported: %v", e.Warnings)
+	}
+	if dry.Pruned != e.Pruned {
+		t.Errorf("the dry run counts %d, the real run %d", dry.Pruned, e.Pruned)
 	}
 }
