@@ -149,7 +149,7 @@ var cronJobs = []cronJob{
 	},
 }
 
-var legacyCronPatterns = []string{"run_auto.sh", "snapshot_manager.sh", "zfs_send.sh"}
+var legacyCronPatterns = []string{"/plugins/zfs.dataset.converter/"}
 
 func (c cronJob) line(expr string) string {
 	return expr + " " + SelfBin + " " + c.Command + " >> " + TmpDir + "/" + c.Log + " 2>&1"

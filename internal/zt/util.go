@@ -186,6 +186,15 @@ func arrayDown() bool {
 	return !arrayStarted() || arrayStopping()
 }
 
+func symlinkOnTheWay(path string) bool {
+	p := path
+	for !exists(p) && p != "/" {
+		p = filepath.Dir(p)
+	}
+	real, err := filepath.EvalSymlinks(p)
+	return err != nil || real != p
+}
+
 func serverName() string {
 	if n := varIni()["NAME"]; n != "" {
 		return n

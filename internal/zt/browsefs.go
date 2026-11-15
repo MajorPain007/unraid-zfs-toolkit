@@ -108,6 +108,9 @@ func apiMkdir(p M) (M, error) {
 	if !under(parent, "/mnt") || parent == "/mnt" || !isDir(parent) {
 		return nil, apiFail("New folders can be made in a share, pool or disk under /mnt.")
 	}
+	if symlinkOnTheWay(parent) {
+		return nil, apiFail(parent + " goes through a symbolic link. Pick the real folder instead.")
+	}
 	path := strings.TrimRight(parent, "/") + "/" + name
 	if exists(path) {
 		return nil, apiFail(path + " exists already.")

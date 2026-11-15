@@ -146,6 +146,8 @@ group "Stop puts the folder back at once"
 fresh_appdata; mkdir -p "$A/app"; echo a > "$A/app/a.txt"; echo b > "$A/app/b.txt"
 container appc "$A/app/config"
 rsync_mode slow; pid=$(convert no nowait); sleep 2
+out=$("$ZT" snapshot-tick --all 2>&1); rc=$?
+check "snapshot-tick waits while a conversion runs" '[ "$rc" = 0 ] && echo "$out" | grep -q "conversion is running" && [ -z "$(zfs list -H -t snapshot -o name -r "$C" 2>/dev/null)" ]' "$out"
 t0=$SECONDS; kill "$pid"; wait_pid "$pid"
 check "the converter ends within seconds" '[ $((SECONDS - t0)) -le 5 ]'
 check "the folder is back and the dataset gone" \

@@ -321,6 +321,9 @@ func restoreTargetDir(b *brSnap, tp string) (string, error) {
 		if !under(dir, "/mnt") || dir == "/mnt" {
 			return "", apiFail("The destination must be inside /mnt - a share, pool or disk.")
 		}
+		if symlinkOnTheWay(dir) {
+			return "", apiFail(dir + " goes through a symbolic link. Pick the real folder instead.")
+		}
 	} else {
 		rel, err := brRel(tp)
 		if err != nil {

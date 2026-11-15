@@ -1,8 +1,11 @@
 package zt
 
 import (
+	"bytes"
 	"fmt"
+	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -410,6 +413,9 @@ func apiSnapRun(p M) (M, error) {
 	if !zfsReady() {
 		return nil, apiFail("ZFS is not available or no pool is imported.")
 	}
+	if _, converting := convRunning(); converting {
+		return nil, apiFail("A conversion is running - snapshots wait until it has finished.")
+	}
 	if st := snapRunning(); st != nil {
 		return nil, apiFail("A snapshot run is already in progress.")
 	}
@@ -484,6 +490,9 @@ func apiSnapLog(p M) (M, error) {
 func snapRunning() M {
 	m, ok := jsonRead(snapRunningFile())
 	if !ok || !pidAlive(m["pid"]) {
+		return nil
+	}
+	if b, err := os.ReadFile("/proc/" + strconv.Itoa(toInt(m["pid"])) + "/cmdline"); err == nil && !bytes.Contains(b, []byte("snapshot-tick")) {
 		return nil
 	}
 	return m

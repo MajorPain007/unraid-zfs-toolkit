@@ -174,6 +174,10 @@ func snapTick(args []string) int {
 	if arrayDown() {
 		return 0
 	}
+	if _, converting := convRunning(); converting && !dry {
+		fmt.Println("A conversion is running - snapshots wait until it has finished.")
+		return 0
+	}
 	if background {
 		rest := []string{}
 		for _, a := range args {

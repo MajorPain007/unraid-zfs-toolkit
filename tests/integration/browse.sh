@@ -106,6 +106,12 @@ st=$(restore "{\"dataset\":\"$D\",\"snapshot\":\"s1\",\"items\":[\"/dir/a.txt\"]
 check "restoring a file in place over a symlink is refused" 'echo "$st" | grep -q "start-failed:.*symbolic link"' "$st"
 rm "$M/dir/a.txt"; mv "$M/dir/a.txt.real" "$M/dir/a.txt"
 check "nothing was written outside" '[ -z "$(ls -A "/mnt/$B/elsewhere")" ]'
+ln -s "/mnt/$B/elsewhere" "/mnt/$B/linkdir"
+out=$(api restore_preview "{\"dataset\":\"$D\",\"snapshot\":\"s1\",\"items\":[\"/dir\"],\"target\":\"path\",\"target_path\":\"/mnt/$B/linkdir/sub\"}")
+check "an absolute restore target that goes through a symlink is refused" 'echo "$out" | j .error | grep -q "symbolic link"' "$out"
+out=$(api mkdir "{\"path\":\"/mnt/$B/linkdir\",\"name\":\"new\"}")
+check "a new folder is not made through a symlink" 'echo "$out" | j .error | grep -q "symbolic link" && [ -z "$(ls -A "/mnt/$B/elsewhere")" ]' "$out"
+rm "/mnt/$B/linkdir"
 
 group "Restore"
 out=$(api restore_preview "{\"dataset\":\"$D\",\"snapshot\":\"s1\",\"items\":[\"/dir\"]}")
