@@ -20,6 +20,8 @@
   let isNew = $state(!saved);
   const savedName = saved?.name ?? '';
   let job = $state<SendJob>(saved ? ($state.snapshot(saved) as SendJob) : blankJob(untrack(() => replication.jobs)));
+  const start = untrack(() => JSON.stringify(job));
+  let changed = $derived(JSON.stringify(job) !== start);
   let error = $state<unknown>(null);
   let saving = $state(false);
   let root: HTMLElement | undefined = $state();
@@ -169,7 +171,7 @@
 
 <svelte:window onkeydown={keydown} />
 
-<Dialog drawer title={isNew ? 'New replication job' : `Edit "${savedName || job.name}"`} icon="send" onclose={() => close()}>
+<Dialog drawer sticky={changed} title={isNew ? 'New replication job' : `Edit "${savedName || job.name}"`} icon="send" onclose={() => close()}>
   <div bind:this={root} class="zr-ed">
     <div bind:this={errorEl} class="zr-ed-error">
       {#if error}<div transition:slide={{ duration: 150 }}><ErrorBox {error} /></div>{/if}
