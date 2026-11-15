@@ -439,9 +439,9 @@ func sendNextCheckpoint(id, stamp string, existing []string) string {
 			newest = n[len(prefix):]
 		}
 	}
-	cand := stamp
-	for n := 2; newest != "" && !sendStampLess(newest, cand); n++ {
-		cand = fmt.Sprintf("%s-%d", stamp, n)
+	if newest == "" || sendStampLess(newest, stamp) {
+		return prefix + stamp
 	}
-	return prefix + cand
+	base, n := sendStampSplit(newest)
+	return fmt.Sprintf("%s%s-%d", prefix, base, max(n, 1)+1)
 }

@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestSendJobFromMapDefaults(t *testing.T) {
@@ -241,6 +242,33 @@ func TestSendNextCheckpoint(t *testing.T) {
 	}
 	if got := sendNextCheckpoint("j", "20261107-120000", []string{"zdc-send-j-20261107-110000"}); got != "zdc-send-j-20261107-120000" {
 		t.Fatal(got)
+	}
+}
+
+func TestSendNextCheckpointAfterTheClockWentBack(t *testing.T) {
+	cases := []struct {
+		existing []string
+		want     string
+	}{
+		{[]string{"zdc-send-j-20261025-024500"}, "zdc-send-j-20261025-024500-2"},
+		{[]string{"zdc-send-j-20261025-024500-3", "zdc-send-j-20261025-010000"}, "zdc-send-j-20261025-024500-4"},
+		{[]string{"zdc-send-j-20271231-235959"}, "zdc-send-j-20271231-235959-2"},
+	}
+	for _, c := range cases {
+		done := make(chan string, 1)
+		go func() { done <- sendNextCheckpoint("j", "20261025-020000", c.existing) }()
+		select {
+		case got := <-done:
+			if got != c.want {
+				t.Errorf("%v: got %s, want %s", c.existing, got, c.want)
+			}
+			newest := c.existing[0][len("zdc-send-j-"):]
+			if !sendStampLess(newest, got[len("zdc-send-j-"):]) {
+				t.Errorf("%s does not sort after %s", got, newest)
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatalf("no name after 2 s for %v", c.existing)
+		}
 	}
 }
 

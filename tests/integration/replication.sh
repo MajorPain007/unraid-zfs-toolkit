@@ -179,4 +179,18 @@ jobs_json "$(job a "$C/appdata" "$B/replica/appdata" ',"recursive":true'),$(job 
 out=$("$ZT" api overview "{}")
 check "the overview part counts enabled jobs and reports the last failure" '[ "$(echo "$out" | jget "d[\"replication\"][\"count\"]")" = 1 ] && [ "$(echo "$out" | jget "d[\"replication\"][\"status\"][\"level\"]")" = err ]' "$(echo "$out" | jget 'd["replication"]["status"]')"
 
+group "Clock going back"
+zfs create "$C/clock"
+echo one > "/mnt/$C/clock/f"
+jobs_json "$(job t "$C/clock" "$B/replica/clock")"
+run t
+last=$(zfs list -H -t snapshot -o name -d 1 "$C/clock" | grep "@zdc-send-t-" | tail -1 | sed 's/.*@//')
+zfs rename "$C/clock@$last" "$C/clock@zdc-send-t-20991231-235959"
+zfs rename "$B/replica/clock@$last" "$B/replica/clock@zdc-send-t-20991231-235959"
+echo two >> "/mnt/$C/clock/f"
+: > "$LOG"; timeout -s KILL 60 "$ZT" send-run t >"$WORK/out.txt" 2>&1; rc=$?
+check "a run whose newest checkpoint has a later stamp than the clock finishes" '[ "$rc" != 137 ] && ! grep -q ERROR "$LOG"' "rc $rc $(tail -3 "$LOG")"
+check "it sends incrementally from that checkpoint" 'seen "incremental from @zdc-send-t-20991231-235959"' "$(tail -5 "$LOG")"
+check "the new checkpoint is named after it on both sides" 'zfs list "$C/clock@zdc-send-t-20991231-235959-2" >/dev/null 2>&1 && zfs list "$B/replica/clock@zdc-send-t-20991231-235959-2" >/dev/null 2>&1'
+
 finish
