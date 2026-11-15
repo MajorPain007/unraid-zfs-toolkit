@@ -204,7 +204,7 @@ export function globMatcher(pattern: string): ((s: string) => boolean) | null {
 
 export function validTarget(v: string): boolean {
   const s = v.trim();
-  return s === '' || /^[0-9]+\s*([KMGTP]i?B?|%)$/i.test(s);
+  return s === '' || /^[0-9]+\s*([KMGTP]i?B?|%)?$/i.test(s);
 }
 
 export function kindOf(s: SnapInfo): string {

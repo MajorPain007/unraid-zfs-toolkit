@@ -296,7 +296,7 @@
         </div>
         <div class="zt-fields zr-gap">
           <Field label="Checkpoints kept on the destination" hint="0 = keep all. This server always keeps the two newest.">
-            <input type="number" min="0" bind:value={job.keep_dest} />
+            <input type="number" min="0" max="10000" bind:value={job.keep_dest} />
           </Field>
           <Field label="Bandwidth limit (MB/s)" hint="0 = as fast as it goes.">
             <input type="number" min="0" bind:value={job.bwlimit} />

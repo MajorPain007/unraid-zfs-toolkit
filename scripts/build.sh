@@ -99,6 +99,7 @@ elif [ "$PLUGIN" != "zfs.toolkit" ]; then
         -e "s|<!ENTITY launch    \"Settings/ZFSToolkit\">|<!ENTITY launch    \"Settings/ZFSToolkit${SUFFIX}\">|" \
         -e "s|/usr/local/emhttp/plugins/zfs\.toolkit/|/usr/local/emhttp/plugins/${PLUGIN}/|g" \
         -e "s|/tmp/zfs\.toolkit|/tmp/${PLUGIN}|g" \
+        -e "s|<!ENTITY pluginURL \"[^\"]*\">|<!ENTITY pluginURL \"file:///boot/config/plugins/${PLUGIN}.plg\">|" \
         "$PLG" > "${OUT_DIR}/${PLUGIN}.plg"
     echo "  Wrote ${OUT_DIR}/${PLUGIN}.plg"
 fi

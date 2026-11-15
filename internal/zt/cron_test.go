@@ -358,3 +358,40 @@ func TestCronInstallDoesNotTakeAnOldScheduleForTheNewOne(t *testing.T) {
 		t.Fatalf("an install that reached no crontab was reported as done: %q", msg)
 	}
 }
+
+func TestCronIsOnlyRefreshedWhenSomethingChanges(t *testing.T) {
+	d := t.TempDir()
+	bin, sbin := filepath.Join(d, "bin"), filepath.Join(d, "sbin")
+	os.MkdirAll(bin, 0o755)
+	os.MkdirAll(sbin, 0o755)
+	live, user, calls := filepath.Join(d, "live"), filepath.Join(d, "user"), filepath.Join(d, "calls")
+	os.WriteFile(filepath.Join(bin, "crontab"), []byte("#!/bin/sh\nf="+user+"\nif [ \"$1\" = -c ]; then f="+live+"; shift 2; fi\ncase \"$1\" in\n-l) [ -f \"$f\" ] && cat \"$f\" ;;\n-d) rm -f \"$f\" ;;\n-) cat > \"$f\" ;;\nesac\n"), 0o755)
+	os.WriteFile(filepath.Join(sbin, "update_cron"), []byte("#/bin/bash\necho x >> "+calls+"\ncat "+filepath.Join(d, "cfg")+"/*.cron 2>/dev/null | crontab -c /etc/cron.d -\n"), 0o755)
+	t.Setenv("PATH", bin+":/bin:/usr/bin")
+	oldUpdate, oldDir, oldSpool, oldTmp := updateCronBin, CronDir, CronSpool, TmpDir
+	updateCronBin = filepath.Join(sbin, "update_cron")
+	CronDir, CronSpool, TmpDir = filepath.Join(d, "cfg"), filepath.Join(d, "spool"), filepath.Join(d, "tmp")
+	t.Cleanup(func() { updateCronBin, CronDir, CronSpool, TmpDir = oldUpdate, oldDir, oldSpool, oldTmp })
+	count := func() int { b, _ := os.ReadFile(calls); return strings.Count(string(b), "x") }
+	if _, err := cronJobs[1].install("0 * * * *"); err != nil {
+		t.Fatal(err)
+	}
+	first := count()
+	if _, err := cronJobs[1].install("0 * * * *"); err != nil {
+		t.Fatal(err)
+	}
+	cronJobs[0].remove()
+	if count() != first {
+		t.Fatalf("an unchanged schedule and a job that was never installed must not run update_cron again: %d -> %d", first, count())
+	}
+	cronJobs[1].install("30 * * * *")
+	if count() == first {
+		t.Fatal("a changed schedule must reach the live crontab")
+	}
+	os.WriteFile(user, []byte("# zfs-toolkit\n"+cronJobs[1].line("30 * * * *")+"\n"), 0o644)
+	before := count()
+	cronJobs[1].install("30 * * * *")
+	if b, _ := os.ReadFile(user); count() == before || strings.Contains(string(b), cronJobs[1].pattern()) {
+		t.Fatalf("a transient fallback line in the user crontab must be moved to cron.d, not left: %q", b)
+	}
+}

@@ -107,3 +107,12 @@ func TestSettingsSaveRefusesNumbersOverTheLimit(t *testing.T) {
 		t.Fatal("nothing may be written")
 	}
 }
+
+func TestFreeSpaceTargetWithoutUnitIsBytesEverywhere(t *testing.T) {
+	if !reFreeTarget.MatchString("250") {
+		t.Fatal("settings_save must accept a plain number, as the engine takes it as bytes")
+	}
+	if n, ok := snapTargetBytes("250", 1000); !ok || n != 250 {
+		t.Fatalf("the engine reads 250 as bytes: %d %v", n, ok)
+	}
+}

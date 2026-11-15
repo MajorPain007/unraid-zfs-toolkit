@@ -168,7 +168,7 @@ func useLocalTimezone() {
 func arrayStarted() bool {
 	ini := varIni()
 	if len(ini) == 0 {
-		return os.Getenv("RB_ASSUME_ARRAY") != "0"
+		return os.Getenv("ZDC_ASSUME_ARRAY") != "0"
 	}
 	return ini["mdState"] == "STARTED" && ini["fsState"] == "Started" && ini["startMode"] != "Maintenance"
 }

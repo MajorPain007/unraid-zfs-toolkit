@@ -272,7 +272,24 @@ func (c cronJob) has(s string) bool {
 	return false
 }
 
+func (c cronJob) liveOnly(line string) bool {
+	for _, l := range crontabLines(false) {
+		if strings.Contains(l, c.pattern()) {
+			return false
+		}
+	}
+	for _, l := range crontabLines(true) {
+		if strings.Contains(l, line) {
+			return true
+		}
+	}
+	return false
+}
+
 func (c cronJob) remove() {
+	if !exists(c.file()) && !exists(CronSpool+"/"+c.Base) && !c.has(c.pattern()) {
+		return
+	}
 	os.Remove(c.file())
 	os.Remove(CronSpool + "/" + c.Base)
 	crontabDrop(c.pattern())
@@ -283,10 +300,13 @@ func (c cronJob) install(expr string) (string, error) {
 	if !validCron(expr) {
 		return "", fmt.Errorf("refusing to install invalid cron expression: '%s'", expr)
 	}
+	content := "# Managed by " + Name + " - edit via Settings > ZFS Toolkit\n" + c.line(expr) + "\n"
+	if old, err := os.ReadFile(c.file()); err == nil && string(old) == content && c.liveOnly(c.line(expr)) {
+		return "Cron installed via " + c.file() + ": " + expr, nil
+	}
 	os.Remove(CronSpool + "/" + c.Base)
 	crontabDrop(c.pattern())
 	os.MkdirAll(CronDir, 0o755)
-	content := "# Managed by " + Name + " - edit via Settings > ZFS Toolkit\n" + c.line(expr) + "\n"
 	if old, err := os.ReadFile(c.file()); err != nil || string(old) != content {
 		if !fileWrite(c.file(), []byte(content), 0o644) {
 			return "", fmt.Errorf("cannot write %s", c.file())

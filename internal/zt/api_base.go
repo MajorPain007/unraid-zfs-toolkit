@@ -118,7 +118,7 @@ func apiOverview(p M) (M, error) {
 	return out, nil
 }
 
-var reFreeTarget = regexp.MustCompile(`(?i)^[0-9]+\s*([KMGTP]i?B?|%)$`)
+var reFreeTarget = regexp.MustCompile(`(?i)^[0-9]+\s*([KMGTP]i?B?|%)?$`)
 
 func apiSettingsSave(p M) (M, error) {
 	raw, err := pjsonMap(p, "settings")
