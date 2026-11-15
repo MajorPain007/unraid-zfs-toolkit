@@ -3,6 +3,7 @@ package zt
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"regexp"
 	"sort"
@@ -138,6 +139,8 @@ func snapSaveDatasets(l []snapDS) error {
 	return nil
 }
 
+const snapNumberMax = 99999
+
 func snapGlobal(s Settings, key string) (int, string) {
 	v := strings.TrimSpace(s.Get(key, ""))
 	if v == "" {
@@ -146,7 +149,7 @@ func snapGlobal(s Settings, key string) (int, string) {
 	if !isDigits(v) {
 		return 0, fmt.Sprintf("Invalid value for %s='%s', using 0.", key, v)
 	}
-	return digitsInt(v), ""
+	return min(digitsInt(v), snapNumberMax), ""
 }
 
 func (d snapDS) keep(s Settings, typ string) (int, string) {
@@ -166,7 +169,7 @@ func (d snapDS) keep(s Settings, typ string) (int, string) {
 		return 0, ""
 	}
 	if isDigits(v) {
-		return digitsInt(v), ""
+		return min(digitsInt(v), snapNumberMax), ""
 	}
 	return 0, fmt.Sprintf("Ignoring invalid retention '%s' for %s %s - treating it as off", v, d.Name, typ)
 }
@@ -201,7 +204,7 @@ func snapTargetBytes(spec string, total int64) (int64, bool) {
 	}
 	if strings.HasSuffix(spec, "%") {
 		n := strings.TrimSuffix(spec, "%")
-		if !isDigits(n) || total <= 0 {
+		if !isDigits(n) || total <= 0 || digitsInt(n) > 100 {
 			return 0, false
 		}
 		return total * int64(digitsInt(n)) / 100, true
@@ -212,6 +215,9 @@ func snapTargetBytes(spec string, total int64) (int64, bool) {
 	}
 	n := toInt64(m[1])
 	mult := map[string]int64{"": 1, "K": 1 << 10, "M": 1 << 20, "G": 1 << 30, "T": 1 << 40, "P": 1 << 50}[m[2]]
+	if n > math.MaxInt64/mult {
+		return 0, false
+	}
 	return n * mult, true
 }
 

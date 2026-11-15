@@ -140,6 +140,13 @@ func apiSettingsSave(p M) (M, error) {
 		}
 		changes[k] = sv
 	}
+	for _, t := range snapTypes {
+		for _, k := range []string{"snap_" + t, "snap_age_" + t} {
+			if v := strings.TrimSpace(changes[k]); v != "" && (!isDigits(v) || len(v) > 5) {
+				return nil, apiFailf("%s must be a whole number from 0 to %d.", k, snapNumberMax)
+			}
+		}
+	}
 	l := settingsLock()
 	defer l.Unlock()
 	merged := mergeSettings(loadSettings(), changes)

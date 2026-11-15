@@ -524,3 +524,39 @@ func TestSnapEngineHeldChildSnapshotKeepsTheParentOne(t *testing.T) {
 		t.Errorf("the dry run counts %d, the real run %d", dry.Pruned, e.Pruned)
 	}
 }
+
+func TestSnapHugeNumbersAreClampedAndDeleteNothing(t *testing.T) {
+	base := at("2026-04-12 10:00").Unix()
+	f := &fakeZFS{ds: []string{"c", "c/a"}}
+	for i := 1; i <= 3; i++ {
+		f.rows = append(f.rows, snapRow{Name: fmt.Sprintf("c/a@auto-hourly-2026-04-12_0%d-00", i), Creation: base - int64(10-i)*3600})
+	}
+	huge := "99999999999999999999"
+	e := engine(f, settingsOf("snap_hourly", "0", "snap_age_hourly", huge), at("2026-04-12 10:00"), snapDS{Name: "c/a", UseTemplate: true})
+	e.run()
+	if len(f.destroyed) != 0 {
+		t.Fatalf("a 20-digit age must not make every snapshot too old: %v", f.destroyed)
+	}
+	if n, _ := snapGlobal(settingsOf("snap_age_hourly", huge), "snap_age_hourly"); n != snapNumberMax {
+		t.Fatalf("clamped to %d, got %d", snapNumberMax, n)
+	}
+	d := snapDS{Name: "c/a", Daily: &huge}
+	if n, _ := d.keep(Settings{}, "daily"); n != snapNumberMax {
+		t.Fatalf("a dataset's own value is clamped too, got %d", n)
+	}
+}
+
+func TestSnapFreeTargetNeverOverflows(t *testing.T) {
+	total := int64(8) << 40
+	for _, spec := range []string{"100000000000%", "101%", "999999999999999P", "9000000000000000K"} {
+		if n, ok := snapTargetBytes(spec, total); ok {
+			t.Errorf("%s must be refused, got %d", spec, n)
+		}
+	}
+	if n, ok := snapTargetBytes("100%", total); !ok || n != total {
+		t.Errorf("100%% is the whole pool, got %d %v", n, ok)
+	}
+	if n, ok := snapTargetBytes("8191P", total); !ok || n != 8191<<50 {
+		t.Errorf("the largest whole value still works, got %d %v", n, ok)
+	}
+}

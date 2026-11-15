@@ -91,3 +91,19 @@ func TestSettingNumbersAreClampedToTheirRange(t *testing.T) {
 		}
 	}
 }
+
+func TestSettingsSaveRefusesNumbersOverTheLimit(t *testing.T) {
+	old := ConfigDir
+	ConfigDir = t.TempDir()
+	t.Cleanup(func() { ConfigDir = old })
+	for _, k := range []string{"snap_age_daily", "snap_hourly"} {
+		for _, v := range []string{"99999999999999999999", "100000", "-1", "1e5"} {
+			if _, err := apiSettingsSave(M{"settings": M{k: v}}); err == nil || !strings.Contains(err.Error(), "0 to 99999") {
+				t.Fatalf("%s=%s must be refused, got %v", k, v, err)
+			}
+		}
+	}
+	if exists(ConfigDir + "/settings.cfg") {
+		t.Fatal("nothing may be written")
+	}
+}
