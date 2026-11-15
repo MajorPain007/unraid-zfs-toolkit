@@ -440,29 +440,28 @@ func (r *convRunner) checkSpace(source string, size int64) bool {
 }
 
 func (r *convRunner) validate(ctx context.Context, src, dst string) bool {
-	r.log.info("Validating copy...")
-	a, err1 := convDirUsage(ctx, src)
-	b, err2 := convDirUsage(ctx, dst)
-	if err1 != nil || err2 != nil {
-		r.log.err("VALIDATION FAILED: cannot read both trees (%v %v)", err1, err2)
+	r.log.info("Validating copy: comparing it with the original once more...")
+	n, first := 0, ""
+	onOut := func(line string) {
+		if t := strings.TrimSpace(line); t != "" {
+			if n == 0 {
+				first = t
+			}
+			n++
+		}
+	}
+	onErr := func(line string) {
+		if t := strings.TrimSpace(line); t != "" {
+			r.log.warn("rsync: %s", t)
+		}
+	}
+	if err := convExec(ctx, onOut, onErr, convRsyncBin, "-n", "-i", "-a", "-H", "-A", "-X", "--numeric-ids", src+"/", dst+"/"); err != nil {
+		r.log.err("VALIDATION FAILED: the comparison did not finish: %s", err)
 		return false
 	}
-	r.log.info("  Source : %d entries, %d bytes", a.Entries, a.Apparent)
-	r.log.info("  Dest   : %d entries, %d bytes", b.Entries, b.Apparent)
-	if a.Entries != b.Entries {
-		r.log.err("VALIDATION FAILED: entry count mismatch (src=%d, dst=%d)", a.Entries, b.Entries)
+	if n > 0 {
+		r.log.err("VALIDATION FAILED: %d item(s) differ from the original, first: %s. Most likely something wrote to the folder while it was copied. The original is kept.", n, first)
 		return false
-	}
-	if a.Apparent > 0 {
-		diff := a.Apparent - b.Apparent
-		if diff < 0 {
-			diff = -diff
-		}
-		pct := diff * 100 / a.Apparent
-		if pct > int64(r.cfg.Tolerance) {
-			r.log.err("VALIDATION FAILED: size difference %d%% exceeds tolerance %d%% (src=%d, dst=%d)", pct, r.cfg.Tolerance, a.Apparent, b.Apparent)
-			return false
-		}
 	}
 	r.log.ok("Validation passed.")
 	return true

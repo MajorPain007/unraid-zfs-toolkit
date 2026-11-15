@@ -78,7 +78,6 @@ vm_pool=$PC
 vm_dataset=domains
 vm_forceshutdown_wait=90
 buffer_zone=11
-validation_tolerance=5
 extra_datasets=
 cron_enabled=no
 cron_preset=daily

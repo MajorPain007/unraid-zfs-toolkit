@@ -10,7 +10,7 @@ var settingKeys = []string{
 	"dry_run", "cleanup", "replace_spaces", "send_notifications", "show_in_menu", "ui_layout",
 	"should_process_containers", "appdata_pool", "appdata_dataset",
 	"should_process_vms", "vm_pool", "vm_dataset", "vm_forceshutdown_wait",
-	"buffer_zone", "validation_tolerance", "extra_datasets",
+	"buffer_zone", "extra_datasets",
 
 	"cron_enabled", "cron_preset", "cron_hour", "cron_minute", "cron_weekday", "cron_custom",
 
@@ -39,7 +39,6 @@ var settingDefaults = map[string]string{
 	"vm_dataset":                "domains",
 	"vm_forceshutdown_wait":     "90",
 	"buffer_zone":               "11",
-	"validation_tolerance":      "5",
 	"extra_datasets":            "",
 	"cron_enabled":              "no",
 	"cron_preset":               "daily",

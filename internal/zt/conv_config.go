@@ -29,7 +29,6 @@ type convConfig struct {
 	Notify        bool
 	VMWait        int
 	Buffer        int
-	Tolerance     int
 	Sources       []convSource
 	Problems      []string
 }
@@ -44,7 +43,6 @@ func convConfigFrom(s Settings) convConfig {
 		Notify:        s.Yes("send_notifications"),
 		VMWait:        s.Clamp("vm_forceshutdown_wait", 90, 10, 600),
 		Buffer:        s.Clamp("buffer_zone", 11, 0, 100),
-		Tolerance:     s.Clamp("validation_tolerance", 5, 0, 20),
 	}
 	seen := map[string]bool{}
 	add := func(ds, kind, label string) {

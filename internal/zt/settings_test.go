@@ -68,7 +68,6 @@ func TestSettingNumbersAreClampedToTheirRange(t *testing.T) {
 		{"snap_min_free_pct", 5, 0, 90, snapMinFreePct},
 		{"vm_forceshutdown_wait", 90, 10, 600, func(s Settings) int { return convConfigFrom(s).VMWait }},
 		{"buffer_zone", 11, 0, 100, func(s Settings) int { return convConfigFrom(s).Buffer }},
-		{"validation_tolerance", 5, 0, 20, func(s Settings) int { return convConfigFrom(s).Tolerance }},
 	}
 	for _, r := range reads {
 		cases := map[string]int{

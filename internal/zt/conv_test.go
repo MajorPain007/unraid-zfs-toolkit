@@ -177,7 +177,7 @@ func TestConvConfig(t *testing.T) {
 	if len(c.Problems) != 1 {
 		t.Errorf("problems: %v", c.Problems)
 	}
-	if c.Buffer != 100 || c.Tolerance != 5 || c.VMWait != 90 {
+	if c.Buffer != 100 || c.VMWait != 90 {
 		t.Errorf("clamps: %+v", c)
 	}
 	if !c.DryRun {
@@ -209,7 +209,7 @@ func recoverFixture(t *testing.T, copy map[string]int) (*convRunner, string) {
 	ZfsBin, convJournalPath = d+"/zfs", d+"/journal"
 	t.Cleanup(func() { ZfsBin, convJournalPath = oldZfs, oldJournal })
 	convWriteJournal(convJournal{Source: "cache/appdata", Entry: "app", Name: "app", Temp: temp})
-	return &convRunner{cfg: convConfig{Tolerance: 5, Cleanup: true}, ctx: context.Background(), log: &convLog{}}, temp
+	return &convRunner{cfg: convConfig{Cleanup: true}, ctx: context.Background(), log: &convLog{}}, temp
 }
 
 func TestConvRecoverKeepsOriginalOfCutCopy(t *testing.T) {

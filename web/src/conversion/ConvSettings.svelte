@@ -44,8 +44,6 @@
     }
     const b = intProblem(f.buffer_zone, 0, 100, 'Buffer zone');
     if (b) out.push(b);
-    const t = intProblem(f.validation_tolerance, 0, 20, 'Validation tolerance');
-    if (t) out.push(t);
     if (f.cron_enabled === 'yes' && f.cron_preset === 'custom') {
       const c = cronProblem(f.cron_custom);
       if (c) out.push('Schedule: ' + c);
@@ -199,9 +197,6 @@
     <div class="zt-fields cv-numbers">
       <Field label="Buffer zone" hint="Free space needed on top of the folder size.">
         <div class="zt-inline"><input type="number" min="0" max="100" bind:value={f.buffer_zone} /> %</div>
-      </Field>
-      <Field label="Validation tolerance" hint="Allowed size difference between original and copy.">
-        <div class="zt-inline"><input type="number" min="0" max="20" bind:value={f.validation_tolerance} /> %</div>
       </Field>
     </div>
   </div>

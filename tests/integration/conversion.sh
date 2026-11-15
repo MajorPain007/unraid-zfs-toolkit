@@ -11,8 +11,10 @@ export ZDC_DOCKER="$WORK/bin/docker" ZDC_VIRSH="$WORK/bin/virsh" ZDC_RSYNC="$WOR
 cat > "$WORK/bin/rsync" <<EOF
 #!/bin/bash
 src="\${@: -2:1}"; dst="\${@: -1}"
+case " \$* " in *" -n "*) exec /usr/bin/rsync "\$@" ;; esac
 echo "rsync \$dst" >> "$CALLS"
 case "\$(cat "\$(dirname "\$0")/mode" 2>/dev/null)" in
+  changed) /usr/bin/rsync "\$@"; rc=\$?; f=\$(find "\$src" -type f | sort | head -1); printf Z | dd of="\$f" bs=1 count=1 conv=notrunc 2>/dev/null; touch -d "+1 hour" "\$f"; exit \$rc ;;
   fail)    /usr/bin/rsync -a --exclude=b.txt "\$src" "\$dst"; exit 23 ;;
   partial) /usr/bin/rsync -a --exclude=b.txt "\$src" "\$dst"; exit 0 ;;
   slow)    sleep 60; exit 0 ;;
@@ -80,7 +82,7 @@ called() { grep -qxF -- "$1" "$CALLS"; }
 order() { local a b; a=$(grep -nxF -- "$1" "$CALLS" | head -1 | cut -d: -f1); b=$(grep -nxF -- "$2" "$CALLS" | head -1 | cut -d: -f1); [ -n "$a" ] && [ -n "$b" ] && [ "$a" -lt "$b" ]; }
 
 settings() {
-    printf 'dry_run=%s\ncleanup=yes\nreplace_spaces=%s\nshould_process_containers=yes\nappdata_pool=%s\nappdata_dataset=appdata\nshould_process_vms=%s\nvm_pool=%s\nvm_dataset=domains\nvm_forceshutdown_wait=10\nbuffer_zone=%s\nvalidation_tolerance=5\nextra_datasets=%s\nsend_notifications=no\n' \
+    printf 'dry_run=%s\ncleanup=yes\nreplace_spaces=%s\nshould_process_containers=yes\nappdata_pool=%s\nappdata_dataset=appdata\nshould_process_vms=%s\nvm_pool=%s\nvm_dataset=domains\nvm_forceshutdown_wait=10\nbuffer_zone=%s\nextra_datasets=%s\nsend_notifications=no\n' \
         "${DRY:-no}" "${1:-no}" "$C" "${VMS:-no}" "$C" "${BUFFER:-11}" "${EXTRA:-}" > "$ZDC_CONFIG_DIR/settings.cfg"
 }
 status_pid() { jq -r .pid "$ZDC_TMP_DIR/status.json"; }
@@ -131,7 +133,7 @@ check "Replace spaces renames the dataset, not the folder" \
       'zfs list "$C/appdata/TV_Shows" >/dev/null 2>&1 && mounted_at "$A/TV Shows"'
 
 group "A conversion that fails is undone"
-for mode in fail partial; do
+for mode in fail partial changed; do
     fresh_appdata; mkdir -p "$A/app"; echo a > "$A/app/a.txt"; echo b > "$A/app/b.txt"
     rsync_mode "$mode"; convert >/dev/null
     check "rsync $mode: the folder is back, whole, and no dataset is left" \
