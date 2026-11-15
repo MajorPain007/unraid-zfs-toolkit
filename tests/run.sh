@@ -53,6 +53,24 @@ for base in $(grep -ho 'Base: *Name *+ *"[^"]*"\|Base: *Name,' internal/zt/cront
     fi
 done
 echo "  PASS the uninstall block knows every cron file"
+if grep -q 'rm -f &configDir;/\*\.cron' src/zfs.toolkit.plg; then
+    echo "  PASS the uninstall block deletes the plugin's .cron files"
+else
+    echo "  FAIL the uninstall block does not delete &configDir;/*.cron - the schedules would outlive the plugin"
+    fail=1
+fi
+ver=$(sed -n 's/^<!ENTITY version *"\([^"]*\)">.*/\1/p' src/zfs.toolkit.plg)
+md5=$(sed -n 's/^<!ENTITY md5 *"\([^"]*\)">.*/\1/p' src/zfs.toolkit.plg)
+pkg="archive/zfs.toolkit-${ver}-x86_64-1.txz"
+if [ ! -f "$pkg" ]; then
+    echo "  FAIL $pkg is missing - the manifest points to a package that is not in the repository"
+    fail=1
+elif [ "$( (md5sum "$pkg" 2>/dev/null || md5 -r "$pkg") | cut -d' ' -f1)" != "$md5" ]; then
+    echo "  FAIL the md5 in the manifest does not match $pkg - installs would be refused"
+    fail=1
+else
+    echo "  PASS the manifest's md5 matches $pkg"
+fi
 for s in src/event/*; do
     bash -n "$s" || fail=1
 done

@@ -370,3 +370,16 @@ func TestRestoreSymlinkOntoSymlinkedFolderRefused(t *testing.T) {
 		t.Errorf("a link restored onto a link to a file is refused: %v", out)
 	}
 }
+
+func TestRestorePreviewSkipsZfsDir(t *testing.T) {
+	root := t.TempDir()
+	src, live := root+"/snap", root+"/live"
+	os.MkdirAll(src+"/.zfs/snapshot/s1", 0o755)
+	os.MkdirAll(live, 0o755)
+	os.WriteFile(src+"/.zfs/snapshot/s1/f", []byte("x"), 0o644)
+	os.WriteFile(src+"/a", []byte("a"), 0o644)
+	st := restorePreview(&restoreJob{Overwrite: "changed", Items: []restoreItem{{Src: src, Into: live, Type: "dir"}}}, time.Minute, 1000)
+	if st.Files != 1 || st.New != 1 {
+		t.Errorf(".zfs inside a restored folder must not be walked: %+v", st)
+	}
+}

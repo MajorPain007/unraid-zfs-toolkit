@@ -560,3 +560,13 @@ func TestSnapFreeTargetNeverOverflows(t *testing.T) {
 		t.Errorf("the largest whole value still works, got %d %v", n, ok)
 	}
 }
+
+func TestSnapPruneSelectAgeBoundary(t *testing.T) {
+	rows := rowsOf("c/a", "auto-hourly-1", "auto-hourly-2")
+	if del, _, _ := snapPruneSelect(rows, "hourly", 0, 1, 1000+86400); len(del) != 0 {
+		t.Errorf("a snapshot exactly max_age old is kept: %v", del)
+	}
+	if del, _, _ := snapPruneSelect(rows, "hourly", 0, 1, 1001+86400); len(del) != 1 || del[0].snap() != "auto-hourly-1" {
+		t.Errorf("one second older is pruned: %v", del)
+	}
+}
