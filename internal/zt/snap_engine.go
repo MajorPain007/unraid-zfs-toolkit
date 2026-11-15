@@ -520,7 +520,7 @@ func (e *snapEngine) run() error {
 		}
 		if !have[d.Name] {
 			e.errf("Dataset does not exist: %s", d.Name)
-			e.errf("Available ZFS datasets: %s", snapShortList(avail, 40))
+			e.logf("Available ZFS datasets: %s", snapShortList(avail, 40))
 			continue
 		}
 		keeps, warns := d.keeps(e.s)

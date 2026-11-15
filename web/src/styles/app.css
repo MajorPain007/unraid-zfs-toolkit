@@ -115,6 +115,8 @@
 #zt-app .zt-sub {
     color: var(--zt-dim);
     font-size: 13px;
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 #zt-app .zt-tabs {

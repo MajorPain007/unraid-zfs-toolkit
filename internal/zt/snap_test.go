@@ -343,7 +343,7 @@ func TestSnapEngineErrors(t *testing.T) {
 	f := &fakeZFS{ds: []string{"c", "c/a"}, failOn: "hourly"}
 	e := engine(f, settingsOf("snap_hourly", "2"), at("2026-04-12 10:30"), snapDS{Name: "c/a", UseTemplate: true}, snapDS{Name: "c/missing", UseTemplate: true}, snapDS{Name: "c/Bad(name)", UseTemplate: true})
 	e.run()
-	if e.Errors != 4 || !strings.Contains(e.LastError, "boom") {
+	if e.Errors != 3 || !strings.Contains(e.LastError, "boom") {
 		t.Errorf("errors=%d last=%s", e.Errors, e.LastError)
 	}
 }

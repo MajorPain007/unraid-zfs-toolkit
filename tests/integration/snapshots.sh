@@ -197,7 +197,8 @@ exec 8>&-
 group "Errors"
 datasets "{\"name\":\"$C/gone\",\"use_template\":true}"
 tick
-check "missing dataset is an error with the available list" '[ "$(jget errors)" = 2 ] && grep -q "Available ZFS datasets: .*$C/app" "$LOG"'
+check "missing dataset is an error with the available list" '[ "$(jget errors)" = 1 ] && grep -q "Available ZFS datasets: .*$C/app" "$LOG"'
+check "...and the last error names the missing dataset, not the list" 'grep -q "\"last_error\": \"Dataset does not exist: $C/gone\"" "$STATUS"' "$(grep last_error "$STATUS")"
 printf '{"datasets":[' > "$DSJ"
 tick
 check "broken dataset list is reported" '[ "$(jget errors)" = 1 ] && grep -q "not valid JSON" "$LOG"'

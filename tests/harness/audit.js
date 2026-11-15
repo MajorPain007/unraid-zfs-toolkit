@@ -76,6 +76,16 @@ window.ztAudit = async function () {
         return true;
     };
 
+    const sub = document.querySelector('#zt-app .zt-status-line .zt-sub');
+    if (sub && sub.firstChild) {
+        const before = sub.firstChild.data;
+        sub.firstChild.data = 'Dataset does not exist: ' + 'cache/' + 'a'.repeat(200);
+        await wait(100);
+        check('header with a 200-character name');
+        sub.firstChild.data = before;
+    } else {
+        report.push('header: no status text, the long-name check did not run');
+    }
     await tab('Snapshots');
     for (const [text, label] of [['Edit', 'schedule & retention'], ['Add dataset', 'add dataset']]) {
         if (await open(text, label)) {
