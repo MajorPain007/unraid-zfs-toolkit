@@ -89,7 +89,7 @@ func restoreUpdate(id string, fn func(j *restoreJob) bool) (*restoreJob, bool) {
 		return nil, false
 	}
 	if fn(j) {
-		jsonWrite(restorePath(id, ".json"), j, 0o644)
+		jsonWrite(restorePath(id, ".json"), j)
 	}
 	return j, true
 }
@@ -556,7 +556,7 @@ func apiRestoreStart(p M) (M, error) {
 	job.Created = now()
 	job.Nano = time.Now().UnixNano()
 	job.State = "queued"
-	if !jsonWrite(restorePath(job.ID, ".json"), job, 0o644) {
+	if !jsonWrite(restorePath(job.ID, ".json"), job) {
 		return nil, apiFail("Cannot write the restore job to " + restoreDir() + ".")
 	}
 	restoreSpawn("restore-run", job.ID)

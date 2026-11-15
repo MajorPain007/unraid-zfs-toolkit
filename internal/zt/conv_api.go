@@ -220,7 +220,7 @@ func convStop() (bool, string) {
 		runCmd(10*time.Second, "pkill", "-TERM", "-P", strconv.Itoa(st.PID))
 		if m, ok := jsonRead(convStatusPath); ok {
 			m["status"] = "stopped"
-			jsonWrite(convStatusPath, m, 0o644)
+			jsonWrite(convStatusPath, m)
 		}
 	}
 	return true, fmt.Sprintf("Stop sent to PID %d.", st.PID)

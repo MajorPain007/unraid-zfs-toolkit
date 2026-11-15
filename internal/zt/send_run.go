@@ -85,7 +85,7 @@ func sendPlanJob(ctx context.Context, j sendJob) *sendPlan {
 			p.add("err", "%s", err.Error())
 			return p
 		}
-		t := sendExec(ctx, 30*time.Second, nil, sendSSHBin, append(ssh, "true")...)
+		t := sendExec(ctx, 30*time.Second, sendSSHBin, append(ssh, "true")...)
 		if !t.OK() {
 			msg := t.Message()
 			if x := sendSSHExplain(msg); x != "" {
@@ -150,9 +150,9 @@ func sendPlanJob(ctx context.Context, j sendJob) *sendPlan {
 	}
 	if j.remote() {
 		ssh, _ := j.sshArgs()
-		sendExec(ctx, time.Minute, nil, sendSSHBin, append(ssh, sendRemoteCommand("zpool", "sync", pool))...)
+		sendExec(ctx, time.Minute, sendSSHBin, append(ssh, sendRemoteCommand("zpool", "sync", pool))...)
 	} else {
-		sendExec(ctx, time.Minute, nil, ZpoolBin, "sync", pool)
+		sendExec(ctx, time.Minute, ZpoolBin, "sync", pool)
 	}
 	wargs := []string{"get", "-H", "-p", "-o", "name,value", "-t", "filesystem,volume"}
 	if j.Recursive {
@@ -366,7 +366,7 @@ func (r *sendRunner) save() {
 		}
 	}
 	os.MkdirAll(TmpDir, 0o755)
-	jsonWrite(sendStatusFile(), r.st, 0o644)
+	jsonWrite(sendStatusFile(), r.st)
 }
 
 func sendStdoutIsLog() bool {

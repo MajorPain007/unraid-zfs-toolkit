@@ -23,7 +23,7 @@ var (
 	errSendCancel = errors.New("cancelled")
 )
 
-func sendExec(ctx context.Context, timeout time.Duration, stdin io.Reader, name string, args ...string) result {
+func sendExec(ctx context.Context, timeout time.Duration, name string, args ...string) result {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -36,7 +36,6 @@ func sendExec(ctx context.Context, timeout time.Duration, stdin io.Reader, name 
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	cmd.Cancel = func() error { return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) }
 	cmd.WaitDelay = 5 * time.Second
-	cmd.Stdin = stdin
 	var out, errb bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &errb
@@ -106,17 +105,17 @@ func (j sendJob) sshArgs() ([]string, error) {
 
 func (j sendJob) destZfs(ctx context.Context, timeout time.Duration, args ...string) result {
 	if !j.remote() {
-		return sendExec(ctx, timeout, nil, ZfsBin, args...)
+		return sendExec(ctx, timeout, ZfsBin, args...)
 	}
 	ssh, err := j.sshArgs()
 	if err != nil {
 		return result{Code: -1, Stderr: err.Error()}
 	}
-	return sendExec(ctx, timeout, nil, sendSSHBin, append(ssh, sendRemoteCommand(append([]string{sendRemoteZfs}, args...)...))...)
+	return sendExec(ctx, timeout, sendSSHBin, append(ssh, sendRemoteCommand(append([]string{sendRemoteZfs}, args...)...))...)
 }
 
 func srcZfs(ctx context.Context, timeout time.Duration, args ...string) result {
-	return sendExec(ctx, timeout, nil, ZfsBin, args...)
+	return sendExec(ctx, timeout, ZfsBin, args...)
 }
 
 func sendParseSnaps(r result) []sendSnap {

@@ -91,7 +91,7 @@ func convClassify(in convPlanInput) []convSourceScan {
 				sc.Folders = append(sc.Folders, f)
 				continue
 			}
-			convJudge(in, &f, mp, sc.Avail, claimed)
+			convJudge(in, &f, sc.Avail, claimed)
 			sc.Folders = append(sc.Folders, f)
 		}
 		out = append(out, sc)
@@ -99,7 +99,7 @@ func convClassify(in convPlanInput) []convSourceScan {
 	return out
 }
 
-func convJudge(in convPlanInput, f *convFolder, mp string, avail int64, claimed map[string]string) {
+func convJudge(in convPlanInput, f *convFolder, avail int64, claimed map[string]string) {
 	block := func(state, reason, why string) {
 		f.State, f.Reason, f.Why = state, reason, why
 	}

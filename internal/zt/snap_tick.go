@@ -124,7 +124,7 @@ func snapNotifyLimited(key, subject, text, level string, every time.Duration) {
 	}
 	if notify(subject, text, level) {
 		seen[key] = now()
-		jsonWrite(snapNotifyFile(), seen, 0o644)
+		jsonWrite(snapNotifyFile(), seen)
 	}
 }
 
@@ -207,7 +207,7 @@ func snapTick(args []string) int {
 	}
 	defer lock.Unlock()
 	if !dry {
-		jsonWrite(snapRunningFile(), M{"pid": os.Getpid(), "started": start.Unix(), "forced": forceNow}, 0o644)
+		jsonWrite(snapRunningFile(), M{"pid": os.Getpid(), "started": start.Unix(), "forced": forceNow})
 		defer os.Remove(snapRunningFile())
 	}
 	s := loadSettings()
@@ -237,7 +237,7 @@ func snapTick(args []string) int {
 			Ended:     time.Now().Unix(),
 			Warnings:  snapLastN(e.Warnings, 20),
 		}
-		jsonWrite(snapStatusFile(), st, 0o644)
+		jsonWrite(snapStatusFile(), st)
 		fileWrite(snapLastFile(), []byte(st.LastRun+"\n"), 0o644)
 		snapInvalidate()
 		e.notifyErrors()

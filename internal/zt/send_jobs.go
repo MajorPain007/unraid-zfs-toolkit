@@ -163,7 +163,7 @@ func sendWriteJobs(jobs []sendJob) error {
 		jobs = []sendJob{}
 	}
 	os.MkdirAll(ConfigDir, 0o755)
-	if !jsonWrite(sendJobsFile(), M{"jobs": jobs}, 0o644) {
+	if !jsonWrite(sendJobsFile(), M{"jobs": jobs}) {
 		return apiFailf("Cannot write %s", sendJobsFile())
 	}
 	return nil

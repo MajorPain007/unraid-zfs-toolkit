@@ -103,7 +103,7 @@ func snapStatsCached(cfg []snapDS) snapStats {
 		return st
 	}
 	st = snapCollectStats(cfg, key)
-	jsonWrite(snapCacheFile(), st, 0o644)
+	jsonWrite(snapCacheFile(), st)
 	return st
 }
 

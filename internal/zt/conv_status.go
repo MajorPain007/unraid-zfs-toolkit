@@ -66,7 +66,7 @@ func (w *convStatusWriter) update(force bool, fn func(st *convStatusFile)) {
 		return
 	}
 	w.last = time.Now()
-	jsonWrite(convStatusPath, w.st, 0o644)
+	jsonWrite(convStatusPath, w.st)
 }
 
 func convReadStatus() (convStatusFile, bool) {
@@ -149,7 +149,7 @@ func convAppendHistory(e convHistoryEntry) {
 	if len(runs) > 40 {
 		runs = runs[:40]
 	}
-	jsonWrite(convHistoryPath, M{"runs": runs}, 0o644)
+	jsonWrite(convHistoryPath, M{"runs": runs})
 }
 
 func convJournalPending() (convJournal, bool) {

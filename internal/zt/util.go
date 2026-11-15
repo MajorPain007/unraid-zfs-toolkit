@@ -83,8 +83,8 @@ func jsonEncode(v any, pretty bool) []byte {
 	return buf.Bytes()
 }
 
-func jsonWrite(path string, v any, mode os.FileMode) bool {
-	return fileWrite(path, jsonEncode(v, true), mode)
+func jsonWrite(path string, v any) bool {
+	return fileWrite(path, jsonEncode(v, true), 0o644)
 }
 
 func fileWrite(path string, data []byte, mode os.FileMode) bool {

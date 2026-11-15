@@ -28,6 +28,5 @@ export interface Overview {
   settings: Record<string, string>;
   cron: { conversion: CronState; snapshots: CronState; replication: CronState };
   array: boolean;
-  now: number;
   [part: string]: any;
 }

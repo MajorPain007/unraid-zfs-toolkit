@@ -94,7 +94,6 @@ func apiOverview(p M) (M, error) {
 			"replication": cronJobs[2].state(),
 		},
 		"array": arrayStarted(),
-		"now":   now(),
 	}
 	var mu sync.Mutex
 	var wg sync.WaitGroup
