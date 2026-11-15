@@ -273,6 +273,9 @@ func convCLI(args []string) int {
 
 func convAuto() int {
 	os.MkdirAll(TmpDir, 0o755)
+	if arrayDown() {
+		return 0
+	}
 	logTrim(convCronLog, 256*1024)
 	say := func(s string) { fmt.Println("[" + dateTime(time.Now()) + "] " + s) }
 	if !zfsReady() {
@@ -440,6 +443,9 @@ func apiConvertStatus(p M) (M, error) {
 }
 
 func apiConvertStart(p M) (M, error) {
+	if arrayDown() {
+		return nil, apiFail("The array is not started, or it is stopping.")
+	}
 	if st, running := convRunning(); running {
 		return nil, apiFailf("A conversion is already running (PID %d).", st.PID)
 	}

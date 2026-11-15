@@ -401,6 +401,10 @@ func (r *convRunner) restoreServices() {
 				r.log.err("%s %s stays stopped: its folder %s could not be put back.", label, s.svc.Name, f)
 				continue
 			}
+			if arrayStopping() {
+				r.log.warn("The array is stopping: %s %s is not started again.", strings.ToLower(label), s.svc.Name)
+				continue
+			}
 			if r.dry() {
 				r.log.info("Dry run: would restart %s %s", strings.ToLower(label), s.svc.Name)
 				continue

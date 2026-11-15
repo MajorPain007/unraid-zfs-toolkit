@@ -142,6 +142,20 @@ st=$("$ZT" api send_jobs "{}")
 check "stop ends the run" '[ "$(echo "$st" | jget "d[\"state\"][\"running\"]")" = False ] && [ "$(echo "$st" | jget "d[\"state\"][\"jobs\"][\"big\"][\"last\"][\"status\"]")" = cancelled ]' "$out $st"
 check "no zfs send or recv is left running" '! pgrep -f "zfs (send|recv).*big" >/dev/null'
 check "the unfinished checkpoint is removed and no partial copy remains" '[ "$(ncp "$C/big" big)" = 0 ] && ! zfs list "$B/replica/big" >/dev/null 2>&1' "$(zfs list -t all -r "$B/replica" 2>&1 | grep big)"
+api send_run '{"job":"big"}' >/dev/null
+for _ in $(seq 1 100); do
+    b=$("$ZT" api send_jobs "{}" | jget '(d["state"]["progress"] or {}).get("bytes",0)')
+    [ "${b:-0}" -gt 0 ] && break
+    sleep 0.2
+done
+t0=$SECONDS; "$ZT" stop-all 30 >/dev/null; rc=$?
+st=$("$ZT" api send_jobs "{}")
+check "stop-all for the array stop ends a running replication" '[ "$rc" = 0 ] && [ $((SECONDS - t0)) -le 15 ] && [ "$(echo "$st" | jget "d[\"state\"][\"running\"]")" = False ] && ! pgrep -f "zfs (send|recv).*big" >/dev/null' "$st"
+out=$(api send_run '{"job":"big"}')
+check "while the array stops, Run now is refused with the reason" 'echo "$out" | grep -q "stopping"' "$out"
+touch -d "-11 minutes" "$ZDC_TMP_DIR/array_stopping"
+check "a stop mark older than ten minutes no longer holds anything back" '! "$ZT" send-run --dry-run big 2>&1 | grep -q "nothing is replicated"'
+rm -f "$ZDC_TMP_DIR/array_stopping"
 zfs destroy -r "$C/big"
 
 group "Over SSH to localhost"
@@ -178,6 +192,14 @@ group "Overview"
 jobs_json "$(job a "$C/appdata" "$B/replica/appdata" ',"recursive":true'),$(job off "$C/appdata" "$B/replica/x" ',"enabled":false')"
 out=$("$ZT" api overview "{}")
 check "the overview part counts enabled jobs and reports the last failure" '[ "$(echo "$out" | jget "d[\"replication\"][\"count\"]")" = 1 ] && [ "$(echo "$out" | jget "d[\"replication\"][\"status\"][\"level\"]")" = err ]' "$(echo "$out" | jget 'd["replication"]["status"]')"
+
+group "The array is stopped"
+jobs_json "$(job a "$C/appdata" "$B/replica/appdata" ',"recursive":true')"
+before=$(ncp "$C/appdata" a)
+sed -i 's/mdState="STARTED"/mdState="STOPPED"/' "$ZDC_VAR_INI"
+: > "$LOG"; "$ZT" send-run >"$WORK/out.txt" 2>&1; rc=$?
+check "send-run does nothing with the array stopped and reports no error" '[ "$rc" = 0 ] && [ "$(ncp "$C/appdata" a)" = "$before" ] && ! grep -q ERROR "$LOG"' "$(cat "$WORK/out.txt")"
+sed -i 's/mdState="STOPPED"/mdState="STARTED"/' "$ZDC_VAR_INI"
 
 group "Clock going back"
 zfs create "$C/clock"

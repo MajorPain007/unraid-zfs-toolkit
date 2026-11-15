@@ -185,6 +185,11 @@ check "the stopped restore wrote nothing" '[ ! -e "/mnt/$B/stopped/dir/a.txt" ]'
 check "no rsync is left behind" '! pgrep -f slowrsync >/dev/null'
 check "the overview warns about the stopped restore" '[ "$(api overview | j .browse.status.level)" = warn ]'
 api restore_dismiss "{\"id\":\"$id\"}" >/dev/null
+out=$(ZDC_RSYNC="$WORK/bin/slowrsync" api restore_start "{\"dataset\":\"$D\",\"snapshot\":\"s1\",\"items\":[\"/dir\"],\"target\":\"path\",\"target_path\":\"/mnt/$B/arraystop\"}")
+id2=$(echo "$out" | j .id); sleep 1.5
+t0=$SECONDS; "$ZT" stop-all 30 >/dev/null; rc=$?
+check "stop-all ends a running restore" '[ "$rc" = 0 ] && [ "$(wait_restore "$id2")" = cancelled ] && [ $((SECONDS - t0)) -le 10 ] && ! pgrep -f slowrsync >/dev/null'
+rm -f "$ZDC_TMP_DIR/array_stopping"; api restore_dismiss "{\"id\":\"$id2\"}" >/dev/null
 check "dismissing it clears the warning" '[ "$(api overview | j .browse.status.level)" = ok ]'
 fake="20200101-000000-abcd"
 printf '{"id":"%s","state":"running","pid":999999,"created":1,"items":[]}' "$fake" > "$ZDC_TMP_DIR/restores/$fake.json"

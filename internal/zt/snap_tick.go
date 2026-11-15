@@ -171,6 +171,9 @@ func snapTick(args []string) int {
 		}
 	}
 	os.MkdirAll(TmpDir, 0o755)
+	if arrayDown() {
+		return 0
+	}
 	if background {
 		rest := []string{}
 		for _, a := range args {

@@ -167,6 +167,26 @@ check "after convert_stop the folder is back and the container runs" \
       '[ -f "$A/app/a.txt" ] && ! zfs list "$C/appdata/app" >/dev/null 2>&1 && [ ! -e "$A/app_temp" ] && [ "$(cat "$DK/appc.state")" = running ]'
 rsync_mode normal
 
+group "The array stop"
+fresh_appdata; mkdir -p "$A/app"; echo a > "$A/app/a.txt"; echo b > "$A/app/b.txt"
+container appc "$A/app/config"
+rsync_mode slow; pid=$(convert no nowait); sleep 2
+t0=$SECONDS; "$ZT" stop-all 30 >/dev/null; rc=$?; wait_pid "$pid"
+check "stop-all ends a conversion within seconds" '[ "$rc" = 0 ] && [ $((SECONDS - t0)) -le 10 ]'
+check "...the folder is back and the dataset gone" \
+      '[ -f "$A/app/b.txt" ] && ! zfs list "$C/appdata/app" >/dev/null 2>&1 && [ ! -e "$A/app_temp" ]'
+check "...and the container it stopped is not started while the array stops" 'called "docker stop appc" && ! called "docker start appc"'
+rsync_mode normal
+fresh_appdata; mkdir -p "$A/later"; echo l > "$A/later/l.txt"
+sed -i 's/mdState="STARTED"/mdState="STOPPED"/' "$ZDC_VAR_INI"; rm -f "$ZDC_TMP_DIR/array_stopping"
+settings no; out=$(PATH="$WORK/bin:$PATH" "$ZT" convert --auto 2>&1); rc=$?
+check "with the array stopped the scheduled conversion does nothing and reports no error" \
+      '[ "$rc" = 0 ] && [ -z "$out" ] && ! zfs list "$C/appdata/later" >/dev/null 2>&1'
+sed -i 's/mdState="STOPPED"/mdState="STARTED"/' "$ZDC_VAR_INI"
+touch "$ZDC_TMP_DIR/array_stopping"; PATH="$WORK/bin:$PATH" "$ZT" convert --auto >/dev/null 2>&1
+check "...nor while the array is stopping" '! zfs list "$C/appdata/later" >/dev/null 2>&1'
+rm -f "$ZDC_TMP_DIR/array_stopping"
+
 group "Docker and VMs"
 fresh_appdata
 zfs create "$C/appdata/done"; mkdir -p "$A/plex/config" "$A/sonarr"; echo p > "$A/plex/config/x"; echo s > "$A/sonarr/x"

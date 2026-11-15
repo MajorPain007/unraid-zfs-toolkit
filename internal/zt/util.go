@@ -173,6 +173,19 @@ func arrayStarted() bool {
 	return ini["mdState"] == "STARTED" && ini["fsState"] == "Started" && ini["startMode"] != "Maintenance"
 }
 
+func arrayStoppingFile() string {
+	return TmpDir + "/array_stopping"
+}
+
+func arrayStopping() bool {
+	st, err := os.Stat(arrayStoppingFile())
+	return err == nil && time.Since(st.ModTime()) < 10*time.Minute
+}
+
+func arrayDown() bool {
+	return !arrayStarted() || arrayStopping()
+}
+
 func serverName() string {
 	if n := varIni()["NAME"]; n != "" {
 		return n

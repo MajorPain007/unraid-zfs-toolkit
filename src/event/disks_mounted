@@ -1,4 +1,5 @@
 #!/bin/bash
 mkdir -p /tmp/zfs.toolkit
+rm -f /tmp/zfs.toolkit/array_stopping
 /usr/local/emhttp/plugins/zfs.toolkit/bin/zfs-toolkit cron-sync >/dev/null 2>&1
 exit 0

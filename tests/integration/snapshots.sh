@@ -102,6 +102,13 @@ zfs destroy -r "$C/fam"
 settings snap_hourly=1
 datasets "{\"name\":\"$C/ret\",\"recursive\":false,\"use_template\":true}"
 
+group "The array is stopped"
+sed -i 's/mdState="STARTED"/mdState="STOPPED"/' "$ZDC_VAR_INI"
+before=$(nsnaps "$C/ret"); : > "$LOG"
+"$ZT" snapshot-tick --all >> "$LOG" 2>&1; rc=$?
+check "snapshot-tick does nothing with the array stopped and reports no error" '[ "$rc" = 0 ] && [ "$(nsnaps "$C/ret")" = "$before" ] && ! grep -q ERROR "$LOG"' "$(cat "$LOG")"
+sed -i 's/mdState="STOPPED"/mdState="STARTED"/' "$ZDC_VAR_INI"
+
 group "Dry run and preview"
 for i in 01 02 03; do zfs snapshot "$C/ret@auto-hourly-2026-02-01_$i-00"; done
 before=$(nsnaps "$C/ret")

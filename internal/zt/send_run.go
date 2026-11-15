@@ -693,6 +693,10 @@ func sendRun(args []string) int {
 	if test {
 		return sendRunTest(ids)
 	}
+	if arrayDown() {
+		fmt.Println("The array is not started, or it is stopping - nothing is replicated.")
+		return 0
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 	defer stop()
 	r := &sendRunner{ctx: ctx, dry: dry, force: force && len(ids) > 0, start: time.Now(), toOut: !sendStdoutIsLog()}

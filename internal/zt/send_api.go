@@ -222,6 +222,9 @@ func sendIDsParam(p M) ([]string, error) {
 }
 
 func apiSendRun(p M) (M, error) {
+	if arrayDown() {
+		return nil, apiFail("The array is not started, or it is stopping.")
+	}
 	if sendReadStatus().Running {
 		return nil, apiFail("A replication run is already in progress")
 	}

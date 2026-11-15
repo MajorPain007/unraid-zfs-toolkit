@@ -404,6 +404,9 @@ func apiSnapCreate(p M) (M, error) {
 }
 
 func apiSnapRun(p M) (M, error) {
+	if arrayDown() {
+		return nil, apiFail("The array is not started, or it is stopping.")
+	}
 	if !zfsReady() {
 		return nil, apiFail("ZFS is not available or no pool is imported.")
 	}

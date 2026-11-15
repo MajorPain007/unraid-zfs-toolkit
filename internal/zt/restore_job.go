@@ -541,6 +541,9 @@ func apiRestorePreview(p M) (M, error) {
 }
 
 func apiRestoreStart(p M) (M, error) {
+	if arrayDown() {
+		return nil, apiFail("The array is not started, or it is stopping.")
+	}
 	job, err := restorePlan(p)
 	if err != nil {
 		return nil, err
