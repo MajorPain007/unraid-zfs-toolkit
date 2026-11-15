@@ -179,6 +179,15 @@ func restoreMounts(into string) []string {
 	return out
 }
 
+func restoreOtherDataset(mount, into string) string {
+	for _, m := range mountInfo("self") {
+		if m.Point != mount && under(m.Point, mount) && under(into, m.Point) {
+			return m.Source
+		}
+	}
+	return ""
+}
+
 func restorePlan(p M) (*restoreJob, error) {
 	b, err := brOpen(p)
 	if err != nil {
@@ -265,6 +274,9 @@ func restorePlan(p M) (*restoreJob, error) {
 			into = brJoin(b.Mount, rel)
 			if l := brLiveLink(b.Mount, brParent(rel)); l != "" {
 				return nil, apiFailf("%s is a symbolic link in the live data. Restoring through it could write outside the dataset - restore into another folder instead.", l)
+			}
+			if ds := restoreOtherDataset(b.Mount, into); ds != "" {
+				return nil, apiFailf("%s belongs to its own dataset %s. Restore it from that dataset's snapshots, or into another folder.", rel, ds)
 			}
 		} else {
 			name := brBase(rel)

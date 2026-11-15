@@ -143,6 +143,15 @@ st=$(restore "{\"dataset\":\"$D\",\"snapshot\":\"s1\",\"items\":[\"/\"],\"delete
 check "restoring the whole dataset in place with delete finishes" '[ "$st" = done ]' "$st"
 check "it removed files added since" '[ ! -e "$M/new file.txt" ] && [ ! -e "$M/restored" ]'
 check "it left the child dataset alone" '[ -f "$M/child/c.txt" ] && [ -f "$M/child/new.txt" ]'
+out=$(api restore_preview "{\"dataset\":\"$D\",\"snapshot\":\"s1\",\"items\":[\"/child\"],\"delete\":1}")
+check "restoring the folder of a child dataset in place is refused" 'echo "$out" | j .error | grep -q "own dataset"' "$out"
+st=$(restore "{\"dataset\":\"$D\",\"snapshot\":\"s1\",\"items\":[\"/child\"],\"delete\":1}")
+check "a restore with delete into a child dataset is refused" 'echo "$st" | grep -q "start-failed:.*own dataset"' "$st"
+st=$(restore "{\"dataset\":\"$D\",\"snapshot\":\"s1\",\"items\":[\"/child\"]}")
+check "a restore without delete into a child dataset is refused too" 'echo "$st" | grep -q "start-failed:.*own dataset"' "$st"
+check "the child dataset keeps its files" '[ -f "$M/child/c.txt" ] && [ -f "$M/child/new.txt" ]'
+st=$(restore "{\"dataset\":\"$D\",\"snapshot\":\"s1\",\"items\":[\"/child\"],\"target\":\"path\",\"target_path\":\"/mnt/$B/childcopy\"}")
+check "the folder of a child dataset can still be restored elsewhere" '[ "$st" = done ] && [ -d "/mnt/$B/childcopy/child" ]' "$st"
 check "all snapshots survive" '[ "$(zfs list -H -t snapshot -d 1 -o name "$D" | wc -l)" = 2 ]'
 zfs create -o snapdir=visible "$C/vis"
 echo a > "/mnt/$C/vis/a"; zfs snapshot "$C/vis@v1"; echo b > "/mnt/$C/vis/b"
