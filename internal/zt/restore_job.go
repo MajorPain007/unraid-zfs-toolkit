@@ -179,13 +179,13 @@ func restoreMounts(into string) []string {
 	return out
 }
 
-func restoreOtherDataset(mount, into string) string {
+func restoreOtherMount(mount, into string) *mountEntry {
 	for _, m := range mountInfo("self") {
 		if m.Point != mount && under(m.Point, mount) && under(into, m.Point) {
-			return m.Source
+			return &m
 		}
 	}
-	return ""
+	return nil
 }
 
 func restorePlan(p M) (*restoreJob, error) {
@@ -275,8 +275,10 @@ func restorePlan(p M) (*restoreJob, error) {
 			if l := brLiveLink(b.Mount, brParent(rel)); l != "" {
 				return nil, apiFailf("%s is a symbolic link in the live data. Restoring through it could write outside the dataset - restore into another folder instead.", l)
 			}
-			if ds := restoreOtherDataset(b.Mount, into); ds != "" {
-				return nil, apiFailf("%s belongs to its own dataset %s. Restore it from that dataset's snapshots, or into another folder.", rel, ds)
+			if m := restoreOtherMount(b.Mount, into); m != nil && m.FSType == "zfs" {
+				return nil, apiFailf("%s belongs to its own dataset %s. Restore it from that dataset's snapshots, or into another folder.", rel, m.Source)
+			} else if m != nil {
+				return nil, apiFailf("%s is on another file system mounted at %s (%s). Restore it into another folder.", rel, m.Point, m.Source)
 			}
 		} else {
 			name := brBase(rel)

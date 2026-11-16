@@ -48,7 +48,12 @@
     ['always', 'Replace every file, even identical ones']
   ];
 
+  let mounted = $derived(items.filter((i) => i.mounted));
   let target = $state<Target>('original');
+
+  $effect(() => {
+    if (mounted.length && target === 'original') target = 'path';
+  });
   let targetPath = $state(pref('restoreTarget') || '/mnt/user/restore');
   let overwrite = $state('changed');
   let del = $state(false);
@@ -150,7 +155,15 @@
       bind:value={target}
       two
       options={[
-        { value: 'original', title: 'Where it came from', icon: 'restore', text: 'Puts the files back in place, in ' + (mountpoint || dataset) + '.' },
+        {
+          value: 'original',
+          title: 'Where it came from',
+          icon: 'restore',
+          disabled: mounted.length > 0,
+          text: mounted.length
+            ? mounted[0].path + ' is now its own dataset or mount (' + mounted[0].mounted + '). Restore it from there, or into another folder.'
+            : 'Puts the files back in place, in ' + (mountpoint || dataset) + '.'
+        },
         { value: 'path', title: 'Into another folder', icon: 'folder', text: 'Leaves the current files untouched, to compare first.' }
       ]}
     />

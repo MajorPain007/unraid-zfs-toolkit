@@ -158,6 +158,19 @@ check "a restore without delete into a child dataset is refused too" 'echo "$st"
 check "the child dataset keeps its files" '[ -f "$M/child/c.txt" ] && [ -f "$M/child/new.txt" ]'
 st=$(restore "{\"dataset\":\"$D\",\"snapshot\":\"s1\",\"items\":[\"/child\"],\"target\":\"path\",\"target_path\":\"/mnt/$B/childcopy\"}")
 check "the folder of a child dataset can still be restored elsewhere" '[ "$st" = done ] && [ -d "/mnt/$B/childcopy/child" ]' "$st"
+out=$(api browse_list "{\"dataset\":\"$D\",\"snapshot\":\"s1\",\"path\":\"/\"}")
+check "the browser marks the folder of a child dataset as mounted" '[ "$(echo "$out" | j ".entries[] | select(.name == \"child\") | .mounted")" = "$D/child" ]' "$out"
+check "...and no other folder" '[ "$(echo "$out" | j "[.entries[] | select(.mounted)] | length")" = 1 ]' "$out"
+mkdir -p /tmp/zt-bind && mount --bind /tmp/zt-bind "$M/dir"
+trap 'umount "$M/dir" 2>/dev/null; rmdir /tmp/zt-bind 2>/dev/null; cleanup' EXIT
+out=$(api browse_list "{\"dataset\":\"$D\",\"snapshot\":\"s1\",\"path\":\"/\"}")
+check "a folder with something else mounted on it is marked too" '[ -n "$(echo "$out" | j ".entries[] | select(.name == \"dir\") | .mounted // empty")" ]' "$out"
+out=$(api restore_preview "{\"dataset\":\"$D\",\"snapshot\":\"s1\",\"items\":[\"/dir\"]}")
+check "restoring onto a bind mount names it as another file system, not a dataset" 'echo "$out" | j .error | grep -q "another file system mounted at $M/dir"' "$out"
+out=$(api browse_list "{\"dataset\":\"$D\",\"snapshot\":\"s1\",\"path\":\"/dir\"}")
+check "...and so is every file inside it" '[ "$(echo "$out" | j "[.entries[] | select(.mounted | not)] | length")" = 0 ]' "$out"
+umount "$M/dir"; rmdir /tmp/zt-bind
+trap cleanup EXIT
 check "all snapshots survive" '[ "$(zfs list -H -t snapshot -d 1 -o name "$D" | wc -l)" = 2 ]'
 zfs create -o snapdir=visible "$C/vis"
 echo a > "/mnt/$C/vis/a"; zfs snapshot "$C/vis@v1"; echo b > "/mnt/$C/vis/b"

@@ -31,12 +31,14 @@ export interface Entry {
   live?: '' | 'gone' | 'changed';
   child?: string;
   child_snap?: boolean;
+  mounted?: string;
 }
 
 export interface Item {
   path: string;
   type: string;
   name: string;
+  mounted?: string;
 }
 
 export interface Restore {

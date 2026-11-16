@@ -208,16 +208,17 @@ func brKind(snap string) string {
 }
 
 type brEntry struct {
-	Name   string `json:"name"`
-	Path   string `json:"path"`
-	Type   string `json:"type"`
-	Size   int64  `json:"size"`
-	Mtime  int64  `json:"mtime"`
-	Mode   string `json:"mode"`
-	Target string `json:"target,omitempty"`
-	Live   string `json:"live,omitempty"`
-	Child  string `json:"child,omitempty"`
-	Same   bool   `json:"child_snap,omitempty"`
+	Name    string `json:"name"`
+	Path    string `json:"path"`
+	Type    string `json:"type"`
+	Size    int64  `json:"size"`
+	Mtime   int64  `json:"mtime"`
+	Mode    string `json:"mode"`
+	Target  string `json:"target,omitempty"`
+	Live    string `json:"live,omitempty"`
+	Child   string `json:"child,omitempty"`
+	Same    bool   `json:"child_snap,omitempty"`
+	Mounted string `json:"mounted,omitempty"`
 }
 
 func brType(m os.FileMode) string {
@@ -271,6 +272,16 @@ func apiBrowseList(p M) (M, error) {
 		liveOK = false
 	}
 	children := brChildren(b, rel)
+	mounts := map[string]string{}
+	inside := ""
+	for _, m := range mountInfo("self") {
+		if m.Point != b.Mount && under(m.Point, b.Mount) {
+			mounts[m.Point] = m.Source
+			if under(liveDir, m.Point) {
+				inside = m.Source
+			}
+		}
+	}
 	entries := make([]brEntry, 0, len(names))
 	seen := map[string]bool{}
 	for _, n := range names {
@@ -295,6 +306,10 @@ func apiBrowseList(p M) (M, error) {
 		}
 		if e.Type == "symlink" {
 			e.Target, _ = os.Readlink(path)
+		}
+		e.Mounted = inside
+		if e.Type == "dir" && inside == "" {
+			e.Mounted = mounts[brJoin(b.Mount, e.Path)]
 		}
 		if c, ok := children[e.Path]; ok && e.Type == "dir" {
 			e.Child, e.Same = c.name, c.snap

@@ -182,7 +182,7 @@
   }
 
   function asItem(e: Entry) {
-    return { path: e.path, type: e.type, name: e.name };
+    return { path: e.path, type: e.type, name: e.name, mounted: e.mounted };
   }
 </script>
 
@@ -316,6 +316,8 @@
                     <em class="badge child" title={'Its files are in the snapshots of ' + e.child + (e.child_snap ? ' - open its snapshot of the same name' : '')}
                       >dataset{e.child_snap ? ' →' : ''}</em
                     >
+                  {:else if e.mounted}
+                    <em class="badge child" title={'Something else is mounted here now: ' + e.mounted + '. Restore it into another folder.'}>mounted</em>
                   {:else if e.live === 'gone'}
                     <em class="badge gone" title="Not in the current files any more">deleted since</em>
                   {:else if e.live === 'changed'}
