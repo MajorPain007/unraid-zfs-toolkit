@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 )
@@ -155,6 +156,19 @@ func sendSSHExplain(msg string) string {
 	return ""
 }
 
+var sendStallAfter = 30 * time.Minute
+
+type sendCounter struct {
+	r io.Reader
+	n atomic.Int64
+}
+
+func (c *sendCounter) Read(p []byte) (int, error) {
+	n, err := c.r.Read(p)
+	c.n.Add(int64(n))
+	return n, err
+}
+
 type sendPipeStats struct {
 	mu      sync.Mutex
 	bytes   int64
@@ -249,13 +263,39 @@ func sendPipeline(ctx context.Context, j sendJob, sendArgs, recvArgs []string, s
 		}
 	}()
 	stats.started = time.Now()
+	var stalled atomic.Bool
+	seen := &sendCounter{r: src}
+	after := sendStallAfter
+	watchStop := make(chan struct{})
+	var watch sync.WaitGroup
+	watch.Add(1)
+	go func() {
+		defer watch.Done()
+		t := time.NewTicker(after / 30)
+		defer t.Stop()
+		last, since := int64(0), time.Now()
+		for {
+			select {
+			case <-watchStop:
+				return
+			case <-t.C:
+				if n := seen.n.Load(); n != last {
+					last, since = n, time.Now()
+				} else if time.Since(since) >= after {
+					stalled.Store(true)
+					killAll()
+					return
+				}
+			}
+		}
+	}()
 	chunks := make(chan []byte, 16)
 	pool := sync.Pool{New: func() any { return make([]byte, 1<<20) }}
 	go func() {
 		defer close(chunks)
 		for {
 			b := pool.Get().([]byte)
-			n, err := io.ReadFull(src, b)
+			n, err := io.ReadFull(seen, b)
 			if n > 0 {
 				chunks <- b[:n]
 			}
@@ -291,12 +331,17 @@ func sendPipeline(ctx context.Context, j sendJob, sendArgs, recvArgs []string, s
 			tick()
 		}
 	}
+	close(watchStop)
+	watch.Wait()
 	dst.Close()
 	sendWait := sendCmd.Wait()
 	recvWait := recvCmd.Wait()
 	close(done)
 	if ctx.Err() != nil {
 		return errSendCancel
+	}
+	if stalled.Load() {
+		return errors.New("no data moved for " + humanDuration(after.Seconds()) + " - zfs send, the destination or the connection stopped responding, so the run was ended")
 	}
 	if sendWait == nil && recvWait == nil {
 		return nil
