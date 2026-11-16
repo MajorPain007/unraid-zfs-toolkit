@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.toolkit">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.11.16.01">
-<!ENTITY md5       "aebdb908ce6e33cfba723eb4264d55b9">
+<!ENTITY version   "2026.11.16.02">
+<!ENTITY md5       "d398dabd69d7b81d0adef4c95901bcd7">
 <!ENTITY launch    "Settings/ZFSToolkit">
 <!ENTITY github    "MajorPain007/unraid-zfs-toolkit">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,14 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.11.16.02 — Marked mounts, stalled replication
+
+- The snapshot browser marks folders that are their own dataset or have
+  something else mounted on them, and does not offer a restore in place for
+  them. A restore onto another file system says so instead of calling it a
+  dataset.
+- A replication that moves no data for 30 minutes is ended and reported, so
+  it no longer holds its lock and skips all later runs forever.
 ## Version 2026.11.16.01 — Safer restore, retention and conversion
 
 - A restore in place with "delete" never empties a child dataset that is
