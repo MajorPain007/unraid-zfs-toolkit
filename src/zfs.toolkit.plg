@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "zfs.toolkit">
 <!ENTITY author    "MajorPain007">
-<!ENTITY version   "2026.11.12.01">
-<!ENTITY md5       "ff4db7d86480767c3090d39f6268a666">
+<!ENTITY version   "2026.11.16.01">
+<!ENTITY md5       "aebdb908ce6e33cfba723eb4264d55b9">
 <!ENTITY launch    "Settings/ZFSToolkit">
 <!ENTITY github    "MajorPain007/unraid-zfs-toolkit">
 <!ENTITY pluginURL "https://raw.githubusercontent.com/&github;/main/src/&name;.plg">
@@ -19,6 +19,28 @@
         icon="database">
 
 <CHANGES>
+## Version 2026.11.16.01 — Safer restore, retention and conversion
+
+- A restore in place with "delete" never empties a child dataset that is
+  mounted inside the folder. Restore a child from its own snapshots.
+- Retention of a recursive dataset leaves alone the snapshots that a child
+  with its own, longer rule keeps.
+- Replication no longer spins forever when the clock went back.
+- Before a converted folder's original is deleted, a second rsync pass must
+  find no difference.
+- Stopping the array ends conversions, restores and replication cleanly;
+  schedules rest while the array is down. Snapshots wait for a running
+  conversion.
+- Retention numbers from settings.cfg have upper limits; an oversized
+  free-space target is ignored instead of deleting every snapshot of a type.
+- Nothing is restored or created through a symlink. Only the old plugin's
+  cron lines are removed from the user crontab.
+- Escape asks before discarding changes in a dialog, focus stays inside it,
+  and delete confirmations start on Cancel.
+- Long names in the header wrap on a phone; the last error names its cause.
+- Saving settings only rebuilds the crontab when a schedule changed. A
+  free-space target without unit means bytes everywhere.
+- Unused icons and code removed.
 ## Version 2026.11.12.01 — Schedules apply at once, safer conversion and replication
 
 - Schedules take effect as soon as they are saved. Unraid's update_cron was
